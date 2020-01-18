@@ -268,7 +268,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
     def _extract_word_embeddings_features(self, word_vectors_f, values: pd.DataFrame):
         """
         :param Data: (pandas series) A single column.
-        # Output: Ordered dictionary holding bag of words features
+        # Output: ordered dictionary holding word embedding features
         """
         num_embeddings = 50
         f = OrderedDict()
@@ -330,7 +330,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
     def _infer_paragraph_embeddings_features(self, model, data:pd.DataFrame):
         """
         :param Data: (pandas series) A single column.
-        # Output: Ordered dictionary holding bag of words features
+        # Output: Ordered dictionary holding paragraph vector features
         """
         f = pd.DataFrame()
 
