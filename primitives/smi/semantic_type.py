@@ -192,7 +192,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
 
         # Load pretrained paragraph vector model
         par_vec_path = os.path.join(self.weights_dir, 'par_vec_trained_400.pkl')
-        model = Doc2Vec.load(par_vec_path)
+        model = doc2vec.Doc2Vec.load(par_vec_path)
         print('Pre-trained paragraph vector loaded from: ', par_vec_path)
 
         ### Build Features ###
