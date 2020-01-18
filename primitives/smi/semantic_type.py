@@ -10,23 +10,89 @@ import os
 import math
 import string
 import random
+import typing
+import logging
+import importlib
 import numpy as np
 import pandas as pd
-import tensorflow as tf
-
-import nltk
 from collections import OrderedDict
-from scipy.stats import skew, kurtosis
-
-from gensim.models.doc2vec import Doc2Vec, TaggedDocument
-
 from sklearn.metrics import f1_score
 from sklearn.preprocessing import LabelEncoder
 
 __all__ = ('SemanticTypeInfer',)
 
-Inputs = container.DataFrame
+logger  = logging.getLogger(__name__)
+Inputs  = container.DataFrame
 Outputs = container.DataFrame
+
+class LoadWeightsPrimitive:
+    """
+    Loads primitives
+    """
+    _weight_files = []
+    def __init__(self):
+        self._initialized = False
+
+    def _lazy_init(self):
+        if self._initialized:
+            return
+        # Import modules after calling the primitive,
+        # as not to slow down d3m.index
+        global tf, nltk, doc2vec
+
+        tf      = importlib.import_module('tensorflow')
+        nltk    = importlib.import_module('nltk')
+        doc2vec = importlib.import_module('gensim.models.doc2vec')
+
+        self._initialized = True
+
+    @staticmethod
+    def _get_weights_data_dir(cache_subdir='weights'):
+        """
+        Create a weights folder
+        """
+        cache_dir = os.path.join(os.path.expanduser('~'), 'weights')
+        datadir_base = os.path.expanduser(cache_dir)
+        if not os.access(datadir_base, os.W_OK):
+            datadir_base = os.path.join('/tmp', 'weights')
+        datadir = os.path.join(datadir_base, cache_subdir)
+        if not os.path.exists(datadir):
+            os.makedirs(datadir)
+
+        return datadir
+
+    @staticmethod
+    def _get_weight_installation(weight_files: typing.List['WeightFile']):
+        """
+        Return D3M file installation entries
+        """
+        return [{'type': 'FILE',\
+                 'key': weight_file.name,\
+                 'file_uri': weight_file.uri,\
+                 'file_digest': weight_file.digest} for weight_file in weight_files]
+
+    def _setup_weight_files(self):
+        """
+        Copy weight files from volume to Keras cache directory
+        """
+        for file_info in self._weight_files:
+            if file_info.name in self.volumes:
+                dest = os.path.join(file_info.data_dir, file_info.name)
+                if not os.path.exists(dest):
+                    shutil.copy2(self.volumes[file_info.name], dest)
+            else:
+                logger.warning('Keras weight file not in volume: {}'.format(file_info.name))
+
+
+class WeightFile(typing.NamedTuple):
+    """
+    Meta-data-->Installation: configs
+    """
+    name: str
+    uri: str
+    digest: str
+    data_dir: str = LoadWeightsPrimitive._get_keras_data_dir()
+
 
 class Hyperparams(hyperparams.Hyperparams):
     """
@@ -34,11 +100,50 @@ class Hyperparams(hyperparams.Hyperparams):
     """
     pass
 
-class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperparams]):
+class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperparams], LoadWeightsPrimitive):
     """
     A primitive for detecting the semantic type of inputed column data.
-    Currently Supported: 78 Types
+    -> Currently Supported: 78 Semantic Types
+     --------------------------------------------------------------------------
+     |Address        | Code        | Education   | Notes        | Requirement |
+     |Affiliate      | Collection  | Elevation   | Operator     | Result      |
+     |Age            | Company     | File size   | Organisation | Service     |
+     |Affiliation    | Command     | Family      | Order        | Sales       |
+     |Album          | Component   | Format      | Origin       | Sex         |
+     |Area           | Continent   | Gender      | Owner        | Species     |
+     |Artist         | Country     | Genre       | Person       | State       |
+     |Birth date     | County      | Grades      | Plays        | Status      |
+     |Birth place    | Creator     | Industry    | Position     | Symbol      |
+     |Brand          | Credit      | ISBN        | Product      | Team        |
+     |Capacity       | Currency    | Jockey      | Publisher    | Team name   |
+     |Category       | Day         | Language    | Range        | Type        |
+     |City           | Depth       | Location    | Rank         | Weight      |
+     |Class          | Description | Manufacturer| Ranking      | Year        |
+     |Classification | Director    | Name        | Region       |             |
+     |Club           | Duration    | Nationality | Religion     |             |
+     --------------------------------------------------------------------------
     """
+    ### Get Static files
+    # TODO: Set direct download path  for all weights
+    _weight_files = [
+        WeightFile('sherlock_weights.h5',
+                   ('https://..../sherlock_weights.h5'),
+                   '4b121359def9f155c4e80728c9320a51b46c56b98c0e9949d3406ff6ba56dc14'),
+        WeightFile('sherlock_model.json',
+                   ('https://.../sherlock_model.json'),
+                   'a12efdb386256a27f234eb475550cbb3ad4820bd5a5a085f6da4cdd36797897f'),
+        WeightFile('classes_sherlock.npy',
+                   ('https://.../classes_sherlock.npy'),
+                   '0bb18ba9dd97e124c8956f0abb1e8ff3a5aeabe619a3c38852d85ea0ec876c4a'),
+        WeightFile('glove.6B.50d.txt',
+                   ('https://.../glove.6B.50d.txt'),
+                   'd8f717f8dd4b545cb7f418ef9f3d0c3e6e68a6f48b97d32f8b7aae40cb31f96f'),
+        WeightFile('par_vec_trained_400.pkl',
+                   ('https://.../par_vec_trained_400.pkl'),
+                   '6b4f0ace998ec126e212e84ded50bf7dc2861de80def5ec3d33ba8ea1a662733'),
+    ]
+
+    ### Primitive Meta-data
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata = hyperparams.base.PrimitiveMetadata({
         "id": "Semantic-type-infer",
@@ -54,11 +159,11 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
             "uris": [config.REPOSITORY]
         },
         "keywords": ['semantic type inference"', "data type detection"],
-        "installation": [config.INSTALLATION],
+        "installation": [config.INSTALLATION] + LoadWeightsPrimitive._get_weight_installation(_weight_files),
     })
 
-    def __init__(self, *, hyperparams: Hyperparams) -> None:
-        super().__init__(hyperparams=hyperparams)
+    def __init__(self, *, hyperparams: Hyperparams, volumes: typing.Union[typing.Dict[str, str], None]=None) -> None:
+        super().__init__(hyperparams=hyperparams, volumes=volumes)
         self.hyperparams = hyperparams
 
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
