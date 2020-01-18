@@ -2,7 +2,7 @@ from d3m import container
 from d3m.primitive_interfaces import base, transformer
 from d3m.metadata import hyperparams
 
-# Import Config File
+# Import config file
 from primitives.config_files import config
 
 # Import relevant libraries
@@ -33,7 +33,7 @@ class LoadWeightsPrimitive:
     def __init__(self):
         self._initialized = False
 
-    def _lazy_init(self):
+    def _import_lib(self):
         if self._initialized:
             return
         # Import modules after calling the primitive,
@@ -81,7 +81,8 @@ class LoadWeightsPrimitive:
                 if not os.path.exists(dest):
                     shutil.copy2(self.volumes[file_info.name], dest)
             else:
-                logger.warning('Keras weight file not in volume: {}'.format(file_info.name))
+                logger.warning('Weight file not in volume: {}'.format(file_info.name))
+
 
 
 class WeightFile(typing.NamedTuple):
@@ -91,7 +92,8 @@ class WeightFile(typing.NamedTuple):
     name: str
     uri: str
     digest: str
-    data_dir: str = LoadWeightsPrimitive._get_keras_data_dir()
+    data_dir: str = LoadWeightsPrimitive._get_weights_data_dir()
+
 
 
 class Hyperparams(hyperparams.Hyperparams):
@@ -100,10 +102,12 @@ class Hyperparams(hyperparams.Hyperparams):
     """
     pass
 
+
+
 class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperparams], LoadWeightsPrimitive):
     """
     A primitive for detecting the semantic type of inputed column data.
-    -> Currently Supported: 78 Semantic Types
+    --> Currently Supported: 78 Semantic Types
      --------------------------------------------------------------------------
      |Address        | Code        | Education   | Notes        | Requirement |
      |Affiliate      | Collection  | Elevation   | Operator     | Result      |
@@ -123,7 +127,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
      |Club           | Duration    | Nationality | Religion     |             |
      --------------------------------------------------------------------------
     """
-    ### Get Static files
+    ### Get Static files ###
     # TODO: Set direct download path  for all weights
     _weight_files = [
         WeightFile('sherlock_weights.h5',
@@ -140,10 +144,10 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
                    'd8f717f8dd4b545cb7f418ef9f3d0c3e6e68a6f48b97d32f8b7aae40cb31f96f'),
         WeightFile('par_vec_trained_400.pkl',
                    ('https://.../par_vec_trained_400.pkl'),
-                   '6b4f0ace998ec126e212e84ded50bf7dc2861de80def5ec3d33ba8ea1a662733'),
+                   '6b4f0ace998ec126e212e84ded50bf7dc2861de80def5ec3d33ba8ea1a662733')
     ]
 
-    ### Primitive Meta-data
+    ### Primitive Meta-data ###
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata = hyperparams.base.PrimitiveMetadata({
         "id": "Semantic-type-infer",
@@ -166,11 +170,30 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         super().__init__(hyperparams=hyperparams, volumes=volumes)
         self.hyperparams = hyperparams
 
+        # Import other needed modules
+        LoadWeightsPrimitive._import_lib(self)
+
+        # Load the weights from volumes to the dataset dir
+        self._setup_weight_files()
+
+        # Weights path
+        self.weights_dir = LoadWeightsPrimitive._get_weights_data_dir()
+
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
         ### User Variables ###
-        nn_id = 'sherlock'
-        vec_dim = 400
+        nn_id     = 'sherlock'
+        vec_dim   = 400
         n_samples = 1000
+
+        # Load word vectors
+        word_vec_path  = os.path.join(self.weights_dir, 'glove.6B.50d.txt')
+        word_vectors_f = open(self.weights_dir, encoding='utf-8')
+        print('Word vector loaded from: ', word_vec_path)
+
+        # Load pretrained paragraph vector model
+        par_vec_path = os.path.join(self.weights_dir, 'par_vec_trained_400.pkl')
+        model = Doc2Vec.load(par_vec_path)
+        print('Pre-trained paragraph vector loaded from: ', par_vec_path)
 
         ### Build Features ###
         print('Building Features in progress......')
@@ -194,8 +217,8 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
             raw_sample = pd.Series(random.choices(raw_sample, k=n_samples)).astype(str)
 
             df_char = df_char.append(self._extract_bag_of_characters_features(raw_sample), ignore_index=True)
-            df_word = df_word.append(self._extract_word_embeddings_features(raw_sample), ignore_index=True)
-            df_par  = df_par.append(self._infer_paragraph_embeddings_features(raw_sample), ignore_index=True)
+            df_word = df_word.append(self._extract_word_embeddings_features(word_vectors_f, raw_sample), ignore_index=True)
+            df_par  = df_par.append(self._infer_paragraph_embeddings_features(model, raw_sample), ignore_index=True)
             df_stat = df_stat.append(self._extract_bag_of_words_features(raw_sample), ignore_index=True)
 
             # Increment the progress counter
@@ -210,13 +233,13 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         print('----------Feature Extraction Complete!-------------')
 
         ### Load Sherlock model ###
-        file = open('./weights/{}_model.json'.format(nn_id), 'r')
+        file = open(os.path.join(self.weights_dir, '{}_model.json'.format(nn_id)), 'r')
         sherlock_file = file.read()
         sherlock = tf.keras.models.model_from_json(sherlock_file)
         file.close()
 
         # Load weights into new model
-        sherlock.load_weights('./weights/{}_weights.h5'.format(nn_id))
+        sherlock.load_weights(os.path.join(self.weights_dir, '{}_weights.h5'.format(nn_id)))
 
         # Compile model
         sherlock.compile(optimizer='adam',
@@ -231,7 +254,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         y_pred_int = np.argmax(y_pred, axis=1)
 
         encoder = LabelEncoder()
-        encoder.classes_ = np.load('./weights/classes_{}.npy'.format(nn_id), allow_pickle=True)
+        encoder.classes_ = np.load(os.path.join(self.weights_dir, 'classes_{}.npy'.format(nn_id)), allow_pickle=True)
         y_pred = encoder.inverse_transform(y_pred_int)
         print('Completed!')
 
@@ -240,16 +263,13 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
 
         return base.CallResult(outputs)
 
-    def _extract_word_embeddings_features(self, values: pd.DataFrame):
+
+
+    def _extract_word_embeddings_features(self, word_vectors_f, values: pd.DataFrame):
         """
         :param Data: (pandas series) A single column.
         # Output: Ordered dictionary holding bag of words features
         """
-        # Load word vectors
-        path = './weights/glove.6B.50d.txt'
-        word_vectors_f = open(path, encoding='utf-8')
-        print('Word vector loaded from: ', path)
-
         num_embeddings = 50
         f = OrderedDict()
         embeddings = []
@@ -305,16 +325,13 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
 
             return f
 
-    def _infer_paragraph_embeddings_features(self, data:pd.DataFrame):
+
+
+    def _infer_paragraph_embeddings_features(self, model, data:pd.DataFrame):
         """
         :param Data: (pandas series) A single column.
         # Output: Ordered dictionary holding bag of words features
         """
-        # Load pretrained paragraph vector model
-        path  = './weights/par_vec_trained_400.pkl'
-        model = Doc2Vec.load(path)
-        print('Pre-trained paragraph vector loaded from: ', path)
-
         f = pd.DataFrame()
 
         if len(data) > 1000:
@@ -333,6 +350,8 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         f.columns = col_names
 
         return f
+
+
 
     def _extract_bag_of_characters_features(self, data:pd.DataFrame):
         """
@@ -362,6 +381,8 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
             f['{}-agg-skewness'.format(value_feature_name)] = skew(value_features)
 
         return f
+
+
 
     def _extract_bag_of_words_features(self, data:pd.DataFrame):
         """
