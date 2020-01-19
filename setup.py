@@ -19,7 +19,7 @@ setup(name='ubc_primitives',
       packages=[
                 'primitives',
                 'primitives.smi',
-                'primitives.smi.features',
+                'primitives.smi.weights',
                ],
       zip_safe=False,
       python_requires='>=3.6',
