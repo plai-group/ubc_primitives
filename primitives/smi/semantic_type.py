@@ -157,7 +157,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
     ### Primitive Meta-data ###
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata = hyperparams.base.PrimitiveMetadata({
-        "id": "Semantic-type-infer",
+        "id": "6f6ffb72-96cf-4cfe-9754-e2302eb5c927",
         "version": config.VERSION,
         "name": "UBC semantic type",
         "description": "A primitive which detects semantic type of data",
