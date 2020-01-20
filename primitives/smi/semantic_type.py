@@ -135,22 +135,22 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
     # TODO: All files directly downloaded from dropbox
     _weight_files = [
         WeightFile('sherlock_weights.h5',
-                   ('https://dl.dropboxusercontent.com/s/8g14nif72mp44o7/sherlock_weights.h5'),
+                   ('https://dl.dropboxusercontent.com/s/8g14nif72mp44o7/sherlock_weights.h5?dl=1'),
                    '4b121359def9f155c4e80728c9320a51b46c56b98c0e9949d3406ff6ba56dc14'),
         WeightFile('sherlock_model.json',
-                   ('https://drive.google.com/uc?export=download&confirm=no_antivirus&id=1qY_Ok_OV8el1H1Wm1aNKe-73XvXp9gwK'),
+                   ('https://dl.dropboxusercontent.com/s/2bb9n3g1b982r04/sherlock_model.json?dl=1'),
                    'a12efdb386256a27f234eb475550cbb3ad4820bd5a5a085f6da4cdd36797897f'),
         WeightFile('classes_sherlock.npy',
-                   ('https://drive.google.com/uc?export=download&confirm=no_antivirus&id=1mfC2SS2nQSBfOfhwavOw8lU1JPqFN14z'),
+                   ('https://dl.dropboxusercontent.com/s/k7mjisbfmffw4l4/classes_sherlock.npy?dl=1'),
                    '0bb18ba9dd97e124c8956f0abb1e8ff3a5aeabe619a3c38852d85ea0ec876c4a'),
         WeightFile('glove.6B.50d.txt',
-                   ('https://drive.google.com/uc?export=download&confirm=no_antivirus&id=19dtIs5yuDQ9Lnuv4opZwxhsMxvRqv5jH'),
+                   ('https://dl.dropboxusercontent.com/s/8x197jze94d82qu/glove.6B.50d.txt?dl=1'),
                    'd8f717f8dd4b545cb7f418ef9f3d0c3e6e68a6f48b97d32f8b7aae40cb31f96f'),
         WeightFile('par_vec_trained_400.pkl',
-                   ('https://drive.google.com/uc?export=download&confirm=no_antivirus&id=14cjQuqFJgmceO9tg9Gps8qAReKMWc4__'),
+                   ('https://dl.dropboxusercontent.com/s/e87v5m92nktior7/par_vec_trained_400.pkl?dl=1'),
                    '6b4f0ace998ec126e212e84ded50bf7dc2861de80def5ec3d33ba8ea1a662733'),
         WeightFile('par_vec_trained_400.pkl.docvecs.vectors_docs.npy',
-                   ('https://drive.google.com/uc?export=download&confirm=no_antivirus&id=14cjQuqFJgmceO9tg9Gps8qAReKMWc4__'),
+                   ('https://dl.dropboxusercontent.com/s/j9gab1u9g5cq91y/par_vec_trained_400_docs.npy?dl=1'),
                    '023dd0b084be9dfa614c27f4b57208d08487174ed5bfd7a27ce604a82ceec797')
     ]
 
@@ -191,6 +191,9 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         print(self.weights_dir)
 
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
+        """
+        Returns dataframe with the output of the possible sematic type.
+        """
         ### User Variables ###
         nn_id     = 'sherlock'
         vec_dim   = 400
