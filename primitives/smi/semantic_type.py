@@ -132,7 +132,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
      --------------------------------------------------------------------------
     """
     ### Get Static files ###
-    # TODO: All files directly downloaded from dropbox
+    # All files directly downloaded from DropBox
     _weight_files = [
         WeightFile('sherlock_weights.h5',
                    ('https://dl.dropboxusercontent.com/s/8g14nif72mp44o7/sherlock_weights.h5?dl=1'),
