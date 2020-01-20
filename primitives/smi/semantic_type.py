@@ -192,7 +192,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
 
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
         """
-        Returns dataframe with the output of the possible sematic type.
+        Returns output dataframe the possible semantic types for each row of data.
         """
         ### User Variables ###
         nn_id     = 'sherlock'
