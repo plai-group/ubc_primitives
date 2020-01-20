@@ -1,4 +1,5 @@
 from d3m import container
+from d3m.container import pandas # type: ignore
 from d3m.primitive_interfaces import base, transformer
 from d3m.metadata import hyperparams
 
@@ -8,6 +9,7 @@ from primitives.config_files import config
 # Import relevant libraries
 import os
 import math
+import shutil
 import string
 import random
 import typing
@@ -15,6 +17,7 @@ import logging
 import importlib
 import numpy as np
 import pandas as pd
+import scipy.stats as spy_stats
 from collections import OrderedDict
 from sklearn.metrics import f1_score
 from sklearn.preprocessing import LabelEncoder
@@ -38,12 +41,12 @@ class LoadWeightsPrimitive:
             return
         # Import modules after calling the primitive,
         # as not to slow down d3m.index
-        global tf, nltk, doc2vec
+        global tf, nltk, doc2vec, sy_stats
 
-        tf      = importlib.import_module('tensorflow')
-        nltk    = importlib.import_module('nltk')
-        doc2vec = importlib.import_module('gensim.models.doc2vec')
-
+        tf       = importlib.import_module('tensorflow')
+        nltk     = importlib.import_module('nltk')
+        doc2vec  = importlib.import_module('gensim.models.doc2vec')
+        sy_stats = importlib.import_module('scipy.stats')
         self._initialized = True
 
     @staticmethod
@@ -51,12 +54,11 @@ class LoadWeightsPrimitive:
         """
         Create a weights folder
         """
-        cache_dir = os.path.join(os.path.expanduser('~'), 'weights')
-        datadir_base = os.path.expanduser(cache_dir)
-        if not os.access(datadir_base, os.W_OK):
-            datadir_base = os.path.join('/tmp', 'weights')
-        datadir = os.path.join(datadir_base, cache_subdir)
+        datadir = os.path.join(os.path.expanduser('~'), 'weights')
         if not os.path.exists(datadir):
+            os.makedirs(datadir)
+        if not os.access(datadir, os.W_OK):
+            datadir = os.path.join('/tmp', 'weights')
             os.makedirs(datadir)
 
         return datadir
@@ -73,13 +75,15 @@ class LoadWeightsPrimitive:
 
     def _setup_weight_files(self):
         """
-        Copy weight files from volume to Keras cache directory
+        Copy weight files from volume to weights directory
         """
         for file_info in self._weight_files:
             if file_info.name in self.volumes:
                 dest = os.path.join(file_info.data_dir, file_info.name)
                 if not os.path.exists(dest):
                     shutil.copy2(self.volumes[file_info.name], dest)
+                else:
+                    logger.warning('{} file already in weights directory'.format(file_info.name))
             else:
                 logger.warning('Weight file not in volume: {}'.format(file_info.name))
 
@@ -128,23 +132,26 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
      --------------------------------------------------------------------------
     """
     ### Get Static files ###
-    # TODO: Set direct download path  for all weights
+    # TODO: All files directly downloaded from dropbox
     _weight_files = [
         WeightFile('sherlock_weights.h5',
-                   ('https://..../sherlock_weights.h5'),
+                   ('https://dl.dropboxusercontent.com/s/8g14nif72mp44o7/sherlock_weights.h5'),
                    '4b121359def9f155c4e80728c9320a51b46c56b98c0e9949d3406ff6ba56dc14'),
         WeightFile('sherlock_model.json',
-                   ('https://.../sherlock_model.json'),
+                   ('https://drive.google.com/uc?export=download&confirm=no_antivirus&id=1qY_Ok_OV8el1H1Wm1aNKe-73XvXp9gwK'),
                    'a12efdb386256a27f234eb475550cbb3ad4820bd5a5a085f6da4cdd36797897f'),
         WeightFile('classes_sherlock.npy',
-                   ('https://.../classes_sherlock.npy'),
+                   ('https://drive.google.com/uc?export=download&confirm=no_antivirus&id=1mfC2SS2nQSBfOfhwavOw8lU1JPqFN14z'),
                    '0bb18ba9dd97e124c8956f0abb1e8ff3a5aeabe619a3c38852d85ea0ec876c4a'),
         WeightFile('glove.6B.50d.txt',
-                   ('https://.../glove.6B.50d.txt'),
+                   ('https://drive.google.com/uc?export=download&confirm=no_antivirus&id=19dtIs5yuDQ9Lnuv4opZwxhsMxvRqv5jH'),
                    'd8f717f8dd4b545cb7f418ef9f3d0c3e6e68a6f48b97d32f8b7aae40cb31f96f'),
         WeightFile('par_vec_trained_400.pkl',
-                   ('https://.../par_vec_trained_400.pkl'),
-                   '6b4f0ace998ec126e212e84ded50bf7dc2861de80def5ec3d33ba8ea1a662733')
+                   ('https://drive.google.com/uc?export=download&confirm=no_antivirus&id=14cjQuqFJgmceO9tg9Gps8qAReKMWc4__'),
+                   '6b4f0ace998ec126e212e84ded50bf7dc2861de80def5ec3d33ba8ea1a662733'),
+        WeightFile('par_vec_trained_400.pkl.docvecs.vectors_docs.npy',
+                   ('https://drive.google.com/uc?export=download&confirm=no_antivirus&id=14cjQuqFJgmceO9tg9Gps8qAReKMWc4__'),
+                   '023dd0b084be9dfa614c27f4b57208d08487174ed5bfd7a27ce604a82ceec797')
     ]
 
     ### Primitive Meta-data ###
@@ -168,6 +175,8 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
 
     def __init__(self, *, hyperparams: Hyperparams, volumes: typing.Union[typing.Dict[str, str], None]=None) -> None:
         super().__init__(hyperparams=hyperparams, volumes=volumes)
+        # Intialize LoadWeightsPrimitive
+        LoadWeightsPrimitive.__init__(self)
         self.hyperparams = hyperparams
 
         # Import other needed modules
@@ -179,6 +188,8 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         # Weights path
         self.weights_dir = LoadWeightsPrimitive._get_weights_data_dir()
 
+        print(self.weights_dir)
+
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
         ### User Variables ###
         nn_id     = 'sherlock'
@@ -187,7 +198,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
 
         # Load word vectors
         word_vec_path  = os.path.join(self.weights_dir, 'glove.6B.50d.txt')
-        word_vectors_f = open(self.weights_dir, encoding='utf-8')
+        word_vectors_f = open(word_vec_path, encoding='utf-8')
         print('Word vector loaded from: ', word_vec_path)
 
         # Load pretrained paragraph vector model
@@ -204,7 +215,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
 
         counter = 0
         for raw_sample in inputs.iterrows():
-            print(raw_sample)
+            # print(raw_sample)
             if counter % 1000 == 0:
                 print('Completion {}/{}'.format(counter, len(inputs)))
 
@@ -230,6 +241,14 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         df_stat.fillna(df_stat.mean(), inplace=True)
 
         print('Completion {}/{}'.format(len(inputs), len(inputs)))
+
+        # Collect all the features
+        feature_vectors = [df_char.values, df_word.values, df_par.values, df_stat.values]
+
+        # Free Memory
+        word_vectors_f.close()
+        del model
+
         print('----------Feature Extraction Complete!-------------')
 
         ### Load Sherlock model ###
@@ -259,7 +278,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         print('Completed!')
 
         ### Convert Output to DataFrame ###
-        outputs = pandas.DataFrame((y), generate_metadata=True)
+        outputs = pandas.DataFrame((y_pred), generate_metadata=True)
 
         return base.CallResult(outputs)
 
@@ -273,7 +292,6 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         num_embeddings = 50
         f = OrderedDict()
         embeddings = []
-
 
         word_to_embedding = {}
 
@@ -312,9 +330,9 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
 
         else:
             mean_embeddings = np.nanmean(embeddings, axis=0)
-            med_embeddings = np.nanmedian(embeddings, axis=0)
-            std_embeddings = np.nanstd(embeddings, axis=0)
-            mode_embeddings = stats.mode(embeddings, axis=0, nan_policy='omit')[0].flatten()
+            med_embeddings  = np.nanmedian(embeddings, axis=0)
+            std_embeddings  = np.nanstd(embeddings, axis=0)
+            mode_embeddings = sy_stats.mode(embeddings, axis=0, nan_policy='omit')[0].flatten()
 
             for i, e in enumerate(mean_embeddings): f['word_embedding_avg_{}'.format(i)] = e
             for i, e in enumerate(std_embeddings): f['word_embedding_std_{}'.format(i)] = e
@@ -377,8 +395,8 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
             f['{}-agg-max'.format(value_feature_name)] = np.max(value_features)
             f['{}-agg-median'.format(value_feature_name)] = np.median(value_features)
             f['{}-agg-sum'.format(value_feature_name)] = np.sum(value_features)
-            f['{}-agg-kurtosis'.format(value_feature_name)] = kurtosis(value_features)
-            f['{}-agg-skewness'.format(value_feature_name)] = skew(value_features)
+            f['{}-agg-kurtosis'.format(value_feature_name)] = sy_stats.kurtosis(value_features)
+            f['{}-agg-skewness'.format(value_feature_name)] = sy_stats.skew(value_features)
 
         return f
 
@@ -448,8 +466,8 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
             f['{}-agg-max'.format(value_feature_name)] = np.max(value_features)
             f['{}-agg-median'.format(value_feature_name)] = np.median(value_features)
             f['{}-agg-sum'.format(value_feature_name)] = np.sum(value_features)
-            f['{}-agg-kurtosis'.format(value_feature_name)] = kurtosis(value_features)
-            f['{}-agg-skewness'.format(value_feature_name)] = skew(value_features)
+            f['{}-agg-kurtosis'.format(value_feature_name)] = sy_stats.kurtosis(value_features)
+            f['{}-agg-skewness'.format(value_feature_name)] = sy_stats.skew(value_features)
 
         n_none = data.size - data_no_null.size - len([ e for e in data if e == ''])
         f['none-agg-has'] = n_none > 0
