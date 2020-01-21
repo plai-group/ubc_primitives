@@ -7,7 +7,6 @@ from common_primitives.column_parser import ColumnParserPrimitive
 from primitives.smi.semantic_type import SemanticTypeInfer
 
 
-
 def main():
     # DATASETS = 'LL1_net_nomination_seed'
 
