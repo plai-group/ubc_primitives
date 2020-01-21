@@ -17,7 +17,7 @@ import logging
 import importlib
 import numpy as np
 import pandas as pd
-import scipy.stats as spy_stats
+from ast import literal_eval
 from collections import OrderedDict
 from sklearn.metrics import f1_score
 from sklearn.preprocessing import LabelEncoder
@@ -102,11 +102,13 @@ class WeightFile(typing.NamedTuple):
 
 class Hyperparams(hyperparams.Hyperparams):
     """
-    No hyper-parameters for this primitive.
+    hyper-parameters for this primitive.
     """
-    pass
-
-
+    use_row_iter = hyperparams.UniformBool(
+        default=False,
+        description="Whether or not to use row iteration inplace of column interation on dataframe",
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
+    )
 
 class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperparams], LoadWeightsPrimitive):
     """
@@ -217,33 +219,63 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         df_stat = pd.DataFrame()
 
         counter = 0
-        for raw_sample in inputs.iterrows():
-            # print(raw_sample)
-            if counter % 1000 == 0:
-                print('Completion {}/{}'.format(counter, len(inputs)))
 
-            n_values = len(raw_sample)
+        if self.hyperparams['use_row_iter'] == True:
+            for raw_sample in inputs.iterrows():
+                # Extract data from series, if given as series list
+                # Ex: 23 [95, 100, 95, 89, 84, 91, 88, 94, 75]
+                #     45 [95, 100, 95, 89]
+                if len(raw_sample) > 1:
+                    raw_sample = literal_eval(raw_sample[1].loc[1])
 
-            if n_samples > n_values:
-                n_samples = n_values
+                if counter % 1000 == 0:
+                    print('Completion {}/{}'.format(counter, len(inputs)))
 
-            # Sample n_samples from data column, and convert cell values to string values
-            raw_sample = pd.Series(random.choices(raw_sample, k=n_samples)).astype(str)
+                n_values = len(raw_sample)
 
-            df_char = df_char.append(self._extract_bag_of_characters_features(raw_sample), ignore_index=True)
-            df_word = df_word.append(self._extract_word_embeddings_features(word_vectors_f, raw_sample), ignore_index=True)
-            df_par  = df_par.append(self._infer_paragraph_embeddings_features(model, raw_sample), ignore_index=True)
-            df_stat = df_stat.append(self._extract_bag_of_words_features(raw_sample), ignore_index=True)
+                if n_samples > n_values:
+                    n_samples = n_values
 
-            # Increment the progress counter
-            counter += 1
+                # Sample n_samples from data column, and convert cell values to string values
+                raw_sample = pd.Series(random.choices(raw_sample, k=n_samples)).astype(str)
+
+                # Extract Features
+                df_char = df_char.append(self._extract_bag_of_characters_features(raw_sample), ignore_index=True)
+                df_word = df_word.append(self._extract_word_embeddings_features(word_vectors_f, raw_sample), ignore_index=True)
+                df_par  = df_par.append(self._infer_paragraph_embeddings_features(model, raw_sample), ignore_index=True)
+                df_stat = df_stat.append(self._extract_bag_of_words_features(raw_sample), ignore_index=True)
+
+                # Increment the progress counter
+                counter += 1
+
+        else:
+            for name, raw_sample in inputs.iteritems():
+                if counter % 1000 == 0:
+                    print('Completion {}/{}'.format(counter, inputs.shape[1]))
+
+                n_values = len(raw_sample)
+
+                if n_samples > n_values:
+                    n_samples = n_values
+
+                # Sample n_samples from data column, and convert cell values to string values
+                raw_sample = pd.Series(random.choices(raw_sample.tolist(), k=n_samples)).astype(str)
+
+                # Extract Features
+                df_char = df_char.append(self._extract_bag_of_characters_features(raw_sample), ignore_index=True)
+                df_word = df_word.append(self._extract_word_embeddings_features(word_vectors_f, raw_sample), ignore_index=True)
+                df_par  = df_par.append(self._infer_paragraph_embeddings_features(model, raw_sample), ignore_index=True)
+                df_stat = df_stat.append(self._extract_bag_of_words_features(raw_sample), ignore_index=True)
+
+                # Increment the progress counter
+                counter += 1
 
         df_char.fillna(df_char.mean(), inplace=True)
         df_word.fillna(df_word.mean(), inplace=True)
         df_par.fillna(df_par.mean(), inplace=True)
         df_stat.fillna(df_stat.mean(), inplace=True)
 
-        print('Completion {}/{}'.format(len(inputs), len(inputs)))
+        print('Completion {}/{}'.format(len(inputs), inputs.shape[1]))
 
         # Collect all the features
         feature_vectors = [df_char.values, df_word.values, df_par.values, df_stat.values]
@@ -267,8 +299,8 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         sherlock.compile(optimizer='adam',
                          loss='categorical_crossentropy',
                          metrics=['categorical_accuracy'])
-        print(sherlock.summary())
-        print('------Sherlock Model Loaded Successfully!--------')
+        # print(sherlock.summary())
+        print('------SMI Model Loaded Successfully!--------')
 
         ### Run Prediction ###
         y_pred = sherlock.predict(feature_vectors)
