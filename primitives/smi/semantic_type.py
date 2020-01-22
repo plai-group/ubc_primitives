@@ -102,7 +102,7 @@ class WeightFile(typing.NamedTuple):
 
 class Hyperparams(hyperparams.Hyperparams):
     """
-    hyper-parameters for this primitive.
+    Hyper-parameters
     """
     use_row_iter = hyperparams.UniformBool(
         default=False,
@@ -175,7 +175,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         "installation": [config.INSTALLATION] + LoadWeightsPrimitive._get_weight_installation(_weight_files),
     })
 
-    def __init__(self, *, hyperparams: Hyperparams, volumes: typing.Union[typing.Dict[str, str], None]=None) -> None:
+    def __init__(self, *, hyperparams: Hyperparams, volumes: typing.Union[typing.Dict[str, str], None]=None):
         super().__init__(hyperparams=hyperparams, volumes=volumes)
         # Intialize LoadWeightsPrimitive
         LoadWeightsPrimitive.__init__(self)
@@ -190,7 +190,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         # Weights path
         self.weights_dir = LoadWeightsPrimitive._get_weights_data_dir()
 
-        print(self.weights_dir)
+        # print(self.weights_dir)
 
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
         """
@@ -201,6 +201,9 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         vec_dim   = 400
         n_samples = 1000
 
+        # Get values from DataFrame
+        inputs = inputs.value
+        
         # Load word vectors
         word_vec_path  = os.path.join(self.weights_dir, 'glove.6B.50d.txt')
         word_vectors_f = open(word_vec_path, encoding='utf-8')
