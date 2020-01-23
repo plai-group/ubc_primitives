@@ -1,7 +1,8 @@
 from d3m import container
 from d3m.container import pandas # type: ignore
 from d3m.primitive_interfaces import base, transformer
-from d3m.metadata import hyperparams
+from d3m.metadata import base as metadata_base, hyperparams
+from d3m.base import utils as base_utils
 
 # Import config file
 from primitives.config_files import config
@@ -54,7 +55,7 @@ class LoadWeightsPrimitive:
         """
         Create a weights folder
         """
-        datadir = os.path.join(os.path.expanduser('~'), 'weights')
+        datadir = os.path.join(os.path.abspath(''), 'weights')
         if not os.path.exists(datadir):
             os.makedirs(datadir)
         if not os.access(datadir, os.W_OK):
@@ -77,11 +78,17 @@ class LoadWeightsPrimitive:
         """
         Copy weight files from volume to weights directory
         """
+        volume_files = os.listdir(self.volumes)
+        # Attach volume files with dir
+        full_v_files = {}
+        for vl in volume_files:
+            full_v_files[vl] = self.volumes + '/' + vl
+        print(full_v_files)
         for file_info in self._weight_files:
-            if file_info.name in self.volumes:
+            if file_info.name in volume_files:
                 dest = os.path.join(file_info.data_dir, file_info.name)
                 if not os.path.exists(dest):
-                    shutil.copy2(self.volumes[file_info.name], dest)
+                    shutil.copy2(full_v_files[file_info.name], dest)
                 else:
                     logger.warning('{} file already in weights directory'.format(file_info.name))
             else:
@@ -109,6 +116,20 @@ class Hyperparams(hyperparams.Hyperparams):
         description="Whether or not to use row iteration inplace of column interation on dataframe",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
+    use_columns = hyperparams.Set(
+        elements=hyperparams.Hyperparameter[int](-1),
+        default=(),
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+        description="A set of column indices to force primitive to operate on. If any specified column cannot be cast to the type, it is skipped.",
+    )
+    exclude_columns = hyperparams.Set(
+        elements=hyperparams.Hyperparameter[int](-1),
+        default=(),
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+        description="A set of column indices to not operate on. Applicable only if \"use_columns\" is not provided.",
+    )
+
+
 
 class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperparams], LoadWeightsPrimitive):
     """
@@ -172,12 +193,13 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
             "uris": [config.REPOSITORY]
         },
         "keywords": ['semantic type inference"', "data type detection"],
-        "installation": [config.INSTALLATION] + LoadWeightsPrimitive._get_weight_installation(_weight_files),
+        "installation": [config.INSTALLATION] #+ LoadWeightsPrimitive._get_weight_installation(_weight_files),
     })
 
     def __init__(self, *, hyperparams: Hyperparams, volumes: typing.Union[typing.Dict[str, str], None]=None):
         super().__init__(hyperparams=hyperparams, volumes=volumes)
         # Intialize LoadWeightsPrimitive
+        print(volumes)
         LoadWeightsPrimitive.__init__(self)
         self.hyperparams = hyperparams
 
@@ -185,37 +207,60 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         LoadWeightsPrimitive._import_lib(self)
 
         # Load the weights from volumes to the dataset dir
-        self._setup_weight_files()
+        # self._setup_weight_files()
 
         # Weights path
         self.weights_dir = LoadWeightsPrimitive._get_weights_data_dir()
-
-        # print(self.weights_dir)
+        # self.weights_dir = '/ubc_primitives/primitives/smi/weights' # Uncomment when running locally
 
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
         """
-        Returns output dataframe the possible semantic types for each row of data.
+        Returns output dataframe with the structural_type updated in the input metadata
         """
         ### User Variables ###
         nn_id     = 'sherlock'
         vec_dim   = 400
         n_samples = 1000
 
-        # Get values from DataFrame
-        inputs = inputs.value
-        
         # Load word vectors
         word_vec_path  = os.path.join(self.weights_dir, 'glove.6B.50d.txt')
         word_vectors_f = open(word_vec_path, encoding='utf-8')
-        print('Word vector loaded from: ', word_vec_path)
+        logging.info('Word vector loaded from: {}'.format(word_vec_path))
 
         # Load pretrained paragraph vector model
         par_vec_path = os.path.join(self.weights_dir, 'par_vec_trained_400.pkl')
         model = doc2vec.Doc2Vec.load(par_vec_path)
-        print('Pre-trained paragraph vector loaded from: ', par_vec_path)
+        logging.info('Pre-trained paragraph vector loaded from: {}'.format(par_vec_path))
+
+        # Load classes
+        smi_cls_pth = os.path.join(self.weights_dir, 'classes_{}.npy'.format(nn_id))
+        smi_classes = np.load(smi_cls_pth, allow_pickle=True)
+        logging.info('Semantic Types loaded from: {}'.format(smi_cls_pth))
+
+        # Mapping dir of semantic types to D3M structural type dtypes of [int, str]
+        smi_map_func = {'address':str, 'affiliate': str, 'affiliation': str,\
+            'age':int, 'album':str, 'area':str, 'artist':str, 'birth Date':int,\
+            'birth Place':str, 'brand':str, 'capacity':str, 'category':str,\
+            'city':str, 'class':str, 'classification':str, 'club':str,\
+            'code':str, 'collection':str, 'command':str, 'company':str,\
+            'component':str, 'continent':str, 'country':str, 'county':str,\
+            'creator':str, 'credit':str, 'currency':int, 'day':int, 'depth':int,\
+            'description':str, 'director':str, 'duration':int, 'education':str,\
+            'elevation':str, 'family':str, 'file Size':int, 'format':str,\
+            'gender':str, 'genre':str, 'grades':str, 'industry':str, 'isbn':str,\
+            'jockey':str, 'language':str, 'location':str, 'manufacturer':str,\
+            'name':str, 'nationality':str, 'notes':str, 'operator':str,\
+            'order':str, 'organisation':str, 'origin':str, 'owner':str,\
+            'person':str, 'plays':str, 'position':int, 'product':str, 'publisher':str,\
+            'range':str,  'rank':str, 'ranking':str, 'region':str, 'religion':str,\
+            'requirement':str, 'result':str, 'sales':str, 'service':str, 'sex':str,\
+            'species':str, 'state':str, 'status':str, 'symbol':str, 'team':str,\
+            'team Name':str, 'type':str, 'weight':int, 'year':str}
+
+        # print(smi_map_func)
 
         ### Build Features ###
-        print('Building Features in progress......')
+        logging.info('Building Features in progress......')
         df_char = pd.DataFrame()
         df_word = pd.DataFrame()
         df_par  = pd.DataFrame()
@@ -232,7 +277,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
                     raw_sample = literal_eval(raw_sample[1].loc[1])
 
                 if counter % 1000 == 0:
-                    print('Completion {}/{}'.format(counter, len(inputs)))
+                    logging.info('Completion {}/{}'.format(counter, len(inputs)))
 
                 n_values = len(raw_sample)
 
@@ -252,9 +297,11 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
                 counter += 1
 
         else:
+
             for name, raw_sample in inputs.iteritems():
+                #print(raw_sample)
                 if counter % 1000 == 0:
-                    print('Completion {}/{}'.format(counter, inputs.shape[1]))
+                    logging.info('Completion {}/{}'.format(counter, len(inputs)))
 
                 n_values = len(raw_sample)
 
@@ -275,10 +322,10 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
 
         df_char.fillna(df_char.mean(), inplace=True)
         df_word.fillna(df_word.mean(), inplace=True)
-        df_par.fillna(df_par.mean(), inplace=True)
+        df_par.fillna(df_par.mean(),   inplace=True)
         df_stat.fillna(df_stat.mean(), inplace=True)
 
-        print('Completion {}/{}'.format(len(inputs), inputs.shape[1]))
+        logging.info('Completion {}/{}'.format(len(inputs), len(inputs)))
 
         # Collect all the features
         feature_vectors = [df_char.values, df_word.values, df_par.values, df_stat.values]
@@ -287,7 +334,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         word_vectors_f.close()
         del model
 
-        print('----------Feature Extraction Complete!-------------')
+        logging.info('----------Feature Extraction Complete!-------------')
 
         ### Load Sherlock model ###
         file = open(os.path.join(self.weights_dir, '{}_model.json'.format(nn_id)), 'r')
@@ -303,23 +350,66 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
                          loss='categorical_crossentropy',
                          metrics=['categorical_accuracy'])
         # print(sherlock.summary())
-        print('------SMI Model Loaded Successfully!--------')
+        logging.info('------SMI Model Loaded Successfully!--------')
 
         ### Run Prediction ###
         y_pred = sherlock.predict(feature_vectors)
-        print('Prediction Completed!')
+        # print('Prediction Completed!')
         y_pred_int = np.argmax(y_pred, axis=1)
 
         encoder = LabelEncoder()
-        encoder.classes_ = np.load(os.path.join(self.weights_dir, 'classes_{}.npy'.format(nn_id)), allow_pickle=True)
-        y_pred = encoder.inverse_transform(y_pred_int)
-        print('Completed!')
+        encoder.classes_ = smi_classes
+        smi_preds = encoder.inverse_transform(y_pred_int)
+        print(smi_preds)
 
-        ### Convert Output to DataFrame ###
-        outputs = pandas.DataFrame((y_pred), generate_metadata=True)
+        # print('Completed!')
+
+        ## Update structural_type of the input meta-data ###
+        updated_types = []
+        for smi_o in smi_preds:
+            get_type = smi_map_func[smi_o]
+            updated_types.append(get_type)
+
+        # outputs
+        outputs = inputs
+
+        # Get all columns and metadata
+        columns_to_use = self._get_columns(inputs.metadata, str)
+        outputs_metadata = inputs.metadata.select_columns(columns_to_use)
+
+        # Update metadata for each column
+        for col in range(len(columns_to_use)):
+            outputs_metadata = outputs_metadata.update((columns_to_use[col], metadata_base.ALL_ELEMENTS), {
+            'structural_type': updated_types[col],
+            })
+
+        outputs.metadata = outputs_metadata
 
         return base.CallResult(outputs)
 
+    def _can_use_column(self, inputs_metadata: metadata_base.DataMetadata, column_index: int, type_to_cast: type) -> bool:
+        # Always return true
+        return True
+
+
+    def _get_columns(self, inputs_metadata: metadata_base.DataMetadata, type_to_cast: type) -> typing.Sequence[int]:
+        # https://gitlab.com/datadrivendiscovery/common-primitives/blob/master/common_primitives/cast_to_type.py
+        def can_use_column(column_index: int) -> bool:
+            return self._can_use_column(inputs_metadata, column_index, type_to_cast)
+
+        columns_to_use, columns_not_to_use = base_utils.get_columns_to_use(inputs_metadata, self.hyperparams['use_columns'], self.hyperparams['exclude_columns'], can_use_column)
+
+        if not columns_to_use:
+            raise ValueError("No columns to be cast to type '{type}'.".format(type=type_to_cast))
+        # We prefer if all columns could be cast, not just specified columns,
+        # so we warn always when there are columns which cannot be produced.
+        elif columns_not_to_use:
+            self.logger.warning("Not all columns can be cast to type '%(type)s'. Skipping columns: %(columns)s", {
+                'type': type_to_cast,
+                'columns': columns_not_to_use,
+            })
+
+        return columns_to_use
 
 
     def _extract_word_embeddings_features(self, word_vectors_f, values: pd.DataFrame):
