@@ -10,7 +10,7 @@ with open('requirements.txt', 'r') as f:
 
 setup(name='ubc_primitives',
       version='0.1.0',
-      description='Sample build primitive build model',
+      description='Setup primitive build model paths',
       author='UBC',
       url='https://github.com/tonyjo/ubc_primitives.git',
       maintainer_email='tonyjos@cs.ubc.ca',
@@ -27,6 +27,6 @@ setup(name='ubc_primitives',
       keywords='d3m_primitive',
       entry_points={
           'd3m.primitives': [
-              'classification.semantic_type.UBC=primitives.smi:SemanticTypeInfer',
+              'data_transformation.semantic_type.UBC=primitives.smi:SemanticTypeInfer',
           ],
       })

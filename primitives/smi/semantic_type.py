@@ -51,17 +51,17 @@ class LoadWeightsPrimitive:
         self._initialized = True
 
     @staticmethod
-    def _get_weights_data_dir(cache_subdir='weights'):
+    def _get_weights_data_dir(cache_subdir='models'):
         """
-        Create a weights folder
+        Return cache directory
         """
-        datadir = os.path.join(os.path.abspath(''), 'weights')
+        cache_dir = os.path.join(os.path.expanduser('~'), 'weights')
+        datadir_base = os.path.expanduser(cache_dir)
+        if not os.access(datadir_base, os.W_OK):
+            datadir_base = os.path.join('/tmp', 'weights')
+        datadir = os.path.join(datadir_base, cache_subdir)
         if not os.path.exists(datadir):
             os.makedirs(datadir)
-        if not os.access(datadir, os.W_OK):
-            datadir = os.path.join('/tmp', 'weights')
-            os.makedirs(datadir)
-
         return datadir
 
     @staticmethod
@@ -78,17 +78,11 @@ class LoadWeightsPrimitive:
         """
         Copy weight files from volume to weights directory
         """
-        volume_files = os.listdir(self.volumes)
-        # Attach volume files with dir
-        full_v_files = {}
-        for vl in volume_files:
-            full_v_files[vl] = self.volumes + '/' + vl
-        print(full_v_files)
         for file_info in self._weight_files:
-            if file_info.name in volume_files:
+            if file_info.name in self.volumes:
                 dest = os.path.join(file_info.data_dir, file_info.name)
                 if not os.path.exists(dest):
-                    shutil.copy2(full_v_files[file_info.name], dest)
+                    shutil.copy2(self.volumes[file_info.name], dest)
                 else:
                     logger.warning('{} file already in weights directory'.format(file_info.name))
             else:
@@ -183,17 +177,17 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         "id": "6f6ffb72-96cf-4cfe-9754-e2302eb5c927",
         "version": config.VERSION,
         "name": "UBC semantic type",
-        "description": "A primitive which detects semantic type of data",
-        "python_path": "d3m.primitives.classification.semantic_type.UBC",
-        "primitive_family": "DATA_CLEANING",
-        "algorithm_types": ["DATA_MAPPING"],
+        "description": "A primitive which detects semantic type of each column of data",
+        "python_path": "d3m.primitives.data_transformation.semantic_type.UBC",
+        "primitive_family": metadata_base.PrimitiveFamily.DATA_TRANSFORMATION,
+        "algorithm_types": [metadata_base.PrimitiveAlgorithmType.DATA_CONVERSION],
         "source": {
             "name": config.D3M_PERFORMER_TEAM,
             "contact": config.D3M_CONTACT,
             "uris": [config.REPOSITORY]
         },
         "keywords": ['semantic type inference"', "data type detection"],
-        "installation": [config.INSTALLATION] #+ LoadWeightsPrimitive._get_weight_installation(_weight_files),
+        "installation": [config.INSTALLATION] + LoadWeightsPrimitive._get_weight_installation(_weight_files),
     })
 
     def __init__(self, *, hyperparams: Hyperparams, volumes: typing.Union[typing.Dict[str, str], None]=None):
@@ -210,8 +204,8 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         # self._setup_weight_files()
 
         # Weights path
-        self.weights_dir = LoadWeightsPrimitive._get_weights_data_dir()
-        # self.weights_dir = '/ubc_primitives/primitives/smi/weights' # Uncomment when running locally
+        #self.weights_dir = LoadWeightsPrimitive._get_weights_data_dir()
+        self.weights_dir = '/ubc_primitives/primitives/smi/weights' # Uncomment when running locally
 
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
         """
