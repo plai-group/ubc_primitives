@@ -187,7 +187,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
             "uris": [config.REPOSITORY]
         },
         "keywords": ['semantic type inference"', "data type detection"],
-        "installation": [config.INSTALLATION] + LoadWeightsPrimitive._get_weight_installation(_weight_files),
+        "installation": [config.INSTALLATION], #+ LoadWeightsPrimitive._get_weight_installation(_weight_files),
     })
 
     def __init__(self, *, hyperparams: Hyperparams, volumes: typing.Union[typing.Dict[str, str], None]=None):
@@ -211,174 +211,175 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         """
         Returns output dataframe with the structural_type updated in the input metadata
         """
-        ### User Variables ###
-        nn_id     = 'sherlock'
-        vec_dim   = 400
-        n_samples = 1000
+        # ### User Variables ###
+        # nn_id     = 'sherlock'
+        # vec_dim   = 400
+        # n_samples = 1000
+        #
+        # # Load word vectors
+        # word_vec_path  = os.path.join(self.weights_dir, 'glove.6B.50d.txt')
+        # word_vectors_f = open(word_vec_path, encoding='utf-8')
+        # logging.info('Word vector loaded from: {}'.format(word_vec_path))
+        #
+        # # Load pretrained paragraph vector model
+        # par_vec_path = os.path.join(self.weights_dir, 'par_vec_trained_400.pkl')
+        # model = doc2vec.Doc2Vec.load(par_vec_path)
+        # logging.info('Pre-trained paragraph vector loaded from: {}'.format(par_vec_path))
+        #
+        # # Load classes
+        # smi_cls_pth = os.path.join(self.weights_dir, 'classes_{}.npy'.format(nn_id))
+        # smi_classes = np.load(smi_cls_pth, allow_pickle=True)
+        # logging.info('Semantic Types loaded from: {}'.format(smi_cls_pth))
+        #
+        # # Mapping dir of semantic types to D3M structural type dtypes of [int, str]
+        # smi_map_func = {'address':str, 'affiliate': str, 'affiliation': str,\
+        #     'age':int, 'album':str, 'area':str, 'artist':str, 'birth Date':int,\
+        #     'birth Place':str, 'brand':str, 'capacity':str, 'category':str,\
+        #     'city':str, 'class':str, 'classification':str, 'club':str,\
+        #     'code':str, 'collection':str, 'command':str, 'company':str,\
+        #     'component':str, 'continent':str, 'country':str, 'county':str,\
+        #     'creator':str, 'credit':str, 'currency':int, 'day':int, 'depth':int,\
+        #     'description':str, 'director':str, 'duration':int, 'education':str,\
+        #     'elevation':str, 'family':str, 'file Size':int, 'format':str,\
+        #     'gender':str, 'genre':str, 'grades':str, 'industry':str, 'isbn':str,\
+        #     'jockey':str, 'language':str, 'location':str, 'manufacturer':str,\
+        #     'name':str, 'nationality':str, 'notes':str, 'operator':str,\
+        #     'order':str, 'organisation':str, 'origin':str, 'owner':str,\
+        #     'person':str, 'plays':str, 'position':int, 'product':str, 'publisher':str,\
+        #     'range':str,  'rank':str, 'ranking':str, 'region':str, 'religion':str,\
+        #     'requirement':str, 'result':str, 'sales':str, 'service':str, 'sex':str,\
+        #     'species':str, 'state':str, 'status':str, 'symbol':str, 'team':str,\
+        #     'team Name':str, 'type':str, 'weight':int, 'year':str}
+        #
+        # # print(smi_map_func)
+        #
+        # ### Build Features ###
+        # logging.info('Building Features in progress......')
+        # df_char = pd.DataFrame()
+        # df_word = pd.DataFrame()
+        # df_par  = pd.DataFrame()
+        # df_stat = pd.DataFrame()
+        #
+        # counter = 0
+        #
+        # if self.hyperparams['use_row_iter'] == True:
+        #     for raw_sample in inputs.iterrows():
+        #         # Extract data from series, if given as series list
+        #         # Ex: 23 [95, 100, 95, 89, 84, 91, 88, 94, 75]
+        #         #     45 [95, 100, 95, 89]
+        #         if len(raw_sample) > 1:
+        #             raw_sample = literal_eval(raw_sample[1].loc[1])
+        #
+        #         if counter % 1000 == 0:
+        #             logging.info('Completion {}/{}'.format(counter, len(inputs)))
+        #
+        #         n_values = len(raw_sample)
+        #
+        #         if n_samples > n_values:
+        #             n_samples = n_values
+        #
+        #         # Sample n_samples from data column, and convert cell values to string values
+        #         raw_sample = pd.Series(random.choices(raw_sample, k=n_samples)).astype(str)
+        #
+        #         # Extract Features
+        #         df_char = df_char.append(self._extract_bag_of_characters_features(raw_sample), ignore_index=True)
+        #         df_word = df_word.append(self._extract_word_embeddings_features(word_vectors_f, raw_sample), ignore_index=True)
+        #         df_par  = df_par.append(self._infer_paragraph_embeddings_features(model, raw_sample), ignore_index=True)
+        #         df_stat = df_stat.append(self._extract_bag_of_words_features(raw_sample), ignore_index=True)
+        #
+        #         # Increment the progress counter
+        #         counter += 1
+        #
+        # else:
+        #
+        #     for name, raw_sample in inputs.iteritems():
+        #         #print(raw_sample)
+        #         if counter % 1000 == 0:
+        #             logging.info('Completion {}/{}'.format(counter, len(inputs)))
+        #
+        #         n_values = len(raw_sample)
+        #
+        #         if n_samples > n_values:
+        #             n_samples = n_values
+        #
+        #         # Sample n_samples from data column, and convert cell values to string values
+        #         raw_sample = pd.Series(random.choices(raw_sample.tolist(), k=n_samples)).astype(str)
+        #
+        #         # Extract Features
+        #         df_char = df_char.append(self._extract_bag_of_characters_features(raw_sample), ignore_index=True)
+        #         df_word = df_word.append(self._extract_word_embeddings_features(word_vectors_f, raw_sample), ignore_index=True)
+        #         df_par  = df_par.append(self._infer_paragraph_embeddings_features(model, raw_sample), ignore_index=True)
+        #         df_stat = df_stat.append(self._extract_bag_of_words_features(raw_sample), ignore_index=True)
+        #
+        #         # Increment the progress counter
+        #         counter += 1
+        #
+        # df_char.fillna(df_char.mean(), inplace=True)
+        # df_word.fillna(df_word.mean(), inplace=True)
+        # df_par.fillna(df_par.mean(),   inplace=True)
+        # df_stat.fillna(df_stat.mean(), inplace=True)
+        #
+        # logging.info('Completion {}/{}'.format(len(inputs), len(inputs)))
+        #
+        # # Collect all the features
+        # feature_vectors = [df_char.values, df_word.values, df_par.values, df_stat.values]
+        #
+        # # Free Memory
+        # word_vectors_f.close()
+        # del model
+        #
+        # logging.info('----------Feature Extraction Complete!-------------')
+        #
+        # ### Load Sherlock model ###
+        # file = open(os.path.join(self.weights_dir, '{}_model.json'.format(nn_id)), 'r')
+        # sherlock_file = file.read()
+        # sherlock = tf.keras.models.model_from_json(sherlock_file)
+        # file.close()
+        #
+        # # Load weights into new model
+        # sherlock.load_weights(os.path.join(self.weights_dir, '{}_weights.h5'.format(nn_id)))
+        #
+        # # Compile model
+        # sherlock.compile(optimizer='adam',
+        #                  loss='categorical_crossentropy',
+        #                  metrics=['categorical_accuracy'])
+        # # print(sherlock.summary())
+        # logging.info('------SMI Model Loaded Successfully!--------')
+        #
+        # ### Run Prediction ###
+        # y_pred = sherlock.predict(feature_vectors)
+        # # print('Prediction Completed!')
+        # y_pred_int = np.argmax(y_pred, axis=1)
+        #
+        # encoder = LabelEncoder()
+        # encoder.classes_ = smi_classes
+        # smi_preds = encoder.inverse_transform(y_pred_int)
+        # print(smi_preds)
+        #
+        # # print('Completed!')
+        #
+        # ## Update structural_type of the input meta-data ###
+        # updated_types = []
+        # for smi_o in smi_preds:
+        #     get_type = smi_map_func[smi_o]
+        #     updated_types.append(get_type)
+        #
+        # # outputs
+        # outputs = inputs
+        #
+        # # Get all columns and metadata
+        # columns_to_use = self._get_columns(inputs.metadata, str)
+        # outputs_metadata = inputs.metadata.select_columns(columns_to_use)
+        #
+        # # Update metadata for each column
+        # for col in range(len(columns_to_use)):
+        #     outputs_metadata = outputs_metadata.update((columns_to_use[col], metadata_base.ALL_ELEMENTS), {
+        #     'structural_type': updated_types[col],
+        #     })
+        #
+        # outputs.metadata = outputs_metadata
 
-        # Load word vectors
-        word_vec_path  = os.path.join(self.weights_dir, 'glove.6B.50d.txt')
-        word_vectors_f = open(word_vec_path, encoding='utf-8')
-        logging.info('Word vector loaded from: {}'.format(word_vec_path))
-
-        # Load pretrained paragraph vector model
-        par_vec_path = os.path.join(self.weights_dir, 'par_vec_trained_400.pkl')
-        model = doc2vec.Doc2Vec.load(par_vec_path)
-        logging.info('Pre-trained paragraph vector loaded from: {}'.format(par_vec_path))
-
-        # Load classes
-        smi_cls_pth = os.path.join(self.weights_dir, 'classes_{}.npy'.format(nn_id))
-        smi_classes = np.load(smi_cls_pth, allow_pickle=True)
-        logging.info('Semantic Types loaded from: {}'.format(smi_cls_pth))
-
-        # Mapping dir of semantic types to D3M structural type dtypes of [int, str]
-        smi_map_func = {'address':str, 'affiliate': str, 'affiliation': str,\
-            'age':int, 'album':str, 'area':str, 'artist':str, 'birth Date':int,\
-            'birth Place':str, 'brand':str, 'capacity':str, 'category':str,\
-            'city':str, 'class':str, 'classification':str, 'club':str,\
-            'code':str, 'collection':str, 'command':str, 'company':str,\
-            'component':str, 'continent':str, 'country':str, 'county':str,\
-            'creator':str, 'credit':str, 'currency':int, 'day':int, 'depth':int,\
-            'description':str, 'director':str, 'duration':int, 'education':str,\
-            'elevation':str, 'family':str, 'file Size':int, 'format':str,\
-            'gender':str, 'genre':str, 'grades':str, 'industry':str, 'isbn':str,\
-            'jockey':str, 'language':str, 'location':str, 'manufacturer':str,\
-            'name':str, 'nationality':str, 'notes':str, 'operator':str,\
-            'order':str, 'organisation':str, 'origin':str, 'owner':str,\
-            'person':str, 'plays':str, 'position':int, 'product':str, 'publisher':str,\
-            'range':str,  'rank':str, 'ranking':str, 'region':str, 'religion':str,\
-            'requirement':str, 'result':str, 'sales':str, 'service':str, 'sex':str,\
-            'species':str, 'state':str, 'status':str, 'symbol':str, 'team':str,\
-            'team Name':str, 'type':str, 'weight':int, 'year':str}
-
-        # print(smi_map_func)
-
-        ### Build Features ###
-        logging.info('Building Features in progress......')
-        df_char = pd.DataFrame()
-        df_word = pd.DataFrame()
-        df_par  = pd.DataFrame()
-        df_stat = pd.DataFrame()
-
-        counter = 0
-
-        if self.hyperparams['use_row_iter'] == True:
-            for raw_sample in inputs.iterrows():
-                # Extract data from series, if given as series list
-                # Ex: 23 [95, 100, 95, 89, 84, 91, 88, 94, 75]
-                #     45 [95, 100, 95, 89]
-                if len(raw_sample) > 1:
-                    raw_sample = literal_eval(raw_sample[1].loc[1])
-
-                if counter % 1000 == 0:
-                    logging.info('Completion {}/{}'.format(counter, len(inputs)))
-
-                n_values = len(raw_sample)
-
-                if n_samples > n_values:
-                    n_samples = n_values
-
-                # Sample n_samples from data column, and convert cell values to string values
-                raw_sample = pd.Series(random.choices(raw_sample, k=n_samples)).astype(str)
-
-                # Extract Features
-                df_char = df_char.append(self._extract_bag_of_characters_features(raw_sample), ignore_index=True)
-                df_word = df_word.append(self._extract_word_embeddings_features(word_vectors_f, raw_sample), ignore_index=True)
-                df_par  = df_par.append(self._infer_paragraph_embeddings_features(model, raw_sample), ignore_index=True)
-                df_stat = df_stat.append(self._extract_bag_of_words_features(raw_sample), ignore_index=True)
-
-                # Increment the progress counter
-                counter += 1
-
-        else:
-
-            for name, raw_sample in inputs.iteritems():
-                #print(raw_sample)
-                if counter % 1000 == 0:
-                    logging.info('Completion {}/{}'.format(counter, len(inputs)))
-
-                n_values = len(raw_sample)
-
-                if n_samples > n_values:
-                    n_samples = n_values
-
-                # Sample n_samples from data column, and convert cell values to string values
-                raw_sample = pd.Series(random.choices(raw_sample.tolist(), k=n_samples)).astype(str)
-
-                # Extract Features
-                df_char = df_char.append(self._extract_bag_of_characters_features(raw_sample), ignore_index=True)
-                df_word = df_word.append(self._extract_word_embeddings_features(word_vectors_f, raw_sample), ignore_index=True)
-                df_par  = df_par.append(self._infer_paragraph_embeddings_features(model, raw_sample), ignore_index=True)
-                df_stat = df_stat.append(self._extract_bag_of_words_features(raw_sample), ignore_index=True)
-
-                # Increment the progress counter
-                counter += 1
-
-        df_char.fillna(df_char.mean(), inplace=True)
-        df_word.fillna(df_word.mean(), inplace=True)
-        df_par.fillna(df_par.mean(),   inplace=True)
-        df_stat.fillna(df_stat.mean(), inplace=True)
-
-        logging.info('Completion {}/{}'.format(len(inputs), len(inputs)))
-
-        # Collect all the features
-        feature_vectors = [df_char.values, df_word.values, df_par.values, df_stat.values]
-
-        # Free Memory
-        word_vectors_f.close()
-        del model
-
-        logging.info('----------Feature Extraction Complete!-------------')
-
-        ### Load Sherlock model ###
-        file = open(os.path.join(self.weights_dir, '{}_model.json'.format(nn_id)), 'r')
-        sherlock_file = file.read()
-        sherlock = tf.keras.models.model_from_json(sherlock_file)
-        file.close()
-
-        # Load weights into new model
-        sherlock.load_weights(os.path.join(self.weights_dir, '{}_weights.h5'.format(nn_id)))
-
-        # Compile model
-        sherlock.compile(optimizer='adam',
-                         loss='categorical_crossentropy',
-                         metrics=['categorical_accuracy'])
-        # print(sherlock.summary())
-        logging.info('------SMI Model Loaded Successfully!--------')
-
-        ### Run Prediction ###
-        y_pred = sherlock.predict(feature_vectors)
-        # print('Prediction Completed!')
-        y_pred_int = np.argmax(y_pred, axis=1)
-
-        encoder = LabelEncoder()
-        encoder.classes_ = smi_classes
-        smi_preds = encoder.inverse_transform(y_pred_int)
-        print(smi_preds)
-
-        # print('Completed!')
-
-        ## Update structural_type of the input meta-data ###
-        updated_types = []
-        for smi_o in smi_preds:
-            get_type = smi_map_func[smi_o]
-            updated_types.append(get_type)
-
-        # outputs
         outputs = inputs
-
-        # Get all columns and metadata
-        columns_to_use = self._get_columns(inputs.metadata, str)
-        outputs_metadata = inputs.metadata.select_columns(columns_to_use)
-
-        # Update metadata for each column
-        for col in range(len(columns_to_use)):
-            outputs_metadata = outputs_metadata.update((columns_to_use[col], metadata_base.ALL_ELEMENTS), {
-            'structural_type': updated_types[col],
-            })
-
-        outputs.metadata = outputs_metadata
-
         return base.CallResult(outputs)
 
     def _can_use_column(self, inputs_metadata: metadata_base.DataMetadata, column_index: int, type_to_cast: type) -> bool:
