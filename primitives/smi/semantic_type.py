@@ -51,17 +51,16 @@ class LoadWeightsPrimitive:
         self._initialized = True
 
     @staticmethod
-    def _get_weights_data_dir(cache_subdir='models'):
+    def _get_weights_data_dir():
         """
         Return cache directory
         """
-        cache_dir = os.path.join(os.path.expanduser('~'), 'weights')
-        datadir_base = os.path.expanduser(cache_dir)
+        datadir_base = os.getenv('D3MSTATICDIR', '/static')
         if not os.access(datadir_base, os.W_OK):
-            datadir_base = os.path.join('/tmp', 'weights')
-        datadir = os.path.join(datadir_base, cache_subdir)
+            datadir_base = '/static'
         if not os.path.exists(datadir):
             os.makedirs(datadir)
+
         return datadir
 
     @staticmethod
@@ -74,21 +73,20 @@ class LoadWeightsPrimitive:
                  'file_uri': weight_file.uri,\
                  'file_digest': weight_file.digest} for weight_file in weight_files]
 
-    def _setup_weight_files(self):
-        """
-        Copy weight files from volume to weights directory
-        """
-        for file_info in self._weight_files:
-            if file_info.name in self.volumes:
-                dest = os.path.join(file_info.data_dir, file_info.name)
-                if not os.path.exists(dest):
-                    shutil.copy2(self.volumes[file_info.name], dest)
-                else:
-                    logger.warning('{} file already in weights directory'.format(file_info.name))
-            else:
-                logger.warning('Weight file not in volume: {}'.format(file_info.name))
+    @staticmethod
+    def _find_weights_dir(key_filename):
+        if key_filename in self.volumes:
+            _weight_file_path = self.volumes[key_filename]
+        else:
+            static_dir = os.getenv('D3MSTATICDIR', '/static')
+            _weight_file_path = os.path.join(static_dir, key_filename)
 
+        if os.path.isfile(_weight_file_path):
+            return _weight_file_path
+        else:
+            raise ValueError("Can't get weights file from the volume by key: {} or in the static folder: {}".format(key_filename, static_dir))
 
+        return _weight_file_path
 
 class WeightFile(typing.NamedTuple):
     """
@@ -174,7 +172,6 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
     ### Primitive Meta-data ###
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     _weights_configs = LoadWeightsPrimitive._get_weight_installation(_weight_files)
-
     metadata = hyperparams.base.PrimitiveMetadata({
         "id": "6f6ffb72-96cf-4cfe-9754-e2302eb5c927",
         "version": config.VERSION,
@@ -189,25 +186,18 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
             "uris": [config.REPOSITORY]
         },
         "keywords": ['semantic type inference"', "data type detection"],
-        "installation": [config.INSTALLATION],# + _weights_configs,
+        "installation": [config.INSTALLATION] + _weights_configs,
     })
 
     def __init__(self, *, hyperparams: Hyperparams, volumes: typing.Union[typing.Dict[str, str], None]=None):
         super().__init__(hyperparams=hyperparams, volumes=volumes)
         # Intialize LoadWeightsPrimitive
-        print(volumes)
         LoadWeightsPrimitive.__init__(self)
         self.hyperparams = hyperparams
-
         # Import other needed modules
         LoadWeightsPrimitive._import_lib(self)
 
-        # Load the weights from volumes to the dataset dir
-        # self._setup_weight_files()
-
-        # Weights path
-        #self.weights_dir = LoadWeightsPrimitive._get_weights_data_dir()
-        self.weights_dir = '/ubc_primitives/primitives/smi/weights' # Uncomment when running locally
+        # self.weights_dir = '/ubc_primitives/primitives/smi/weights' # Uncomment when running locally
 
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
         """
@@ -219,17 +209,17 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         n_samples = 1000
 
         # Load word vectors
-        word_vec_path  = os.path.join(self.weights_dir, 'glove.6B.50d.txt')
+        word_vec_path  = LoadWeightsPrimitive._find_weights_dir(key_filename='glove.6B.50d.txt')
         word_vectors_f = open(word_vec_path, encoding='utf-8')
         logging.info('Word vector loaded from: {}'.format(word_vec_path))
 
         # Load pretrained paragraph vector model
-        par_vec_path = os.path.join(self.weights_dir, 'par_vec_trained_400.pkl')
+        par_vec_path = LoadWeightsPrimitive._find_weights_dir(key_filename='par_vec_trained_400.pkl')
         model = doc2vec.Doc2Vec.load(par_vec_path)
         logging.info('Pre-trained paragraph vector loaded from: {}'.format(par_vec_path))
 
         # Load classes
-        smi_cls_pth = os.path.join(self.weights_dir, 'classes_{}.npy'.format(nn_id))
+        smi_cls_pth = LoadWeightsPrimitive._find_weights_dir(key_filename='classes_{}.npy'.format(nn_id))
         smi_classes = np.load(smi_cls_pth, allow_pickle=True)
         logging.info('Semantic Types loaded from: {}'.format(smi_cls_pth))
 
@@ -333,7 +323,8 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         logging.info('----------Feature Extraction Complete!-------------')
 
         ### Load Sherlock model ###
-        file = open(os.path.join(self.weights_dir, '{}_model.json'.format(nn_id)), 'r')
+        sherlock_path = LoadWeightsPrimitive._find_weights_dir(key_filename='{}_model.json'.format(nn_id))
+        file = open(sherlock_path, 'r')
         sherlock_file = file.read()
         sherlock = tf.keras.models.model_from_json(sherlock_file)
         file.close()
@@ -356,9 +347,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         encoder = LabelEncoder()
         encoder.classes_ = smi_classes
         smi_preds = encoder.inverse_transform(y_pred_int)
-        print(smi_preds)
-
-        # print('Completed!')
+        # print(smi_preds)
 
         ## Update structural_type of the input meta-data ###
         updated_types = []
@@ -366,7 +355,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
             get_type = smi_map_func[smi_o]
             updated_types.append(get_type)
 
-        # outputs
+        # Outputs
         outputs = inputs
 
         # Get all columns and metadata
@@ -381,9 +370,8 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
 
         outputs.metadata = outputs_metadata
 
-        # outputs = inputs
-        
         return base.CallResult(outputs)
+
 
     def _can_use_column(self, inputs_metadata: metadata_base.DataMetadata, column_index: int, type_to_cast: type) -> bool:
         # Always return true
