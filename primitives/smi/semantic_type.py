@@ -382,6 +382,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         outputs.metadata = outputs_metadata
 
         # outputs = inputs
+        
         return base.CallResult(outputs)
 
     def _can_use_column(self, inputs_metadata: metadata_base.DataMetadata, column_index: int, type_to_cast: type) -> bool:
