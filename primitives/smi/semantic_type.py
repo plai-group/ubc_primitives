@@ -177,8 +177,8 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         "version": config.VERSION,
         "name": "UBC semantic type",
         "description": "A primitive which detects semantic type of each column of data",
-        "python_path": "d3m.primitives.data_transformation.semantic_type.UBC",
-        "primitive_family": metadata_base.PrimitiveFamily.DATA_TRANSFORMATION,
+        "python_path": "d3m.primitives.schema_discovery.profiler.UBC",
+        "primitive_family": metadata_base.PrimitiveFamily.SCHEMA_DISCOVERY,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.DATA_CONVERSION],
         "source": {
             "name": config.D3M_PERFORMER_TEAM,
@@ -197,7 +197,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         # Import other needed modules
         LoadWeightsPrimitive._import_lib(self)
 
-        # self.weights_dir = '/ubc_primitives/primitives/smi/weights' # Uncomment when running locally
+        self.weights_dir = '/ubc_primitives/primitives/smi/weights' # Uncomment when running locally
 
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
         """

@@ -8,7 +8,6 @@ from common_primitives import construct_predictions
 from common_primitives.column_parser import ColumnParserPrimitive
 from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
-from common_primitives.remove_semantic_types import RemoveSemanticTypesPrimitive
 
 import d3m.primitives.data_cleaning.imputer as Imputer
 import d3m.primitives.classification.random_forest as RF
@@ -73,7 +72,7 @@ def make_pipeline():
 
     # print(pipeline.to_json())
 
-    with open('./semantic_type_pipeline.json', 'w') as write_file:
+    with open('./profiler_pipeline.json', 'w') as write_file:
         write_file.write(pipeline.to_json(indent=4, sort_keys=False, ensure_ascii=False))
 
     print('Generated pipeline!')
