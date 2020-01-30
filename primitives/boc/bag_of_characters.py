@@ -97,7 +97,8 @@ class BagOfCharacters(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hype
 
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
         """
-        Returns output dataframe with 960 features.
+        Inputs: pandas DataFrame
+        Returns: Output pandas DataFrame with 960 features.
         """
         # Get all Nested media files
         text_columns = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
