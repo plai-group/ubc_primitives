@@ -193,11 +193,11 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         super().__init__(hyperparams=hyperparams, volumes=volumes)
         # Intialize LoadWeightsPrimitive
         LoadWeightsPrimitive.__init__(self)
+
         self.hyperparams = hyperparams
+
         # Import other needed modules
         LoadWeightsPrimitive._import_lib(self)
-
-        self.weights_dir = '/ubc_primitives/primitives/smi/weights' # Uncomment when running locally
 
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
         """
