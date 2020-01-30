@@ -129,12 +129,11 @@ class BagOfCharacters(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hype
         ### Build Features ###
         logging.info('Building Features in progress......')
         df_char = pd.DataFrame()
-        counter = 1
+        counter = 0
 
         for name, raw_sample in all_txts.iterrows():
-            if counter % 2 == 0:
+            if counter % 1000 == 0:
                 logging.info('Completion {}/{}'.format(counter, len(inputs)))
-                break
 
             n_values = len(raw_sample.values[0]) # Because inside a list
 
