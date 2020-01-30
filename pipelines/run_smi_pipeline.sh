@@ -9,7 +9,7 @@ sudo docker run -v /home/tony/Documents/work_plai/d3m/codes/ubc_primitives:/ubc_
                     pip3 install -e .;\
                     cd pipelines;\
                     python3 smi_pipeline.py;\
-                    python3 -m d3m runtime --volumes /ubc_primitives/primitives/smi/weights fit-produce \
+                    python3 -m d3m runtime --volumes /static fit-produce \
                             -p semantic_type_pipeline.json \
                             -r /ubc_primitives/datasets/seed_datasets_current/38_sick/TRAIN/problem_TRAIN/problemDoc.json \
                             -i /ubc_primitives/datasets/seed_datasets_current/38_sick/TRAIN/dataset_TRAIN/datasetDoc.json \

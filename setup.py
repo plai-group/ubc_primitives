@@ -20,6 +20,7 @@ setup(name='ubc_primitives',
                 'primitives',
                 'primitives.smi',
                 'primitives.smi.weights',
+                'primitives.boc',
                ],
       zip_safe=False,
       python_requires='>=3.6',
@@ -28,5 +29,6 @@ setup(name='ubc_primitives',
       entry_points={
           'd3m.primitives': [
               'data_transformation.semantic_type.UBC=primitives.smi:SemanticTypeInfer',
+              'feature_extraction.bag_of_characters.UBC=primitives.boc:BagOfCharacters',
           ],
       })
