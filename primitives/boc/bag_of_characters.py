@@ -80,7 +80,7 @@ class BagOfCharacters(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hype
             "contact": config.D3M_CONTACT,
             "uris": [config.REPOSITORY]
         },
-        "keywords": ["bag of words", "NLP", "Character features"],
+        "keywords": ["bag of characters", "NLP", "character features"],
         "installation": [config.INSTALLATION],
     })
 
