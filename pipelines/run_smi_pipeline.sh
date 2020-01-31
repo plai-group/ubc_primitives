@@ -10,6 +10,7 @@ sudo docker run --rm \
                     pip3 install -e .;\
                     cd pipelines;\
                     python3 smi_pipeline.py;\
+                    python3 -m d3m index download -p profiler_pipeline.json -o /static; \
                     python3 -m d3m runtime --volumes /static fit-produce \
                             -p profiler_pipeline.json \
                             -r /ubc_primitives/datasets/seed_datasets_current/38_sick/TRAIN/problem_TRAIN/problemDoc.json \

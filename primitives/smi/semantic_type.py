@@ -88,6 +88,7 @@ class LoadWeightsPrimitive:
 
         return _weight_file_path
 
+
 class WeightFile(typing.NamedTuple):
     """
     Meta-data-->Installation: configs
@@ -172,6 +173,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
     ### Primitive Meta-data ###
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     _weights_configs = LoadWeightsPrimitive._get_weight_installation(_weight_files)
+
     metadata = hyperparams.base.PrimitiveMetadata({
         "id": "6f6ffb72-96cf-4cfe-9754-e2302eb5c927",
         "version": config.VERSION,
@@ -191,10 +193,11 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
 
     def __init__(self, *, hyperparams: Hyperparams, volumes: typing.Union[typing.Dict[str, str], None]=None):
         super().__init__(hyperparams=hyperparams, volumes=volumes)
+        self.volumes = volumes
+        self.hyperparams = hyperparams
+
         # Intialize LoadWeightsPrimitive
         LoadWeightsPrimitive.__init__(self)
-
-        self.hyperparams = hyperparams
 
         # Import other needed modules
         LoadWeightsPrimitive._import_lib(self)
