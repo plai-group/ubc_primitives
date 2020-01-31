@@ -167,7 +167,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
                    '6b4f0ace998ec126e212e84ded50bf7dc2861de80def5ec3d33ba8ea1a662733'),
         WeightFile('par_vec_trained_400.pkl.docvecs.vectors_docs.npy',
                    ('https://dl.dropboxusercontent.com/s/mm0zj6odi2kddht/par_vec_trained_400.pkl.docvecs.vectors_docs.npy?dl=1'),
-                   '023dd0b084be9dfa614c27f4b57208d08487174ed5bfd7a27ce604a82ceec797')
+                   '6b4f0ace998ec126e212e84ded50bf7dc2861de80def5ec3d33ba8ea1a662733')
     ]
 
     ### Primitive Meta-data ###
