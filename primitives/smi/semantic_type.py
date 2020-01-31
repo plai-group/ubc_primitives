@@ -74,9 +74,9 @@ class LoadWeightsPrimitive:
                  'file_digest': weight_file.digest} for weight_file in weight_files]
 
     @staticmethod
-    def _find_weights_dir(key_filename):
-        if key_filename in self.volumes:
-            _weight_file_path = self.volumes[key_filename]
+    def _find_weights_dir(key_filename, volumes):
+        if key_filename in volumes:
+            _weight_file_path = volumes[key_filename]
         else:
             static_dir = os.getenv('D3MSTATICDIR', '/static')
             _weight_file_path = os.path.join(static_dir, key_filename)
@@ -212,17 +212,17 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         n_samples = 1000
 
         # Load word vectors
-        word_vec_path  = LoadWeightsPrimitive._find_weights_dir(key_filename='glove.6B.50d.txt')
+        word_vec_path  = LoadWeightsPrimitive._find_weights_dir(key_filename='glove.6B.50d.txt', volumes=self.volumes)
         word_vectors_f = open(word_vec_path, encoding='utf-8')
         logging.info('Word vector loaded from: {}'.format(word_vec_path))
 
         # Load pretrained paragraph vector model
-        par_vec_path = LoadWeightsPrimitive._find_weights_dir(key_filename='par_vec_trained_400.pkl')
+        par_vec_path = LoadWeightsPrimitive._find_weights_dir(key_filename='par_vec_trained_400.pkl', volumes=self.volumes)
         model = doc2vec.Doc2Vec.load(par_vec_path)
         logging.info('Pre-trained paragraph vector loaded from: {}'.format(par_vec_path))
 
         # Load classes
-        smi_cls_pth = LoadWeightsPrimitive._find_weights_dir(key_filename='classes_{}.npy'.format(nn_id))
+        smi_cls_pth = LoadWeightsPrimitive._find_weights_dir(key_filename='classes_{}.npy'.format(nn_id), volumes=self.volumes)
         smi_classes = np.load(smi_cls_pth, allow_pickle=True)
         logging.info('Semantic Types loaded from: {}'.format(smi_cls_pth))
 
@@ -326,14 +326,15 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         logging.info('----------Feature Extraction Complete!-------------')
 
         ### Load Sherlock model ###
-        sherlock_path = LoadWeightsPrimitive._find_weights_dir(key_filename='{}_model.json'.format(nn_id))
+        sherlock_path = LoadWeightsPrimitive._find_weights_dir(key_filename='{}_model.json'.format(nn_id), volumes=self.volumes)
         file = open(sherlock_path, 'r')
         sherlock_file = file.read()
         sherlock = tf.keras.models.model_from_json(sherlock_file)
         file.close()
 
         # Load weights into new model
-        sherlock.load_weights(os.path.join(self.weights_dir, '{}_weights.h5'.format(nn_id)))
+        sherlock_weights_path = LoadWeightsPrimitive._find_weights_dir(key_filename='{}_weights.h5'.format(nn_id), volumes=self.volumes)
+        sherlock.load_weights(sherlock_weights_path)
 
         # Compile model
         sherlock.compile(optimizer='adam',
