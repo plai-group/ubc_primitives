@@ -74,6 +74,16 @@ class LoadWeightsPrimitive:
                  'file_digest': weight_file.digest} for weight_file in weight_files]
 
     @staticmethod
+    def _get_weight_installation_tar(weight_files: typing.List['WeightFile']):
+        """
+        Return D3M file installation entries
+        """
+        return [{'type': 'TGZ',\
+                 'key': weight_file.name,\
+                 'file_uri': weight_file.uri,\
+                 'file_digest': weight_file.digest} for weight_file in weight_files]
+
+    @staticmethod
     def _find_weights_dir(key_filename, volumes):
         if key_filename in volumes:
             _weight_file_path = volumes[key_filename]
@@ -84,7 +94,7 @@ class LoadWeightsPrimitive:
         if os.path.isfile(_weight_file_path):
             return _weight_file_path
         else:
-            raise ValueError("Can't get weights file from the volume by key: {} or in the static folder: {}".format(key_filename, static_dir))
+            raise ValueError("Can't get weights file from the volume by key: {} or in the static folder: {}".format(key_filename, _weight_file_path))
 
         return _weight_file_path
 
@@ -149,7 +159,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
     """
     ### Get Static files ###
     # All files directly downloaded from DropBox
-    _weight_files = [
+    _weight_files_1 = [
         WeightFile('sherlock_weights.h5',
                    ('https://dl.dropboxusercontent.com/s/8g14nif72mp44o7/sherlock_weights.h5?dl=1'),
                    '4b121359def9f155c4e80728c9320a51b46c56b98c0e9949d3406ff6ba56dc14'),
@@ -161,18 +171,19 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
                    '0bb18ba9dd97e124c8956f0abb1e8ff3a5aeabe619a3c38852d85ea0ec876c4a'),
         WeightFile('glove.6B.50d.txt',
                    ('https://dl.dropboxusercontent.com/s/8x197jze94d82qu/glove.6B.50d.txt?dl=1'),
-                   'd8f717f8dd4b545cb7f418ef9f3d0c3e6e68a6f48b97d32f8b7aae40cb31f96f'),
-        WeightFile('par_vec_trained_400.pkl',
-                   ('https://dl.dropboxusercontent.com/s/e87v5m92nktior7/par_vec_trained_400.pkl?dl=1'),
-                   '6b4f0ace998ec126e212e84ded50bf7dc2861de80def5ec3d33ba8ea1a662733'),
-        WeightFile('par_vec_trained_400.pkl.docvecs.vectors_docs.npy',
-                   ('https://dl.dropboxusercontent.com/s/mm0zj6odi2kddht/par_vec_trained_400.pkl.docvecs.vectors_docs.npy?dl=1'),
-                   '6b4f0ace998ec126e212e84ded50bf7dc2861de80def5ec3d33ba8ea1a662733')
+                   'd8f717f8dd4b545cb7f418ef9f3d0c3e6e68a6f48b97d32f8b7aae40cb31f96f')
+    ]
+
+    _weight_files_2 = [
+        WeightFile('par_vec_trained_400',
+                   ('https://dl.dropboxusercontent.com/s/yn7n6eso6382ey9/par_vec_trained_400.tar.gz?dl=1'),
+                   '8e7dc7f5876d764761a3093f6ddd315f295a3a6c8578efa078ad27baf08b2569'),
     ]
 
     ### Primitive Meta-data ###
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
-    _weights_configs = LoadWeightsPrimitive._get_weight_installation(_weight_files)
+    _weights_configs_1 = LoadWeightsPrimitive._get_weight_installation(_weight_files_1)
+    _weights_configs_2 = LoadWeightsPrimitive._get_weight_installation_tar(_weight_files_2)
 
     metadata = hyperparams.base.PrimitiveMetadata({
         "id": "3d1876f2-cfbd-40a8-a6ec-b6a21efaa28d",
@@ -188,7 +199,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
             "uris": [config.REPOSITORY]
         },
         "keywords": ['semantic type inference"', "data type detection", "data profiler"],
-        "installation": [config.INSTALLATION] + _weights_configs,
+        "installation": [config.INSTALLATION] + _weights_configs_1 + _weights_configs_2,
     })
 
     def __init__(self, *, hyperparams: Hyperparams, volumes: typing.Union[typing.Dict[str, str], None]=None):
@@ -216,15 +227,16 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         word_vectors_f = open(word_vec_path, encoding='utf-8')
         logging.info('Word vector loaded from: {}'.format(word_vec_path))
 
-        # Load pretrained paragraph vector model
-        par_vec_path = LoadWeightsPrimitive._find_weights_dir(key_filename='par_vec_trained_400.pkl', volumes=self.volumes)
-        model = doc2vec.Doc2Vec.load(par_vec_path)
-        logging.info('Pre-trained paragraph vector loaded from: {}'.format(par_vec_path))
-
         # Load classes
         smi_cls_pth = LoadWeightsPrimitive._find_weights_dir(key_filename='classes_{}.npy'.format(nn_id), volumes=self.volumes)
         smi_classes = np.load(smi_cls_pth, allow_pickle=True)
         logging.info('Semantic Types loaded from: {}'.format(smi_cls_pth))
+
+        # Load pretrained paragraph vector model -- Hard coded for now --assuiming loading from static file
+        # par_vec_path = LoadWeightsPrimitive._find_weights_dir(key_filename='par_vec_trained_400', volumes=self.volumes)
+        par_vec_path = '/static/8e7dc7f5876d764761a3093f6ddd315f295a3a6c8578efa078ad27baf08b2569/par_vec_trained_400/par_vec_trained_400.pkl'
+        model = doc2vec.Doc2Vec.load(par_vec_path)
+        logging.info('Pre-trained paragraph vector loaded from: {}'.format(par_vec_path))
 
         # Mapping dir of semantic types to D3M structural type dtypes of [int, str]
         smi_map_func = {'address':str, 'affiliate': str, 'affiliation': str,\
