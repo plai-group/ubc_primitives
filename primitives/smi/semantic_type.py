@@ -55,9 +55,11 @@ class LoadWeightsPrimitive:
         """
         Return cache directory
         """
-        datadir = os.getenv('D3MSTATICDIR', '/static')
+        datadir = '/static'
+
         if not os.access(datadir, os.W_OK):
             datadir = '/static'
+
         if not os.path.exists(datadir):
             os.makedirs(datadir)
 
