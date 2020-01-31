@@ -68,7 +68,7 @@ class BagOfCharacters(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hype
 
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata = hyperparams.base.PrimitiveMetadata({
-        "id": "d15cc3f8-3743-4683-9e97-f2d4ad290cb1",
+        "id": "19d45344-12e7-48fe-9eff-3be26525c0b0",
         "version": config.VERSION,
         "name": "Bag of characters feature extraction",
         "description": "A primitive for extract features describing the distribution of characters in a column",

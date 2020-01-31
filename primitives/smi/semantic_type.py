@@ -57,9 +57,9 @@ class LoadWeightsPrimitive:
         """
         datadir_base = os.getenv('D3MSTATICDIR', '/static')
         if not os.access(datadir_base, os.W_OK):
-            datadir_base = '/static'
+            datadir = '/static'
         if not os.path.exists(datadir):
-            os.makedirs(datadir)
+            datadir = os.makedirs(datadir)
 
         return datadir
 
@@ -175,7 +175,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
     _weights_configs = LoadWeightsPrimitive._get_weight_installation(_weight_files)
 
     metadata = hyperparams.base.PrimitiveMetadata({
-        "id": "6f6ffb72-96cf-4cfe-9754-e2302eb5c927",
+        "id": "3d1876f2-cfbd-40a8-a6ec-b6a21efaa28d",
         "version": config.VERSION,
         "name": "UBC semantic type",
         "description": "A primitive which detects semantic type of each column of data",
@@ -187,7 +187,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
             "contact": config.D3M_CONTACT,
             "uris": [config.REPOSITORY]
         },
-        "keywords": ['semantic type inference"', "data type detection"],
+        "keywords": ['semantic type inference"', "data type detection", "data profiler"],
         "installation": [config.INSTALLATION] + _weights_configs,
     })
 
