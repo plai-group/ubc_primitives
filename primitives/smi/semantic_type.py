@@ -58,10 +58,7 @@ class LoadWeightsPrimitive:
         datadir = '/static'
 
         if not os.access(datadir, os.W_OK):
-            datadir = '/static'
-
-        if not os.path.exists(datadir):
-            os.makedirs(datadir)
+            datadir = '.'
 
         return datadir
 
@@ -215,6 +212,8 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         # Import other needed modules
         LoadWeightsPrimitive._import_lib(self)
 
+        self._weights_path = LoadWeightsPrimitive._get_weights_data_dir()
+
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
         """
         Returns output dataframe with the structural_type updated in the input metadata
@@ -236,7 +235,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
 
         # Load pretrained paragraph vector model -- Hard coded for now --assuiming loading from static file
         # par_vec_path = LoadWeightsPrimitive._find_weights_dir(key_filename='par_vec_trained_400', volumes=self.volumes)
-        par_vec_path = '/static/8e7dc7f5876d764761a3093f6ddd315f295a3a6c8578efa078ad27baf08b2569/par_vec_trained_400/par_vec_trained_400.pkl'
+        par_vec_path = os.path.join(self._weights_path, '8e7dc7f5876d764761a3093f6ddd315f295a3a6c8578efa078ad27baf08b2569/par_vec_trained_400/par_vec_trained_400.pkl')
         model = doc2vec.Doc2Vec.load(par_vec_path)
         logging.info('Pre-trained paragraph vector loaded from: {}'.format(par_vec_path))
 
