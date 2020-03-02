@@ -14,12 +14,13 @@ Updated [docker images](https://docs.datadrivendiscovery.org/docker.html)
 2. Run Docker image (change the local path of the cloned repo):
 ```
 sudo docker run --rm\
-                -v ./local/path/ubc_primitives:/ubc_primitives\
-                -i -t registry.gitlab.com/datadrivendiscovery/images/primitives:ubuntu-bionic-python36-v2020.1.9
+    -v ./local/path/ubc_primitives:/ubc_primitives\
+    -i -t registry.gitlab.com/datadrivendiscovery/images/primitives:ubuntu-bionic-python36-v2020.1.9
 ```
 
 3. Inside docker install python package:
 ```
 cd /ubc_primitives
+
 pip3 install -e .
 ```
