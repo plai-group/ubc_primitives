@@ -78,7 +78,7 @@ class BagOfWords(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperpara
         "id": "56333866-f8db-4d74-9b36-48f7d5a073e9",
         "version": config.VERSION,
         "name": "Bag of Words feature extraction",
-        "description": "A primitive to extract features describing the global statistics words in a column",
+        "description": "A primitive to extract features describing the global statistics of words in a column",
         "python_path": "d3m.primitives.feature_extraction.bag_of_words.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.FEATURE_EXTRACTION,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.VECTORIZATION],
