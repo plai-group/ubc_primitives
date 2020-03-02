@@ -75,7 +75,7 @@ class BagOfWords(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperpara
 
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata = hyperparams.base.PrimitiveMetadata({
-        "id": "19d45344-12e7-48fe-9eff-3be26525c0b0",
+        "id": "56333866-f8db-4d74-9b36-48f7d5a073e9",
         "version": config.VERSION,
         "name": "Bag of Words feature extraction",
         "description": "A primitive to extract features describing the global statistics words in a column",
@@ -95,7 +95,7 @@ class BagOfWords(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperpara
         super().__init__(hyperparams=hyperparams, volumes=volumes)
         self.hyperparams = hyperparams
 
-        # Intialize LoadWeightsPrimitive
+        # Intialize ImportModules
         ImportModules.__init__(self)
 
         # Import other needed modules
@@ -134,15 +134,15 @@ class BagOfWords(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperpara
         outputs = inputs.remove_columns(text_columns)
 
         ### Build Features ###
-        print('Building Features in progress......')
-        #logging.info('Building Features in progress......')
+        # print('Building Features in progress......')
+        logging.info('Building Features in progress......')
         df_char = pd.DataFrame()
         counter = 0
 
         for name, raw_sample in all_txts.iterrows():
             if counter % 1000 == 0:
                 logging.info('Completion {}/{}'.format(counter, len(inputs)))
-                print('Completion {}/{}'.format(counter, len(inputs)))
+                # print('Completion {}/{}'.format(counter, len(inputs)))
 
             n_values = len(raw_sample.values[0]) # Because inside a list
 
@@ -164,8 +164,8 @@ class BagOfWords(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperpara
 
         # Missing Values
         df_char.fillna(df_char.mean(), inplace=True)
-        #logging.info('Completion {}/{}'.format(len(inputs), len(inputs)))
-        print('Completion {}/{}'.format(len(inputs), len(inputs)))
+        logging.info('Completion {}/{}'.format(len(inputs), len(inputs)))
+        # print('Completion {}/{}'.format(len(inputs), len(inputs)))
 
         # Features
         feature_vectors = container.DataFrame(df_char, generate_metadata=True)

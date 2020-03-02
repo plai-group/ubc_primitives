@@ -1,11 +1,11 @@
 # UBC PLAI-lab TA-1 primitives
 
-![version](https://img.shields.io/badge/version-0.0.1-green.svg) ![docker](https://img.shields.io/badge/version-2020.1.9-blue.svg)
+![version](https://img.shields.io/badge/version-0.0.1-green.svg)
 
 Project repository for TA-1 primitives for [D3M](https://www.darpa.mil/program/data-driven-discovery-of-models)
 
 
-## Running the code in docker
+## Running the code in Docker
 
 1. Get docker image with contains all dependencies:
 ```
@@ -23,6 +23,5 @@ sudo docker run --rm\
 3. Inside docker install python package:
 ```
 cd /ubc_primitives
-
 pip3 install -e .
 ```
