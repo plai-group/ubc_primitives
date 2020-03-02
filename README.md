@@ -1,6 +1,6 @@
 # UBC PLAI-lab TA-1 primitives
 
-[![version](https://img.shields.io/badge/version-0.0.1-green.svg)]
+[version](https://img.shields.io/badge/version-0.0.1-green.svg)
 
 Project repository for TA-1 primitives for [D3M](https://www.darpa.mil/program/data-driven-discovery-of-models)
 
