@@ -21,6 +21,7 @@ setup(name='ubc_primitives',
                 'primitives.smi',
                 'primitives.smi.weights',
                 'primitives.boc',
+                'primitives.bow'
                ],
       zip_safe=False,
       python_requires='>=3.6',
@@ -30,5 +31,6 @@ setup(name='ubc_primitives',
           'd3m.primitives': [
               'schema_discovery.profiler.UBC=primitives.smi:SemanticTypeInfer',
               'feature_extraction.bag_of_characters.UBC=primitives.boc:BagOfCharacters',
+              'feature_extraction.bag_of_words.UBC=primitives.bow:BagOfWords',
           ],
       })
