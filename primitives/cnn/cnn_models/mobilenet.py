@@ -147,8 +147,8 @@ class MobileNet(nn.Module):
         # This exists since TorchScript doesn't support inheritance, so the superclass method
         # (this one) needs to have a name other than `forward` that can be accessed in a subclass
         x = self.features(x)
-        x = x.mean([2, 3])
         if self.include_top:
+            x = x.mean([2, 3])
             x = self.classifier(x)
 
         return x

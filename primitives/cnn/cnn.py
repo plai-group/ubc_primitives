@@ -9,13 +9,16 @@ from primitives.config_files import config
 
 # Import relevant libraries
 import os
+import time
 import typing
 import logging
 import numpy as np
-from PIL import Image
 import torch
 import torch.nn as nn
+import torch.optim as optim
+from torch.utils import data
 import torchvision.transforms as transforms
+from primitives.cnn.dataset import Dataset
 
 # Import CNN models
 from primitives.cnn.cnn_models.vgg import VGG16
@@ -54,7 +57,7 @@ class Hyperparams(hyperparams.Hyperparams):
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     include_top = hyperparams.UniformBool(
-        default=True,
+        default=False,
         description="Whether to use top layers, i.e. final fully connected layers",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
@@ -231,8 +234,9 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
             if not self.hyperparams['train_endToend']:
                 for param in self.model.parameters():
                     param.requires_grad = False
-                for parameter in self.model.classifier[6].parameters():
-                    parameter.requires_grad = True
+                if (not self.hyperparams['feature_extract_only']):
+                    for parameter in self.model.classifier[6].parameters():
+                        parameter.requires_grad = True
 
         #----------------------------GoogLeNet---------------------------------#
         elif self.hyperparams['cnn_type'] == 'googlenet':
@@ -257,8 +261,9 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
             if not self.hyperparams['train_endToend']:
                 for param in self.model.parameters():
                     param.requires_grad = False
-                for parameter in self.model.fc.parameters():
-                    parameter.requires_grad = True
+                if (not self.hyperparams['feature_extract_only']):
+                    for parameter in self.model.fc.parameters():
+                        parameter.requires_grad = True
 
         #----------------------------MobileNet---------------------------------#
         elif self.hyperparams['cnn_type'] == 'mobilenet':
@@ -268,7 +273,7 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                 weights_path = self._find_weights_dir(key_filename='mobilenet_v2-b0353104.pth', weights_configs=_weights_configs[3])
                 checkpoint   = torch.load(weights_path)
                 self.model.load_state_dict(checkpoint)
-                self.expected_feature_out_dim = (1280 * 1 * 1)
+                self.expected_feature_out_dim = (1280 * 7 * 7)
                 logging.info("Pre-Trained imagenet weights loaded!")
 
             # Final layer Augmentation
@@ -283,8 +288,9 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
             if not self.hyperparams['train_endToend']:
                 for param in self.model.parameters():
                     param.requires_grad = False
-                for parameter in self.model.classifier[1].parameters():
-                    parameter.requires_grad = True
+                if (not self.hyperparams['feature_extract_only']):
+                    for parameter in self.model.classifier[1].parameters():
+                        parameter.requires_grad = True
 
         #-----------------------------ResNeT-----------------------------------#
         elif self.hyperparams['cnn_type'] == 'resnet':
@@ -294,7 +300,7 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                 weights_path = self._find_weights_dir(key_filename='resnet34-333f7ec4.pth', weights_configs=_weights_configs[4])
                 checkpoint   = torch.load(weights_path)
                 self.model.load_state_dict(checkpoint)
-                self.expected_feature_out_dim = (512 * 1 * 1)
+                self.expected_feature_out_dim = (512 * 7 * 7)
                 logging.info("Pre-Trained imagenet weights loaded!")
 
             # Final layer Augmentation
@@ -309,20 +315,23 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
             if not self.hyperparams['train_endToend']:
                 for param in self.model.parameters():
                     param.requires_grad = False
-                for parameter in self.model.fc.parameters():
-                    parameter.requires_grad = True
-        #-----------------------------------------------------------------------
+                if (not self.hyperparams['feature_extract_only']):
+                    for parameter in self.model.fc.parameters():
+                        parameter.requires_grad = True
+        #----------------------------------------------------------------------#
 
         # Model to GPU if available
         self.model.to(self.device)
 
         # Parameters to update
         self.params_to_update = []
-        print("Parameters to learn:")
-        for name, param in self.model.named_parameters():
-            if param.requires_grad == True:
-                self.params_to_update.append(param)
-                print("\t", name)
+        if (not self.hyperparams['feature_extract_only']):
+            print("Parameters to learn:")
+            for name, param in self.model.named_parameters():
+                if param.requires_grad == True:
+                    self.params_to_update.append(param)
+                    print("\t", name)
+
 
 
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
@@ -331,13 +340,13 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
         Returns: Output pandas DataFrame.
         """
         # Get all Nested media files
-        text_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
-        base_paths    = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in text_columns] # Image Dataset column names
+        image_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
+        base_paths    = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
         base_paths    = [base_paths[t]['location_base_uris'][0].replace('file:///', '/') for t in range(len(base_paths))] # Path + media
-        all_img_paths = [[os.path.join(base_path, filename) for filename in inputs.iloc[:,col]] for base_path, col in zip(base_paths, text_columns)]
+        all_img_paths = [[os.path.join(base_path, filename) for filename in inputs.iloc[:,col]] for base_path, col in zip(base_paths, image_columns)]
 
         # Delete columns with path names of nested media files
-        outputs = inputs.remove_columns(text_columns)
+        outputs = inputs.remove_columns(image_columns)
 
         # IF extracting features only without fitting
         if self.hyperparams['feature_extract_only']:
@@ -350,13 +359,16 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                         image = self.pre_process(image) # To pytorch tensor
                         image = image.unsqueeze(0) # 1 x C x H x W
                         feature = self.model(image.to(self.device))
+                        print(feature.shape)
                         feature = torch.flatten(feature)
                         feature = feature.data.cpu().numpy()
+                        break
                     else:
                         logging.warning("No such file {}. Feature vector will be set to all zeros.".format(file_path))
                         feature = np.zeros((self.expected_feature_out_dim))
                     # Collect features
                     features.append(feature)
+                break
 
             outputs = container.DataFrame(features, generate_metadata=True)
 
@@ -372,37 +384,96 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
 
         return base.CallResult(outputs)
 
+
+
     def fit(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
         # Get all Nested media files
-        text_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
-        base_paths    = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in text_columns] # Image Dataset column names
-        base_paths    = [base_paths[t]['location_base_uris'][0].replace('file:///', '/') for t in range(len(base_paths))] # Path + media
-        train_inputs  = [[os.path.join(base_path, filename) for filename in inputs.iloc[:,col]] for base_path, col in zip(base_paths, text_columns)]
-        train_labels  = []
+        image_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
+        label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget') # [2]
+        base_paths     = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
+        base_paths     = [base_paths[t]['location_base_uris'][0].replace('file:///', '/') for t in range(len(base_paths))] # Path + media
+        all_img_paths  = [[os.path.join(base_path, filename) for filename in inputs.iloc[:,col]] for base_path, col in zip(base_paths, image_columns)]
+        all_img_labls  = [[os.path.join(label) for label in inputs.iloc[:,col]] for col in label_columns]
+        # Check if data is matched
+        for idx in range(len(all_img_paths)):
+            if len(all_img_paths[idx]) != len(all_img_labls[idx]):
+                raise Exception('Size mismatch between training inputs and labels!')
 
-        if len(train_inputs) == 0:
+        # Organize data into training format
+        all_train_data = []
+        for idx in range(len(all_img_paths)):
+            img_paths = all_img_paths[idx]
+            img_labls = all_img_labls[idx]
+            for eachIdx in range(len(img_paths)):
+                all_train_data.append([img_paths[eachIdx], img_labls[eachIdx]])
+
+        # del to free memory
+        del all_img_paths, all_img_labls
+
+        if len(all_train_data) == 0:
             raise Exception('Cannot fit when no training data is present.')
-        elif len(train_data) != len(train_labels):
-            raise Exception('Size mismatch between training inputs and labels')
 
         # Set all files
         if timeout is None:
             timeout = np.inf
         if iterations is None:
-            iterations = 100
+            iterations = 10  # Default interations
 
         _minibatch_size = self.hyperparams['minibatch_size']
-        if _minibatch_size > len(train_inputs):
-            _minibatch_size = self._training_size
+        if _minibatch_size > len(all_train_data):
+            _minibatch_size = len(all_train_data)
 
+        # Dataset Parameters
+        train_params = {'batch_size': _minibatch_size,
+                        'shuffle': self.hyperparams['shuffle'],
+                        'num_workers': 4}
+
+        # DataLoader
+        training_set = Dataset(all_data=all_train_data, preprocess=self.pre_process)
+
+        # Data Generators
+        training_generator = data.DataLoader(training_set, **train_params)
+
+        # Optimizer
         if self.hyperparams['optimizer_type'] == 'adam':
-            optimizer_instance = optim.Adam(self._net.parameters(), lr=self._learning_rate, weight_decay=self._weight_decay)
+            optimizer_instance = optim.Adam(self.params_to_update,\
+                                             lr=self.hyperparams['learning_rate'],\
+                                             weight_decay=self.hyperparams['weight_decay'])
         elif self.hyperparams['optimizer_type'] == 'sgd':
-            optimizer_instance = optim.SGD(self._net.parameters(), lr=self._learning_rate, momentum=self._momentum, weight_decay=self._weight_decay)
+            optimizer_instance = optim.SGD(self.params_to_update,\
+                                            lr=self.hyperparams['learning_rate'],\
+                                            momentum=self.hyperparams['momentum'],\
+                                            weight_decay=self.hyperparams['weight_decay'])
         else:
             raise ValueError('Unsupported optimizer_type: {}. Available options: adam, sgd'.format(self.hyperparams['optimizer_type']))
 
+        # Loss function
+        if self.hyperparams['loss_type'] == 'crossentropy':
+            criterion = nn.CrossEntropyLoss().to(self.device)
+        elif self.hyperparams['loss_type'] == 'mse':
+            criterion = nn.MSELoss().to(self.device)
+        else:
+            raise ValueError('Unsupported loss_type: {}. Available options: crossentropy, mse'.format(self.hyperparams['loss_type']))
+
+
+        start = time.time()
+        self._has_finished = False
+        self._iterations_done = 0
+
+        # Set model to training
+        self.model.train()
+
+        for itr in range(interations):
+            epoch_loss = 0.
+            iteration  = 0
+            for local_batch, local_labels in training_generator:
+                iteration += 1
+
+            epoch_loss /= iteration
+            # print('epoch loss: {} at Epoch: {}'.format(epoch_loss, interations))
+
         return base.CallResult(None)
+
 
     def _find_weights_dir(self, key_filename, weights_configs):
         if key_filename in self.volumes:
