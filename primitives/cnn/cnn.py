@@ -3,6 +3,7 @@ from d3m.container import pandas # type: ignore
 from d3m.primitive_interfaces import base, transformer
 from d3m.metadata import base as metadata_base, hyperparams
 from d3m.base import utils as base_utils
+from d3m.container.numpy import ndarray as d3m_ndarray
 
 # Import config file
 from primitives.config_files import config
@@ -30,7 +31,7 @@ __all__ = ('ConvolutionalNeuralNetwork',)
 
 logger  = logging.getLogger(__name__)
 Inputs  = container.DataFrame
-Outputs = container.DataFrame
+Outputs = Union[container.DataFrame, d3m_ndarray]
 
 class Hyperparams(hyperparams.Hyperparams):
     """
@@ -66,12 +67,6 @@ class Hyperparams(hyperparams.Hyperparams):
         description="Size to resize the input image",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
-    loss_type = hyperparams.Enumeration[str](
-        values=['mse', 'crossentropy'],
-        default='mse',
-        description='Type of loss used for the local training (fit) of this primitive.',
-        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
-    )
     output_dim = hyperparams.Constant(
         default=1,
         description='Dimensions of CNN output.',
@@ -88,6 +83,12 @@ class Hyperparams(hyperparams.Hyperparams):
         default='resnet',
         description='Type of convolutional neural network to use.',
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+    )
+    loss_type = hyperparams.Enumeration[str](
+        values=['mse', 'crossentropy', 'l1'],
+        default='mse',
+        description='Type of loss used for the local training (fit) of this primitive.',
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     optimizer_type = hyperparams.Enumeration[str](
         values=['adam', 'sgd'],
@@ -179,7 +180,7 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
             "uris": [config.REPOSITORY]
         },
         "keywords": ["cnn", "vgg", "googlenet", "resnet", "mobilenet", "convolutional neural network", "deep learning"],
-        "installation": [config.INSTALLATION],
+        "installation": [config.INSTALLATION] + _weights_configs,
     })
 
     def __init__(self, *, hyperparams: Hyperparams, volumes: typing.Union[typing.Dict[str, str], None]=None):
@@ -205,6 +206,8 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                                 transforms.CenterCrop(self._img_size),
                                 transforms.ToTensor(),
                                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+        # Is the model fit on data
+        self._fitted = False
 
 
     def _setup_cnn(self):
@@ -326,11 +329,11 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
         # Parameters to update
         self.params_to_update = []
         if (not self.hyperparams['feature_extract_only']):
-            print("Parameters to learn:")
+            logging.info("Parameters to learn:")
             for name, param in self.model.named_parameters():
                 if param.requires_grad == True:
                     self.params_to_update.append(param)
-                    print("\t", name)
+                    logging.info("\t", name)
 
 
 
@@ -348,7 +351,10 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
         # Delete columns with path names of nested media files
         outputs = inputs.remove_columns(image_columns)
 
-        # IF extracting features only without fitting
+        # Set model to evaluate mode
+        self.model.eval()
+
+        # If extracting features only without fitting
         if self.hyperparams['feature_extract_only']:
             features = []
             for idx in range(len(all_img_paths)):
@@ -380,13 +386,38 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                 col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/Attribute",)
                 outputs.metadata            = outputs.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
         #-----------------------------------------------------------------------
-
+        else:
+            # Inference
+            outputs = []
+            for idx in range(len(all_img_paths)):
+                img_paths = all_img_paths[idx]
+                for imagefile in img_paths:
+                    if os.path.isfile(imagefile):
+                        image = Image.open(imagefile)
+                        image = self.pre_process(image) # To pytorch tensor
+                        image = image.unsqueeze(0) # 1 x C x H x W
+                        _out  = self.model(image.to(self.device))
+                        _out  = torch.flatten(_out)
+                        _out  = _out.data.cpu().numpy()
+                    else:
+                        logging.warning("No such file {}. Feature vector will be set to all zeros.".format(file_path))
+                        out_ = np.zeros((1, self.hyperparams['output_dim']))
+                    # Collect features
+                    outputs.append(out_)
+            outputs = np.array(outputs)
+            # Convert to d3m type with metadata
+            outputs = d3m_ndarray(output)
 
         return base.CallResult(outputs)
 
 
-
     def fit(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
+        if self._fitted:
+            return CallResult(None)
+
+        if inputs is None:
+            raise ValueError("Missing training data.")
+
         # Get all Nested media files
         image_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
         label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget') # [2]
@@ -417,7 +448,7 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
         if timeout is None:
             timeout = np.inf
         if iterations is None:
-            iterations = 10  # Default interations
+            iterations = 10 # Default interations
 
         _minibatch_size = self.hyperparams['minibatch_size']
         if _minibatch_size > len(all_train_data):
@@ -433,6 +464,9 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
 
         # Data Generators
         training_generator = data.DataLoader(training_set, **train_params)
+
+        # Set model to training mode
+        model.train()
 
         # Optimizer
         if self.hyperparams['optimizer_type'] == 'adam':
@@ -452,12 +486,13 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
             criterion = nn.CrossEntropyLoss().to(self.device)
         elif self.hyperparams['loss_type'] == 'mse':
             criterion = nn.MSELoss().to(self.device)
+        elif self.hyperparams['loss_type'] == 'l1':
+            criterion = nn.L1Loss().to(self.device)
         else:
-            raise ValueError('Unsupported loss_type: {}. Available options: crossentropy, mse'.format(self.hyperparams['loss_type']))
+            raise ValueError('Unsupported loss_type: {}. Available options: crossentropy, mse, l1'.format(self.hyperparams['loss_type']))
 
-
+        # Train functions
         start = time.time()
-        self._has_finished = False
         self._iterations_done = 0
 
         # Set model to training
@@ -467,10 +502,21 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
             epoch_loss = 0.
             iteration  = 0
             for local_batch, local_labels in training_generator:
-                iteration += 1
-
+                # Zero the parameter gradients
+                optimizer_instance.zero_grad()
+                local_outputs = self.model(local_batch.to(self.device))
+                local_loss = criterion(local_outputs, local_labels)
+                local_loss.backward()
+                optimizer_instance.step()
+                # Increment
+                epoch_loss += local_loss
+                iteration  += 1
+            # Final epoch loss
             epoch_loss /= iteration
-            # print('epoch loss: {} at Epoch: {}'.format(epoch_loss, interations))
+            self._iterations_done += 1
+            logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, interations))
+
+        self._fitted = True
 
         return base.CallResult(None)
 
@@ -478,6 +524,8 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
     def _find_weights_dir(self, key_filename, weights_configs):
         if key_filename in self.volumes:
             _weight_file_path = self.volumes[key_filename]
+        elif os.path.isdir('/static'):
+            _weight_file_path = os.path.join('/static', weights_configs['file_digest'], key_filename)
         else:
             _weight_file_path = os.path.join('.', weights_configs['file_digest'], key_filename)
 
