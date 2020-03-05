@@ -47,15 +47,15 @@ def make_pipeline():
     # Step 4: Extract Attributes
     step_4 = PrimitiveStep(primitive_description=ExtractColumnsBySemanticTypesPrimitive.metadata.query())
     step_4.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.3.produce')
-    step_4.add_output('produce')
     step_4.add_hyperparameter(name='semantic_types', argument_type=ArgumentType.VALUE, data=['https://metadata.datadrivendiscovery.org/types/Attribute'] )
+    step_4.add_output('produce')
     pipeline.add_step(step_4)
 
     # Step 5: Extract Targets
     step_5 = PrimitiveStep(primitive_description=ExtractColumnsBySemanticTypesPrimitive.metadata.query())
     step_5.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
-    step_5.add_output('produce')
     step_5.add_hyperparameter(name='semantic_types', argument_type=ArgumentType.VALUE, data=['https://metadata.datadrivendiscovery.org/types/TrueTarget'] )
+    step_5.add_output('produce')
     pipeline.add_step(step_5)
 
     attributes = 'steps.4.produce'
@@ -63,13 +63,20 @@ def make_pipeline():
 
     # Step 6: SVC
     step_6 = PrimitiveStep(primitive=index.get_primitive('d3m.primitives.classification.decision_tree.SKlearn'))
-    step_6.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER,  data_reference='steps.4.produce')
+    step_6.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference=attributes)
     step_6.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference=targets)
     step_6.add_output('produce')
     pipeline.add_step(step_6)
 
+    # step 7: construct output
+    step_7 = PrimitiveStep(primitive=index.get_primitive('d3m.primitives.data_transformation.construct_predictions.Common'))
+    step_7.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.6.produce')
+    step_7.add_argument(name='reference', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    step_7.add_output('produce')
+    pipeline.add_step(step_7)
+
     # Final Output
-    pipeline.add_output(name='output predictions', data_reference='steps.6.produce')
+    pipeline.add_output(name='output predictions', data_reference='steps.7.produce')
 
     # print(pipeline.to_json())
 

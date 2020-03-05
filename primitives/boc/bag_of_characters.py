@@ -176,7 +176,7 @@ class BagOfCharacters(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hype
 
     def _extract_bag_of_characters_features(self, data:pd.DataFrame):
         """
-        :param Data: (pandas series) A single column.
+        # Input Data: (pandas series) A single column.
         # Output: Ordered dictionary holding bag of character features
         """
         characters_to_check = [ '['+ c + ']' for c in string.printable if c not in ( '\n', '\\', '\v', '\r', '\t', '^')] + ['[\\\\]', '[\^]']

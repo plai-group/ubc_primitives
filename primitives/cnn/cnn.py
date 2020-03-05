@@ -44,7 +44,7 @@ class Hyperparams(hyperparams.Hyperparams):
     )
     train_endToend = hyperparams.UniformBool(
         default=False,
-        description="Whether to train the network end to end or only train the last layer.",
+        description="Whether to train the network end to end or fine-tune the last layer only.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     use_batch_norm = hyperparams.UniformBool(
@@ -220,7 +220,7 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                     weights_path = self._find_weights_dir(key_filename='vgg16_bn-6c64b313.pth', weights_configs=_weights_configs[1])
                 else:
                     weights_path = self._find_weights_dir(key_filename='vgg16-397923af.pth', weights_configs=_weights_configs[0])
-                checkpoint   = torch.load(weights_path)
+                checkpoint = torch.load(weights_path)
                 self.model.load_state_dict(checkpoint)
                 self.expected_feature_out_dim = (512 * 7 * 7)
                 logging.info("Pre-Trained imagenet weights loaded!")
@@ -321,11 +321,12 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                 if (not self.hyperparams['feature_extract_only']):
                     for parameter in self.model.fc.parameters():
                         parameter.requires_grad = True
-        #----------------------------------------------------------------------#
 
+        #----------------------------------------------------------------------#
         # Model to GPU if available
         self.model.to(self.device)
 
+        #----------------------------------------------------------------------#
         # Parameters to update
         self.params_to_update = []
         if (not self.hyperparams['feature_extract_only']):
@@ -335,6 +336,24 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                     self.params_to_update.append(param)
                     logging.info("\t", name)
 
+        #----------------------------------------------------------------------#
+        # Optimizer
+        if self.hyperparams['optimizer_type'] == 'adam':
+            self.optimizer_instance = optim.Adam(self.params_to_update,\
+                                             lr=self.hyperparams['learning_rate'],\
+                                             weight_decay=self.hyperparams['weight_decay'])
+        elif self.hyperparams['optimizer_type'] == 'sgd':
+            self.optimizer_instance = optim.SGD(self.params_to_update,\
+                                            lr=self.hyperparams['learning_rate'],\
+                                            momentum=self.hyperparams['momentum'],\
+                                            weight_decay=self.hyperparams['weight_decay'])
+        else:
+            raise ValueError('Unsupported optimizer_type: {}. Available options: adam, sgd'.format(self.hyperparams['optimizer_type']))
+
+
+        #----------------------------------------------------------------------#
+        # Final output layer
+        self.final_layer =
 
 
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
@@ -354,7 +373,7 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
         # Set model to evaluate mode
         self.model.eval()
 
-        # If extracting features only without fitting
+        # Feature extraction without fitting
         if self.hyperparams['feature_extract_only']:
             features = []
             for idx in range(len(all_img_paths)):
@@ -407,6 +426,8 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
             outputs = np.array(outputs)
             # Convert to d3m type with metadata
             outputs = d3m_ndarray(output)
+        #-----------------------------------------------------------------------
+
 
         return base.CallResult(outputs)
 
@@ -468,19 +489,6 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
         # Set model to training mode
         model.train()
 
-        # Optimizer
-        if self.hyperparams['optimizer_type'] == 'adam':
-            optimizer_instance = optim.Adam(self.params_to_update,\
-                                             lr=self.hyperparams['learning_rate'],\
-                                             weight_decay=self.hyperparams['weight_decay'])
-        elif self.hyperparams['optimizer_type'] == 'sgd':
-            optimizer_instance = optim.SGD(self.params_to_update,\
-                                            lr=self.hyperparams['learning_rate'],\
-                                            momentum=self.hyperparams['momentum'],\
-                                            weight_decay=self.hyperparams['weight_decay'])
-        else:
-            raise ValueError('Unsupported optimizer_type: {}. Available options: adam, sgd'.format(self.hyperparams['optimizer_type']))
-
         # Loss function
         if self.hyperparams['loss_type'] == 'crossentropy':
             criterion = nn.CrossEntropyLoss().to(self.device)
@@ -503,11 +511,11 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
             iteration  = 0
             for local_batch, local_labels in training_generator:
                 # Zero the parameter gradients
-                optimizer_instance.zero_grad()
+                self.optimizer_instance.zero_grad()
                 local_outputs = self.model(local_batch.to(self.device))
                 local_loss = criterion(local_outputs, local_labels)
                 local_loss.backward()
-                optimizer_instance.step()
+                self.optimizer_instance.step()
                 # Increment
                 epoch_loss += local_loss
                 iteration  += 1
@@ -515,6 +523,9 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
             epoch_loss /= iteration
             self._iterations_done += 1
             logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, interations))
+            if epoch_loss < self._fit_threshold:
+                self._has_finished = True
+                return CallResult(None)
 
         self._fitted = True
 

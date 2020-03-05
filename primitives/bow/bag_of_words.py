@@ -108,9 +108,9 @@ class BagOfWords(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperpara
         Returns: Output pandas DataFrame with 27 features.
         """
         # Get all Nested media files
-        text_columns = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
-        base_paths   = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t))['location_base_uris'][0].replace('file:///', '/') for t in text_columns] # Path + media
-        txt_paths    = [[os.path.join(base_path, filename) for filename in inputs.iloc[:,col]] for base_path, col in zip(base_paths, text_columns)]
+        text_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
+        base_paths    = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t))['location_base_uris'][0].replace('file:///', '/') for t in text_columns] # Path + media
+        txt_paths     = [[os.path.join(base_path, filename) for filename in inputs.iloc[:,col]] for base_path, col in zip(base_paths, text_columns)]
         # Extract the data from media files
         all_txts = []
         for path_list in txt_paths:
@@ -134,7 +134,6 @@ class BagOfWords(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperpara
         outputs = inputs.remove_columns(text_columns)
 
         ### Build Features ###
-        # print('Building Features in progress......')
         logging.info('Building Features in progress......')
         df_char = pd.DataFrame()
         counter = 0
@@ -165,7 +164,6 @@ class BagOfWords(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperpara
         # Missing Values
         df_char.fillna(df_char.mean(), inplace=True)
         logging.info('Completion {}/{}'.format(len(inputs), len(inputs)))
-        # print('Completion {}/{}'.format(len(inputs), len(inputs)))
 
         # Features
         feature_vectors = container.DataFrame(df_char, generate_metadata=True)
@@ -178,15 +176,20 @@ class BagOfWords(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperpara
             col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/Attribute",)
             feature_vectors.metadata    = feature_vectors.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
 
+
         # Add the features to the input labels with data removed
         outputs = outputs.append_columns(feature_vectors)
+
+        # for col in outputs.columns:
+        #     outputs[col].fillna(value=0.0, inplace=True)
+
 
         return base.CallResult(outputs)
 
 
     def _extract_bag_of_words_features(self, data:pd.DataFrame):
         """
-        :param Data: (pandas series) A single column.
+        # Input Data: (pandas series) A single column.
         # Output: Ordered dictionary holding bag of words features
         """
         f = OrderedDict()
