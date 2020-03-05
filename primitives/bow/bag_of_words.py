@@ -176,13 +176,8 @@ class BagOfWords(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperpara
             col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/Attribute",)
             feature_vectors.metadata    = feature_vectors.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
 
-
         # Add the features to the input labels with data removed
         outputs = outputs.append_columns(feature_vectors)
-
-        # for col in outputs.columns:
-        #     outputs[col].fillna(value=0.0, inplace=True)
-
 
         return base.CallResult(outputs)
 
