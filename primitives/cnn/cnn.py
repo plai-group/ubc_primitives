@@ -83,7 +83,7 @@ class Hyperparams(hyperparams.Hyperparams):
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     output_dim = hyperparams.Constant(
-        default=1000,
+        default=1,
         description='Dimensions of CNN output.',
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
@@ -91,11 +91,6 @@ class Hyperparams(hyperparams.Hyperparams):
         values=['linear', 'relu', 'tanh', 'sigmoid', 'softmax'],
         default='linear',
         description='Type of activation (non-linearity) following the last layer.',
-        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
-    )
-    return_argmax = hyperparams.UniformBool(
-        default=False,
-        description='Return the argmax/best class in the case of classification',
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
     )
     cnn_type = hyperparams.Enumeration[str](
@@ -210,7 +205,7 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
         super().__init__(hyperparams=hyperparams, volumes=volumes)
         self.hyperparams = hyperparams
         # Use GPU if available
-        use_cuda = torch.cuda.is_available()
+        use_cuda    = torch.cuda.is_available()
         self.device = torch.device("cuda:0" if use_cuda else "cpu")
         # Setup Convolutional Network
         self._setup_cnn()
@@ -406,10 +401,11 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
         """
         Inputs: Dataset list
-        Returns: Output pandas DataFrame.
+        Returns: Pandas DataFramefor feature extraction
+                 or Numpy array for classification or regression task.
         """
         # Get all Nested media files
-        image_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
+        image_columns = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
         base_paths    = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
         base_paths    = [base_paths[t]['location_base_uris'][0].replace('file:///', '/') for t in range(len(base_paths))] # Path + media
         all_img_paths = [[os.path.join(base_path, filename) for filename in inputs.iloc[:,col]] for base_path, col in zip(base_paths, image_columns)]
@@ -419,6 +415,11 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
 
         # Set model to evaluate mode
         self.model.eval()
+
+        return_argmax = False
+        if self.hyperparams['loss_type'] == 'crossentropy':
+            # Multi-class classification, therefore call argmax on inference
+            return_argmax = True
 
         # Feature extraction without fitting
         if self.hyperparams['feature_extract_only']:
@@ -443,7 +444,7 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                         print(feature.shape)
                     else:
                         logging.warning("No such file {}. Feature vector will be set to all zeros.".format(file_path))
-                        feature = np.zeros((1, self.expected_feature_out_dim))
+                        feature = np.zeros((self.expected_feature_out_dim))
                     # Collect features
                     features.append(feature)
                     break
@@ -466,6 +467,9 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
         #-----------------------------------------------------------------------
         else:
             # Inference
+            if not self._fitted and self.hyperparams['output_dim'] != 1000:
+                raise Exception('Please fit the model before calling produce!')
+
             outputs = []
             for idx in range(len(all_img_paths)):
                 img_paths = all_img_paths[idx]
@@ -478,13 +482,13 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                             _out, _, _ = self.model(image.to(self.device), include_last_layer=self.include_last_layer)
                         else:
                             _out  = self.model(image.to(self.device), include_last_layer=self.include_last_layer)
-                        if self.hyperparams['return_argmax']:
+                        if return_argmax:
                             _out = torch.argmax(_out, dim=-1, keepdim=False)
                         _out  = torch.flatten(_out)
                         _out  = _out.data.cpu().numpy()
                     else:
                         logging.warning("No such file {}. Feature vector will be set to all zeros.".format(file_path))
-                        _out = np.zeros((1, self.hyperparams['output_dim']))
+                        _out = np.zeros((self.hyperparams['output_dim']))
                     # Collect features
                     outputs.append(_out)
                     break
@@ -497,6 +501,10 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
 
 
     def fit(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
+        """
+        Inputs: Dataset list
+        Returns: None
+        """
         if self._fitted:
             return CallResult(None)
 
@@ -515,6 +523,11 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
             if len(all_img_paths[idx]) != len(all_img_labls[idx]):
                 raise Exception('Size mismatch between training inputs and labels!')
 
+        if np.array([all_img_labls[0][0]]).size > 1:
+            raise Exception('Primitive accepts labels to be in size (minibatch, 1)!,\
+                             even for multiclass classification problems, it must be in\
+                             the range from 0 to C-1 as the target')
+
         # Organize data into training format
         all_train_data = []
         for idx in range(len(all_img_paths)):
@@ -528,11 +541,6 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
 
         if len(all_train_data) == 0:
             raise Exception('Cannot fit when no training data is present.')
-
-        if len(all_train_data[0][1]) > 1:
-            raise Exception('Primitive accepts labels to be in size (minibatch, 1)!,\
-                             even for multiclass classification problems, it must be in\
-                             the range from 0 to C-1 as the target')
 
         # Set all files
         if timeout is None:
@@ -556,7 +564,7 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
         training_generator = data.DataLoader(training_set, **train_params)
 
         # Set model to training mode
-        model.train()
+        self.model.train()
 
         # Loss function
         if self.hyperparams['loss_type'] == 'crossentropy':
@@ -575,25 +583,40 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
         # Set model to training
         self.model.train()
 
-        for itr in range(interations):
+        for itr in range(iterations):
             epoch_loss = 0.
             iteration  = 0
             for local_batch, local_labels in training_generator:
                 # Zero the parameter gradients
                 self.optimizer_instance.zero_grad()
-                local_outputs = self.model(local_batch.to(self.device))
-                local_loss = criterion(local_outputs, local_labels)
+                # Check Label shapes
+                if len(local_labels.shape) < 2:
+                    local_labels = local_labels.unsqueeze(1)
+                elif len(local_labels.shape) > 2:
+                    raise Exception('Primitive accepts labels to be in size (minibatch, 1)!,\
+                                     even for multiclass classification problems, it must be in\
+                                     the range from 0 to C-1 as the target')
+                # Forward Pass
+                if self.hyperparams['cnn_type'] == 'googlenet':
+                    local_outputs, _, _ = self.model(local_batch.to(self.device), include_last_layer=self.include_last_layer)
+                else:
+                    local_outputs = self.model(local_batch.to(self.device), include_last_layer=self.include_last_layer)
+                # Loss and backward pass
+                local_loss = criterion(local_outputs, local_labels.float())
                 local_loss.backward()
                 self.optimizer_instance.step()
                 # Increment
                 epoch_loss += local_loss
                 iteration  += 1
+
             # Final epoch loss
             epoch_loss /= iteration
             self._iterations_done += 1
-            logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, interations))
-            if epoch_loss < self._fit_threshold:
+            logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, iterations))
+            if epoch_loss < self.hyperparams['fit_threshold']:
                 self._has_finished = True
+                self._fitted = True
+
                 return CallResult(None)
 
         self._fitted = True

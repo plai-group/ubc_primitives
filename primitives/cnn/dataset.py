@@ -20,6 +20,7 @@ class Dataset(data.Dataset):
         # Load data and get label
         image = Image.open(img_path)
         image = self.pre_process(image)
+        label = float(label)
 
         return image, label
 
