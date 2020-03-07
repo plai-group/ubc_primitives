@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class GoogLeNet(nn.Module):
@@ -75,7 +76,7 @@ class GoogLeNet(nn.Module):
             x = torch.cat((x_ch0, x_ch1, x_ch2), 1)
         return x
 
-    def _forward(self, x):
+    def _forward(self, x, include_last_layer):
         # type: (Tensor) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor]]
         # N x 3 x 224 x 224
         x = self.conv1(x)
@@ -129,16 +130,17 @@ class GoogLeNet(nn.Module):
             x = torch.flatten(x, 1)
             # N x 1024
             x = self.dropout(x)
-            x = self.fc(x)
-            # N x 1000 (num_classes)
+            if include_last_layer:
+                x = self.fc(x)
+                # N x 1000 (num_classes)
 
         return x, aux1, aux2
 
 
-    def forward(self, x):
+    def forward(self, x, include_last_layer):
         # type: (Tensor) -> GoogLeNetOutputs
         x = self._transform_input(x)
-        x, aux1, aux2 = self._forward(x)
+        x, aux1, aux2 = self._forward(x, include_last_layer)
 
         return x, aux1, aux2
 

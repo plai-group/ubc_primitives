@@ -143,15 +143,16 @@ class MobileNet(nn.Module):
                 nn.init.normal_(m.weight, 0, 0.01)
                 nn.init.zeros_(m.bias)
 
-    def _forward_impl(self, x):
+    def _forward_impl(self, x, include_last_layer):
         # This exists since TorchScript doesn't support inheritance, so the superclass method
         # (this one) needs to have a name other than `forward` that can be accessed in a subclass
         x = self.features(x)
         if self.include_top:
             x = x.mean([2, 3])
-            x = self.classifier(x)
+            if include_last_layer:
+                x = self.classifier(x)
 
         return x
 
-    def forward(self, x):
-        return self._forward_impl(x)
+    def forward(self, x, include_last_layer):
+        return self._forward_impl(x, include_last_layer)

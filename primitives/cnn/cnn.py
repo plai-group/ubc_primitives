@@ -14,6 +14,7 @@ import time
 import typing
 import logging
 import numpy as np
+from PIL import Image
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -31,7 +32,21 @@ __all__ = ('ConvolutionalNeuralNetwork',)
 
 logger  = logging.getLogger(__name__)
 Inputs  = container.DataFrame
-Outputs = Union[container.DataFrame, d3m_ndarray]
+Outputs = typing.Union[container.DataFrame, d3m_ndarray]
+
+
+class WeightsDirPrimitive:
+    """
+    Creates a directory for weights if not present in local.
+    """
+    def __init__(self):
+        self._there = False
+
+    @staticmethod
+    def _weights_data_dir(dir_name='/static'):
+        if not os.path.isdir(dir_name):
+            os.mkdir(dir_name)
+
 
 class Hyperparams(hyperparams.Hyperparams):
     """
@@ -58,7 +73,7 @@ class Hyperparams(hyperparams.Hyperparams):
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     include_top = hyperparams.UniformBool(
-        default=False,
+        default=True,
         description="Whether to use top layers, i.e. final fully connected layers",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
@@ -68,7 +83,7 @@ class Hyperparams(hyperparams.Hyperparams):
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     output_dim = hyperparams.Constant(
-        default=1,
+        default=1000,
         description='Dimensions of CNN output.',
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
@@ -76,6 +91,11 @@ class Hyperparams(hyperparams.Hyperparams):
         values=['linear', 'relu', 'tanh', 'sigmoid', 'softmax'],
         default='linear',
         description='Type of activation (non-linearity) following the last layer.',
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+    )
+    return_argmax = hyperparams.UniformBool(
+        default=False,
+        description='Return the argmax/best class in the case of classification',
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
     )
     cnn_type = hyperparams.Enumeration[str](
@@ -128,12 +148,13 @@ class Hyperparams(hyperparams.Hyperparams):
     )
 
 
-class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperparams]):
+class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperparams], WeightsDirPrimitive):
     """
     Convolutional Neural Network primitive using PyTorch framework.
     Used to extract deep features from images.
-    It can be used as a pre-trained feature extractor, in this case set top layers to False
-    or fine-tunned to fit new data.
+    It can be used as a pre-trained feature extractor, to extract features from
+    convolutional layers or the fully connected layers by setting include_top.
+    It can also be fine-tunned to fit new data.
     Available pre-trained CNN models are:
       - VGG-16
       - VGG-16 with Batch-Norm
@@ -142,6 +163,7 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
       - MobileNet (A Light weight CNN model)
     All available models are pre-trained on ImageNet.
     """
+    # Metadata
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     global _weights_configs
     _weights_configs = [{'type': 'FILE',
@@ -165,7 +187,8 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                           'file_uri': 'https://download.pytorch.org/models/resnet34-333f7ec4.pth',
                           'file_digest': '333f7ec4c6338da2cbed37f1fc0445f9624f1355633fa1d7eab79a91084c6cef'},
     ]
-
+    # Check if the weights directory exist, else create one. Default: /static
+    WeightsDirPrimitive._weights_data_dir()
     metadata = hyperparams.base.PrimitiveMetadata({
         "id": "88152884-dc0c-40e5-ba07-6a6c9cd45ef1",
         "version": config.VERSION,
@@ -211,6 +234,12 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
 
 
     def _setup_cnn(self):
+        #----------------------------------------------------------------------#
+        if self.hyperparams['feature_extract_only'] and self.hyperparams['include_top']:
+            self.include_last_layer = False
+        else:
+            self.include_last_layer = True
+
         #--------------------------------VGG-----------------------------------#
         if self.hyperparams['cnn_type'] == 'vgg':
             # Get CNN Model
@@ -223,7 +252,8 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                 checkpoint = torch.load(weights_path)
                 self.model.load_state_dict(checkpoint)
                 self.expected_feature_out_dim = (512 * 7 * 7)
-                logging.info("Pre-Trained imagenet weights loaded!")
+                #logging.info("Pre-Trained imagenet weights loaded!")
+                print("Pre-Trained imagenet weights loaded!")
 
             # Final layer Augmentation
             if (not self.hyperparams['feature_extract_only']) and self.hyperparams['output_dim'] != 1000:
@@ -232,6 +262,11 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                 # Intialize with random weights
                 nn.init.normal_(self.model.classifier[6].weight, 0, 0.01)
                 nn.init.constant_(self.model.classifier[6].bias, 0)
+
+            # Remove final layer if needed
+            if (not self.include_last_layer) and self.hyperparams['feature_extract_only']:
+                clsfy_layers = self.model.classifier
+                self.model.classifier = nn.Sequential( *list(clsfy_layers)[:-1])
 
             # Freeze all layers except the last layer and gather params
             if not self.hyperparams['train_endToend']:
@@ -325,6 +360,7 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
         #----------------------------------------------------------------------#
         # Model to GPU if available
         self.model.to(self.device)
+        print(self.model)
 
         #----------------------------------------------------------------------#
         # Parameters to update
@@ -338,22 +374,33 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
 
         #----------------------------------------------------------------------#
         # Optimizer
-        if self.hyperparams['optimizer_type'] == 'adam':
-            self.optimizer_instance = optim.Adam(self.params_to_update,\
-                                             lr=self.hyperparams['learning_rate'],\
-                                             weight_decay=self.hyperparams['weight_decay'])
-        elif self.hyperparams['optimizer_type'] == 'sgd':
-            self.optimizer_instance = optim.SGD(self.params_to_update,\
-                                            lr=self.hyperparams['learning_rate'],\
-                                            momentum=self.hyperparams['momentum'],\
-                                            weight_decay=self.hyperparams['weight_decay'])
-        else:
-            raise ValueError('Unsupported optimizer_type: {}. Available options: adam, sgd'.format(self.hyperparams['optimizer_type']))
+        if (not self.hyperparams['feature_extract_only']):
+            if self.hyperparams['optimizer_type'] == 'adam':
+                self.optimizer_instance = optim.Adam(self.params_to_update,\
+                                                 lr=self.hyperparams['learning_rate'],\
+                                                 weight_decay=self.hyperparams['weight_decay'])
+            elif self.hyperparams['optimizer_type'] == 'sgd':
+                self.optimizer_instance = optim.SGD(self.params_to_update,\
+                                                lr=self.hyperparams['learning_rate'],\
+                                                momentum=self.hyperparams['momentum'],\
+                                                weight_decay=self.hyperparams['weight_decay'])
+            else:
+                raise ValueError('Unsupported optimizer_type: {}. Available options: adam, sgd'.format(self.hyperparams['optimizer_type']))
 
 
         #----------------------------------------------------------------------#
         # Final output layer
-        self.final_layer =
+        if self.hyperparams['last_activation_type']   == 'relu':
+            self.final_layer = nn.ReLU(inplace=True).to(self.device)
+        elif self.hyperparams['last_activation_type'] == 'tanh':
+            self.final_layer = nn.Tanh().to(self.device)
+        elif self.hyperparams['last_activation_type'] == 'sigmoid':
+            self.final_layer = nn.Sigmoid().to(self.device)
+        elif self.hyperparams['last_activation_type'] == 'softmax':
+            self.final_layer = nn.Softmax(dim=1).to(self.device)
+        else:
+            self.final_layer = None
+        #----------------------------------------------------------------------#
 
 
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
@@ -383,27 +430,39 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                         image = Image.open(imagefile)
                         image = self.pre_process(image) # To pytorch tensor
                         image = image.unsqueeze(0) # 1 x C x H x W
-                        feature = self.model(image.to(self.device))
-                        print(feature.shape)
-                        feature = torch.flatten(feature)
+                        if self.hyperparams['cnn_type'] == 'googlenet':
+                            feature, _, _ = self.model(image.to(self.device), include_last_layer=self.include_last_layer)
+                        else:
+                            feature = self.model(image.to(self.device), include_last_layer=self.include_last_layer)
+                        if self.final_layer != None:
+                            feature = self.final_layer(feature)
+                        if len(feature.shape) > 1:
+                            feature = torch.flatten(feature)
                         feature = feature.data.cpu().numpy()
-                        break
+
+                        print(feature.shape)
                     else:
                         logging.warning("No such file {}. Feature vector will be set to all zeros.".format(file_path))
-                        feature = np.zeros((self.expected_feature_out_dim))
+                        feature = np.zeros((1, self.expected_feature_out_dim))
                     # Collect features
                     features.append(feature)
-                break
+                    break
 
-            outputs = container.DataFrame(features, generate_metadata=True)
+            features = d3m_ndarray(features)
+
+            feature_vectors = container.DataFrame(features, generate_metadata=True)
 
             # Update Metadata for each feature vector column
-            for col in range(outputs.shape[1]):
-                col_dict = dict(outputs.metadata.query((metadata_base.ALL_ELEMENTS, col)))
+            for col in range(feature_vectors.shape[1]):
+                col_dict = dict(feature_vectors.metadata.query((metadata_base.ALL_ELEMENTS, col)))
                 col_dict['structural_type'] = type(1.0)
                 col_dict['name']            = "vector_" + str(col)
                 col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/Attribute",)
-                outputs.metadata            = outputs.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
+                feature_vectors.metadata    = feature_vectors.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
+
+
+            # Add the features to the input labels with data removed
+            outputs = outputs.append_columns(feature_vectors)
         #-----------------------------------------------------------------------
         else:
             # Inference
@@ -415,17 +474,22 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                         image = Image.open(imagefile)
                         image = self.pre_process(image) # To pytorch tensor
                         image = image.unsqueeze(0) # 1 x C x H x W
-                        _out  = self.model(image.to(self.device))
+                        if self.hyperparams['cnn_type'] == 'googlenet':
+                            _out, _, _ = self.model(image.to(self.device), include_last_layer=self.include_last_layer)
+                        else:
+                            _out  = self.model(image.to(self.device), include_last_layer=self.include_last_layer)
+                        if self.hyperparams['return_argmax']:
+                            _out = torch.argmax(_out, dim=-1, keepdim=False)
                         _out  = torch.flatten(_out)
                         _out  = _out.data.cpu().numpy()
                     else:
                         logging.warning("No such file {}. Feature vector will be set to all zeros.".format(file_path))
-                        out_ = np.zeros((1, self.hyperparams['output_dim']))
+                        _out = np.zeros((1, self.hyperparams['output_dim']))
                     # Collect features
-                    outputs.append(out_)
-            outputs = np.array(outputs)
+                    outputs.append(_out)
+                    break
             # Convert to d3m type with metadata
-            outputs = d3m_ndarray(output)
+            outputs = d3m_ndarray(outputs)
         #-----------------------------------------------------------------------
 
 
@@ -464,6 +528,11 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
 
         if len(all_train_data) == 0:
             raise Exception('Cannot fit when no training data is present.')
+
+        if len(all_train_data[0][1]) > 1:
+            raise Exception('Primitive accepts labels to be in size (minibatch, 1)!,\
+                             even for multiclass classification problems, it must be in\
+                             the range from 0 to C-1 as the target')
 
         # Set all files
         if timeout is None:

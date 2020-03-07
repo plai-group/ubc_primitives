@@ -19,12 +19,11 @@ class VGG16(nn.Module):
                                          nn.Linear(4096, 4096),
                                          nn.ReLU(True),
                                          nn.Dropout(),
-                                         nn.Linear(4096, 1000),
-        )
-
+                                         nn.Linear(4096, 1000),)
         self._initialize_weights()
 
-    def forward(self, x):
+
+    def forward(self, x, include_last_layer):
         x = self.features(x)
         if self.include_top:
             x = self.avgpool(x)
@@ -32,6 +31,7 @@ class VGG16(nn.Module):
             x = self.classifier(x)
 
         return x
+
 
     def _make_layers(self, cfg, batch_norm=False):
         layers = []

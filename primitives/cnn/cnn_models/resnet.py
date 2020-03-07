@@ -176,7 +176,7 @@ class ResNeT(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def _forward_impl(self, x):
+    def _forward_impl(self, x, include_last_layer):
         # See note [TorchScript super()]
         x = self.conv1(x)
         x = self.bn1(x)
@@ -191,9 +191,10 @@ class ResNeT(nn.Module):
         if self.include_top:
             x = self.avgpool(x)
             x = torch.flatten(x, 1)
-            x = self.fc(x)
+            if include_last_layer:
+                x = self.fc(x)
 
         return x
 
-    def forward(self, x):
-        return self._forward_impl(x)
+    def forward(self, x, include_last_layer):
+        return self._forward_impl(x, include_last_layer=include_last_layer)
