@@ -1,9 +1,10 @@
 from d3m import container
 from d3m.container import pandas # type: ignore
-from d3m.primitive_interfaces import base, transformer
-from d3m.metadata import base as metadata_base, hyperparams
+from d3m.primitive_interfaces import base
+from d3m.metadata import base as metadata_base, hyperparams, params
 from d3m.base import utils as base_utils
-from d3m.container.numpy import ndarray as d3m_ndarray
+from d3m.primitive_interfaces.supervised_learning import SupervisedLearnerPrimitiveBase
+from d3m import utils as d3m_utils
 
 # Import config file
 from primitives.config_files import config
@@ -11,15 +12,16 @@ from primitives.config_files import config
 # Import relevant libraries
 import os
 import time
-import typing
 import logging
 import numpy as np
+from collections import OrderedDict
 from PIL import Image
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils import data
 import torchvision.transforms as transforms
+from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
 from primitives.cnn.dataset import Dataset
 
 # Import CNN models
@@ -29,10 +31,10 @@ from primitives.cnn.cnn_models.googlenet import GoogLeNet
 from primitives.cnn.cnn_models.mobilenet import MobileNet
 
 __all__ = ('ConvolutionalNeuralNetwork',)
-
 logger  = logging.getLogger(__name__)
+
 Inputs  = container.DataFrame
-Outputs = typing.Union[container.DataFrame, d3m_ndarray]
+Outputs = container.DataFrame
 
 
 class WeightsDirPrimitive:
@@ -46,6 +48,10 @@ class WeightsDirPrimitive:
     def _weights_data_dir(dir_name='/static'):
         if not os.path.isdir(dir_name):
             os.mkdir(dir_name)
+
+
+class Params(params.Params):
+    None
 
 
 class Hyperparams(hyperparams.Hyperparams):
@@ -68,7 +74,7 @@ class Hyperparams(hyperparams.Hyperparams):
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     feature_extract_only = hyperparams.UniformBool(
-        default=False,
+        default=True,
         description="Whether to use CNN as feature extraction only without training",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
@@ -143,7 +149,7 @@ class Hyperparams(hyperparams.Hyperparams):
     )
 
 
-class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperparams], WeightsDirPrimitive):
+class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperparams], WeightsDirPrimitive):
     """
     Convolutional Neural Network primitive using PyTorch framework.
     Used to extract deep features from images.
@@ -184,7 +190,7 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
     ]
     # Check if the weights directory exist, else create one. Default: /static
     WeightsDirPrimitive._weights_data_dir()
-    metadata = hyperparams.base.PrimitiveMetadata({
+    metadata = metadata_base.PrimitiveMetadata({
         "id": "88152884-dc0c-40e5-ba07-6a6c9cd45ef1",
         "version": config.VERSION,
         "name": "Convolutional Neural Network",
@@ -201,9 +207,11 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
         "installation": [config.INSTALLATION] + _weights_configs,
     })
 
-    def __init__(self, *, hyperparams: Hyperparams, volumes: typing.Union[typing.Dict[str, str], None]=None):
+    def __init__(self, *, hyperparams: Hyperparams, volumes: Union[Dict[str, str], None]=None):
         super().__init__(hyperparams=hyperparams, volumes=volumes)
         self.hyperparams = hyperparams
+        self._training_inputs:   Inputs = None
+        self._training_outputs: Outputs = None
         # Use GPU if available
         use_cuda    = torch.cuda.is_available()
         self.device = torch.device("cuda:0" if use_cuda else "cpu")
@@ -223,10 +231,15 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                                 transforms.Resize(255),
                                 transforms.CenterCrop(self._img_size),
                                 transforms.ToTensor(),
-                                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+                                transforms.Normalize(mean=[0.485, 0.456, 0.406],\
+                                                     std=[0.229, 0.224, 0.225])])
         # Is the model fit on data
         self._fitted = False
 
+    def set_training_data(self, *, inputs: Inputs, outputs: Outputs) -> None:
+        self._training_inputs   = inputs
+        self._training_outputs  = outputs
+        self._new_training_data = True
 
     def _setup_cnn(self):
         #----------------------------------------------------------------------#
@@ -355,7 +368,7 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
         #----------------------------------------------------------------------#
         # Model to GPU if available
         self.model.to(self.device)
-        print(self.model)
+        # print(self.model)
 
         #----------------------------------------------------------------------#
         # Parameters to update
@@ -447,10 +460,6 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                         feature = np.zeros((self.expected_feature_out_dim))
                     # Collect features
                     features.append(feature)
-                    break
-
-            features = d3m_ndarray(features)
-
             feature_vectors = container.DataFrame(features, generate_metadata=True)
 
             # Update Metadata for each feature vector column
@@ -461,7 +470,6 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                 col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/Attribute",)
                 feature_vectors.metadata    = feature_vectors.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
 
-
             # Add the features to the input labels with data removed
             outputs = outputs.append_columns(feature_vectors)
         #-----------------------------------------------------------------------
@@ -470,7 +478,11 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
             if not self._fitted and self.hyperparams['output_dim'] != 1000:
                 raise Exception('Please fit the model before calling produce!')
 
+<<<<<<< HEAD
+            predictions = []
+=======
             outputs = []
+>>>>>>> origin/master
             for idx in range(len(all_img_paths)):
                 img_paths = all_img_paths[idx]
                 for imagefile in img_paths:
@@ -490,17 +502,40 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
                         logging.warning("No such file {}. Feature vector will be set to all zeros.".format(file_path))
                         _out = np.zeros((self.hyperparams['output_dim']))
                     # Collect features
-                    outputs.append(_out)
-                    break
-            # Convert to d3m type with metadata
-            outputs = d3m_ndarray(outputs)
-        #-----------------------------------------------------------------------
+                    predictions.append(_out)
 
+            # Convert to d3m type with metadata
+            preds = container.DataFrame(predictions, generate_metadata=True)
+            preds.columns = ["return_result"]
+
+            # Update Metadata for each feature vector column
+            for col in range(preds.shape[1]):
+                col_dict = dict(preds.metadata.query((metadata_base.ALL_ELEMENTS, col)))
+                col_dict['structural_type'] = type(1.0)
+                col_dict['name']            = 'return_result'
+                col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/PredictedTarget",)
+                preds.metadata        = preds.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
+
+            # Add the features to the input labels with data removed
+            outputs = outputs.append_columns(preds)
+        #-----------------------------------------------------------------------
 
         return base.CallResult(outputs)
 
 
+<<<<<<< HEAD
+    def get_params(self) -> Params:
+        return None
+
+
+    def set_params(self, *, params: Params) -> None:
+        return None
+
+
+    def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
+=======
     def fit(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
+>>>>>>> origin/master
         """
         Inputs: Dataset list
         Returns: None
@@ -508,16 +543,19 @@ class ConvolutionalNeuralNetwork(transformer.TransformerPrimitiveBase[Inputs, Ou
         if self._fitted:
             return CallResult(None)
 
-        if inputs is None:
+        if self._training_inputs is None:
             raise ValueError("Missing training data.")
 
         # Get all Nested media files
-        image_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
-        label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget') # [2]
-        base_paths     = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
+        image_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
+        label_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget') # [2]
+        if len(label_columns) == 0:
+            label_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget') # [2]
+        base_paths     = [self._training_inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
         base_paths     = [base_paths[t]['location_base_uris'][0].replace('file:///', '/') for t in range(len(base_paths))] # Path + media
-        all_img_paths  = [[os.path.join(base_path, filename) for filename in inputs.iloc[:,col]] for base_path, col in zip(base_paths, image_columns)]
-        all_img_labls  = [[os.path.join(label) for label in inputs.iloc[:,col]] for col in label_columns]
+        all_img_paths  = [[os.path.join(base_path, filename) for filename in self._training_inputs.iloc[:, col]] for base_path, col in zip(base_paths, image_columns)]
+        all_img_labls  = [[os.path.join(label) for label in self._training_inputs.iloc[:, col]] for col in label_columns]
+
         # Check if data is matched
         for idx in range(len(all_img_paths)):
             if len(all_img_paths[idx]) != len(all_img_labls[idx]):
