@@ -665,6 +665,5 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
     def get_params(self) -> Params:
         return None
 
-
     def set_params(self, *, params: Params) -> None:
         return None
