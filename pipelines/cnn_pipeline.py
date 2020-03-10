@@ -34,9 +34,10 @@ def make_pipeline_1():
 
     # Step 2: Feature Extraction Primitive
     step_2 = PrimitiveStep(primitive=ConvolutionalNeuralNetwork)
-    step_2.add_hyperparameter(name='cnn_type',    argument_type=ArgumentType.VALUE, data='mobilenet')
     step_2.add_hyperparameter(name='include_top', argument_type=ArgumentType.VALUE, data=False)
-    step_2.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    step_2.add_hyperparameter(name='cnn_type',    argument_type=ArgumentType.VALUE, data='mobilenet')
+    step_2.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    step_2.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_2.add_output('produce')
     pipeline.add_step(step_2)
 
@@ -55,8 +56,8 @@ def make_pipeline_1():
 
     # Step 5: Extract Targets
     step_5 = PrimitiveStep(primitive_description=ExtractColumnsBySemanticTypesPrimitive.metadata.query())
-    step_5.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_5.add_hyperparameter(name='semantic_types', argument_type=ArgumentType.VALUE, data=['https://metadata.datadrivendiscovery.org/types/SuggestedTarget'])
+    step_5.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_5.add_output('produce')
     pipeline.add_step(step_5)
 
@@ -130,23 +131,22 @@ def make_pipeline_2():
     step_5 = PrimitiveStep(primitive=ConvolutionalNeuralNetwork)
     step_5.add_hyperparameter(name='cnn_type',   argument_type=ArgumentType.VALUE, data='mobilenet')
     step_5.add_hyperparameter(name='output_dim', argument_type=ArgumentType.VALUE, data=1)
+    step_5.add_hyperparameter(name='num_iterations', argument_type=ArgumentType.VALUE, data=150)
     step_5.add_hyperparameter(name='feature_extract_only', argument_type=ArgumentType.VALUE, data=False)
-    step_5.add_argument(name='inputs',     argument_type=ArgumentType.CONTAINER, data_reference=attributes)
-    step_5.add_argument(name='outputs',    argument_type=ArgumentType.CONTAINER, data_reference=targets)
-    step_5.add_argument(name='iterations', argument_type=ArgumentType.VALUE,     data=200)
-    step_5.add_output('fit')
+    step_5.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference=attributes)
+    step_5.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference=targets)
     step_5.add_output('produce')
     pipeline.add_step(step_5)
 
     # step 6: construct output
     step_6 = PrimitiveStep(primitive=index.get_primitive('d3m.primitives.data_transformation.construct_predictions.Common'))
-    step_6.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.5.produce')
+    step_6.add_argument(name='inputs',    argument_type=ArgumentType.CONTAINER, data_reference='steps.5.produce')
     step_6.add_argument(name='reference', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_6.add_output('produce')
     pipeline.add_step(step_6)
 
     # Final Output
-    pipeline.add_output(name='output predictions', data_reference='steps.7.produce')
+    pipeline.add_output(name='output predictions', data_reference='steps.6.produce')
 
     # print(pipeline.to_json())
 

@@ -103,7 +103,7 @@ class Hyperparams(hyperparams.Hyperparams):
         values=['vgg', 'googlenet', 'mobilenet', 'resnet'],
         default='resnet',
         description='Type of convolutional neural network to use.',
-        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/TuningParameter'],
     )
     loss_type = hyperparams.Enumeration[str](
         values=['mse', 'crossentropy', 'l1'],
@@ -125,7 +125,7 @@ class Hyperparams(hyperparams.Hyperparams):
     learning_rate = hyperparams.Hyperparameter[float](
         default=0.0001,
         description='Learning rate used during training (fit).',
-        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/TuningParameter']
     )
     momentum = hyperparams.Hyperparameter[float](
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
@@ -147,7 +147,11 @@ class Hyperparams(hyperparams.Hyperparams):
         default = 1e-5,
         description='Threshold of loss value to early stop training (fit).'
     )
-
+    num_iterations = hyperparams.Hyperparameter[int](
+        default=100,
+        description="Number of iterations to train the model.",
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+    )
 
 class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperparams], WeightsDirPrimitive):
     """
@@ -164,6 +168,8 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
       - MobileNet (A Light weight CNN model)
     All available models are pre-trained on ImageNet.
     """
+    # Check if the weights directory exist, else create one. Default: /static
+    WeightsDirPrimitive._weights_data_dir()
     # Metadata
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     global _weights_configs
@@ -188,8 +194,6 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
                           'file_uri': 'https://download.pytorch.org/models/resnet34-333f7ec4.pth',
                           'file_digest': '333f7ec4c6338da2cbed37f1fc0445f9624f1355633fa1d7eab79a91084c6cef'},
     ]
-    # Check if the weights directory exist, else create one. Default: /static
-    WeightsDirPrimitive._weights_data_dir()
     metadata = metadata_base.PrimitiveMetadata({
         "id": "88152884-dc0c-40e5-ba07-6a6c9cd45ef1",
         "version": config.VERSION,
@@ -201,10 +205,11 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         "source": {
             "name": config.D3M_PERFORMER_TEAM,
             "contact": config.D3M_CONTACT,
-            "uris": [config.REPOSITORY]
+            "uris": [config.REPOSITORY],
         },
         "keywords": ["cnn", "vgg", "googlenet", "resnet", "mobilenet", "convolutional neural network", "deep learning"],
         "installation": [config.INSTALLATION] + _weights_configs,
+        "hyperparams_to_tune": ['learning_rate', 'cnn_type']
     })
 
     def __init__(self, *, hyperparams: Hyperparams, volumes: Union[Dict[str, str], None]=None):
@@ -221,15 +226,27 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         self._img_size = int(self.hyperparams['img_resize'])
         if self.hyperparams['cnn_type'] == 'googlenet':
             # Normalize done inside GoogLeNet model
+            self.val_pre_process = transforms.Compose([
+                                    transforms.Resize(255),
+                                    transforms.RandomCrop(self._img_size),
+                                    transforms.ToTensor()])
+            # Random Crop during training
             self.pre_process = transforms.Compose([
                                 transforms.Resize(255),
                                 transforms.CenterCrop(self._img_size),
                                 transforms.ToTensor()])
         else:
             # All other pre-trained models are normalized in the same way
+            self.val_pre_process = transforms.Compose([
+                                    transforms.Resize(255),
+                                    transforms.RandomCrop(self._img_size),
+                                    transforms.ToTensor(),
+                                    transforms.Normalize(mean=[0.485, 0.456, 0.406],\
+                                                         std=[0.229, 0.224, 0.225])])
+            # Random Crop during training
             self.pre_process = transforms.Compose([
                                 transforms.Resize(255),
-                                transforms.CenterCrop(self._img_size),
+                                transforms.RandomCrop(self._img_size),
                                 transforms.ToTensor(),
                                 transforms.Normalize(mean=[0.485, 0.456, 0.406],\
                                                      std=[0.229, 0.224, 0.225])])
@@ -410,12 +427,11 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             self.final_layer = None
         #----------------------------------------------------------------------#
 
-    def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
+    def fit(self, *, timeout: float = None) -> base.CallResult[None]:
         """
         Inputs: Dataset list
         Returns: None
         """
-        print(iterations)
         if self._fitted:
             return CallResult(None)
 
@@ -457,10 +473,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             raise Exception('Cannot fit when no training data is present.')
 
         # Set all files
-        if timeout is None:
-            timeout = np.inf
-        if iterations is None:
-            iterations = 100 # Default interations
+        _iterations = self.hyperparams['num_iterations']
 
         _minibatch_size = self.hyperparams['minibatch_size']
         if _minibatch_size > len(all_train_data):
@@ -497,8 +510,8 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         # Set model to training
         self.model.train()
 
-        for itr in range(iterations):
-            epoch_loss = 0.
+        for itr in range(_iterations):
+            epoch_loss = 0.0
             iteration  = 0
             for local_batch, local_labels in training_generator:
                 # Zero the parameter gradients
@@ -536,19 +549,17 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             # Final epoch loss
             epoch_loss /= iteration
             self._iterations_done += 1
-            logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, iterations))
+            logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
             # print('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
             if epoch_loss < self.hyperparams['fit_threshold']:
                 self._fitted = True
-
                 return CallResult(None)
-
         self._fitted = True
 
         return base.CallResult(None)
 
 
-    def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
+    def produce(self, *, inputs: Inputs, timeout: float = None) -> base.CallResult[Outputs]:
         """
         Inputs: Dataset list
         Returns: Pandas DataFramefor feature extraction
@@ -579,7 +590,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
                 for imagefile in img_paths:
                     if os.path.isfile(imagefile):
                         image = Image.open(imagefile)
-                        image = self.pre_process(image) # To pytorch tensor
+                        image = self.val_pre_process(image) # To pytorch tensor
                         image = image.unsqueeze(0) # 1 x C x H x W
                         if self.hyperparams['cnn_type'] == 'googlenet':
                             feature, _, _ = self.model(image.to(self.device), include_last_layer=self.include_last_layer)
@@ -620,7 +631,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
                 for imagefile in img_paths:
                     if os.path.isfile(imagefile):
                         image = Image.open(imagefile)
-                        image = self.pre_process(image) # To pytorch tensor
+                        image = self.val_pre_process(image) # To pytorch tensor
                         image = image.unsqueeze(0) # 1 x C x H x W
                         if self.hyperparams['cnn_type'] == 'googlenet':
                             _out, _, _ = self.model(image.to(self.device), include_last_layer=self.include_last_layer)
@@ -646,7 +657,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
                 col_dict['structural_type'] = type(1.0)
                 col_dict['name']            = 'return_result'
                 col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/PredictedTarget",)
-                preds.metadata        = preds.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
+                preds.metadata = preds.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
 
             # Add the features to the input labels with data removed
             outputs = outputs.append_columns(preds)

@@ -93,11 +93,13 @@ class TestConvolutionalNeuralNetwork(unittest.TestCase):
                 {
                 'feature_extract_only': False,
                 'cnn_type': 'mobilenet',
+                'num_iterations': 150,
+                'output_dim': 1
                 }
         )
         primitive = ConvolutionalNeuralNetwork(hyperparams=hyperparams_class, volumes=all_weights)
         primitive.set_training_data(inputs = dataframe.value, outputs = extractP.value)
-        test_out  = primitive.fit(iterations=100)
+        test_out  = primitive.fit()
         test_out  = primitive.produce(inputs=score.value)
         test_out  = test_out.value
 
