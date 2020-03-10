@@ -83,12 +83,12 @@ class Hyperparams(hyperparams.Hyperparams):
         description="Whether to use top layers, i.e. final fully connected layers",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
-    img_resize = hyperparams.Constant(
+    img_resize = hyperparams.Hyperparameter[int](
         default=224,
         description="Size to resize the input image",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
-    output_dim = hyperparams.Constant(
+    output_dim = hyperparams.Hyperparameter[int](
         default=1000,
         description='Dimensions of CNN output.',
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
@@ -117,7 +117,7 @@ class Hyperparams(hyperparams.Hyperparams):
         description='Type of optimizer used during training (fit).',
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
     )
-    minibatch_size = hyperparams.Constant(
+    minibatch_size = hyperparams.Hyperparameter[int](
         default=32,
         description='Minibatch size used during training (fit).',
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],

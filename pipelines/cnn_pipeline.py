@@ -34,8 +34,9 @@ def make_pipeline_1():
 
     # Step 2: Feature Extraction Primitive
     step_2 = PrimitiveStep(primitive=ConvolutionalNeuralNetwork)
-    step_2.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    step_2.add_hyperparameter(name='cnn_type',    argument_type=ArgumentType.VALUE, data='mobilenet')
     step_2.add_hyperparameter(name='include_top', argument_type=ArgumentType.VALUE, data=False)
+    step_2.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_2.add_output('produce')
     pipeline.add_step(step_2)
 
@@ -47,8 +48,8 @@ def make_pipeline_1():
 
     # Step 4: Extract Attributes
     step_4 = PrimitiveStep(primitive_description=ExtractColumnsBySemanticTypesPrimitive.metadata.query())
-    step_4.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.3.produce')
     step_4.add_hyperparameter(name='semantic_types', argument_type=ArgumentType.VALUE, data=['https://metadata.datadrivendiscovery.org/types/Attribute'])
+    step_4.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.3.produce')
     step_4.add_output('produce')
     pipeline.add_step(step_4)
 
@@ -163,7 +164,7 @@ def main(select_pipeline):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Genereate CNN based pipeline.')
-    parser.add_argument('select_pipeline', metavar='S', type=int, help='Which pipeline to generate')
+    parser.add_argument('-s', action='store', dest='select_pipeline', type=int, help='Which pipeline to generate')
     args = parser.parse_args()
 
     # Generate pipeline for Hand geometry dataset
