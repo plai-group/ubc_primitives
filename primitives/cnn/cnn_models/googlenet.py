@@ -9,7 +9,7 @@ class GoogLeNet(nn.Module):
     """
     __constants__ = ['aux_logits', 'transform_input']
 
-    def __init__(self, include_top=False, aux_logits=True, transform_input=True, init_weights=True, blocks=None):
+    def __init__(self, include_top=False, num_classes=1000, aux_logits=True, transform_input=True, init_weights=True, blocks=None):
         super(GoogLeNet, self).__init__()
         self.include_top = include_top
         if blocks is None:

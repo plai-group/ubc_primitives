@@ -89,7 +89,7 @@ class Hyperparams(hyperparams.Hyperparams):
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     output_dim = hyperparams.Constant(
-        default=1,
+        default=1000,
         description='Dimensions of CNN output.',
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
@@ -287,11 +287,11 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         #----------------------------GoogLeNet---------------------------------#
         elif self.hyperparams['cnn_type'] == 'googlenet':
             # Get CNN Model
-            self.model = GoogLeNet(include_top=self.hyperparams['include_top'])
+            self.model = GoogLeNet(include_top=self.hyperparams['include_top'], num_classes=int(self.hyperparams['output_dim']))
             if self.hyperparams['use_pretrained']:
                 weights_path = self._find_weights_dir(key_filename='googlenet-1378be20.pth', weights_configs=_weights_configs[2])
-                checkpoint   = torch.load(weights_path)
                 self.model.load_state_dict(checkpoint)
+                checkpoint   = torch.load(weights_path)
                 self.expected_feature_out_dim = (1024 * 7 * 7)
                 logging.info("Pre-Trained imagenet weights loaded!")
 
@@ -512,12 +512,22 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
                                      the range from 0 to C-1 as the target')
                 # Forward Pass
                 if self.hyperparams['cnn_type'] == 'googlenet':
-                    local_outputs, _, _ = self.model(local_batch.to(self.device), include_last_layer=self.include_last_layer)
+                    local_outputs, aux_1, aux_2 = self.model(local_batch.to(self.device), include_last_layer=self.include_last_layer)
+                    if self.hyperparams['train_endToend']:
+                        # Loss
+                        local_loss = criterion(local_outputs, local_labels.float())
+                        local_loss += 0.4 * criterion(aux_1, local_labels.float())
+                        local_loss += 0.4 * criterion(aux_2, local_labels.float())
+                    else:
+                        local_loss = criterion(local_outputs, local_labels.float())
+                    # Backward pass
+                    local_loss.backward()
                 else:
                     local_outputs = self.model(local_batch.to(self.device), include_last_layer=self.include_last_layer)
-                # Loss and backward pass
-                local_loss = criterion(local_outputs, local_labels.float())
-                local_loss.backward()
+                    # Loss and backward pass
+                    local_loss = criterion(local_outputs, local_labels.float())
+                    local_loss.backward()
+                # Update weights
                 self.optimizer_instance.step()
                 # Increment
                 epoch_loss += local_loss

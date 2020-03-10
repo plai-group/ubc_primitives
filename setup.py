@@ -34,5 +34,6 @@ setup(name='ubc_primitives',
               'schema_discovery.profiler.UBC=primitives.smi:SemanticTypeInfer',
               'feature_extraction.bag_of_characters.UBC=primitives.boc:BagOfCharacters',
               'feature_extraction.bag_of_words.UBC=primitives.bow:BagOfWords',
+              'feature_extraction.cnn.UBC=primitives.cnn:ConvolutionalNeuralNetwork',
           ],
       })

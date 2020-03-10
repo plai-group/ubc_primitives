@@ -174,6 +174,7 @@ class TestConvolutionalNeuralNetwork(unittest.TestCase):
         hyperparams_class = hyperparams_class.defaults().replace(
                 {
                 'cnn_type': 'googlenet',
+                'output_dim':1,
                 }
         )
         primitive = ConvolutionalNeuralNetwork(hyperparams=hyperparams_class.defaults(), volumes=all_weights)
