@@ -153,6 +153,7 @@ class Hyperparams(hyperparams.Hyperparams):
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
     )
 
+
 class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperparams], WeightsDirPrimitive):
     """
     Convolutional Neural Network primitive using PyTorch framework.
@@ -212,6 +213,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         "hyperparams_to_tune": ['learning_rate', 'cnn_type']
     })
 
+
     def __init__(self, *, hyperparams: Hyperparams, volumes: Union[Dict[str, str], None]=None):
         super().__init__(hyperparams=hyperparams, volumes=volumes)
         self.hyperparams = hyperparams
@@ -228,18 +230,18 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             # Normalize done inside GoogLeNet model
             self.val_pre_process = transforms.Compose([
                                     transforms.Resize(255),
-                                    transforms.RandomCrop(self._img_size),
+                                    transforms.CenterCrop(self._img_size),
                                     transforms.ToTensor()])
             # Random Crop during training
             self.pre_process = transforms.Compose([
                                 transforms.Resize(255),
-                                transforms.CenterCrop(self._img_size),
+                                transforms.RandomCrop(self._img_size),
                                 transforms.ToTensor()])
         else:
             # All other pre-trained models are normalized in the same way
             self.val_pre_process = transforms.Compose([
                                     transforms.Resize(255),
-                                    transforms.RandomCrop(self._img_size),
+                                    transforms.CenterCrop(self._img_size),
                                     transforms.ToTensor(),
                                     transforms.Normalize(mean=[0.485, 0.456, 0.406],\
                                                          std=[0.229, 0.224, 0.225])])
@@ -253,10 +255,12 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         # Is the model fit on data
         self._fitted = False
 
+
     def set_training_data(self, *, inputs: Inputs, outputs: Outputs) -> None:
         self._training_inputs   = inputs
         self._training_outputs  = outputs
         self._new_training_data = True
+
 
     def _setup_cnn(self):
         #----------------------------------------------------------------------#
