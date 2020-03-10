@@ -210,7 +210,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
     def __init__(self, *, hyperparams: Hyperparams, volumes: Union[Dict[str, str], None]=None):
         super().__init__(hyperparams=hyperparams, volumes=volumes)
         self.hyperparams = hyperparams
-        self._training_inputs:   Inputs = None
+        self._training_inputs: Inputs = None
         self._training_outputs: Outputs = None
         # Use GPU if available
         use_cuda    = torch.cuda.is_available()
@@ -410,6 +410,133 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             self.final_layer = None
         #----------------------------------------------------------------------#
 
+    def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
+        """
+        Inputs: Dataset list
+        Returns: None
+        """
+        print(iterations)
+        if self._fitted:
+            return CallResult(None)
+
+        if self._training_inputs is None:
+            raise ValueError("Missing training data.")
+
+        # Get all Nested media files
+        image_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
+        label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget') # [2]
+        if len(label_columns) == 0:
+            label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget') # [2]
+        base_paths     = [self._training_inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
+        base_paths     = [base_paths[t]['location_base_uris'][0].replace('file:///', '/') for t in range(len(base_paths))] # Path + media
+        all_img_paths  = [[os.path.join(base_path, filename) for filename in self._training_inputs.iloc[:, col]] for base_path, col in zip(base_paths, image_columns)]
+        all_img_labls  = [[os.path.join(label) for label in self._training_outputs.iloc[:, col]] for col in label_columns]
+
+        # Check if data is matched
+        for idx in range(len(all_img_paths)):
+            if len(all_img_paths[idx]) != len(all_img_labls[idx]):
+                raise Exception('Size mismatch between training inputs and labels!')
+
+        if np.array([all_img_labls[0][0]]).size > 1:
+            raise Exception('Primitive accepts labels to be in size (minibatch, 1)!,\
+                             even for multiclass classification problems, it must be in\
+                             the range from 0 to C-1 as the target')
+
+        # Organize data into training format
+        all_train_data = []
+        for idx in range(len(all_img_paths)):
+            img_paths = all_img_paths[idx]
+            img_labls = all_img_labls[idx]
+            for eachIdx in range(len(img_paths)):
+                all_train_data.append([img_paths[eachIdx], img_labls[eachIdx]])
+
+        # del to free memory
+        del all_img_paths, all_img_labls
+
+        if len(all_train_data) == 0:
+            raise Exception('Cannot fit when no training data is present.')
+
+        # Set all files
+        if timeout is None:
+            timeout = np.inf
+        if iterations is None:
+            iterations = 10 # Default interations
+
+        _minibatch_size = self.hyperparams['minibatch_size']
+        if _minibatch_size > len(all_train_data):
+            _minibatch_size = len(all_train_data)
+
+        # Dataset Parameters
+        train_params = {'batch_size': _minibatch_size,
+                        'shuffle': self.hyperparams['shuffle'],
+                        'num_workers': 4}
+
+        # DataLoader
+        training_set = Dataset(all_data=all_train_data, preprocess=self.pre_process)
+
+        # Data Generators
+        training_generator = data.DataLoader(training_set, **train_params)
+
+        # Set model to training mode
+        self.model.train()
+
+        # Loss function
+        if self.hyperparams['loss_type'] == 'crossentropy':
+            criterion = nn.CrossEntropyLoss().to(self.device)
+        elif self.hyperparams['loss_type'] == 'mse':
+            criterion = nn.MSELoss().to(self.device)
+        elif self.hyperparams['loss_type'] == 'l1':
+            criterion = nn.L1Loss().to(self.device)
+        else:
+            raise ValueError('Unsupported loss_type: {}. Available options: crossentropy, mse, l1'.format(self.hyperparams['loss_type']))
+
+        # Train functions
+        start = time.time()
+        self._iterations_done = 0
+
+        # Set model to training
+        self.model.train()
+
+        for itr in range(iterations):
+            epoch_loss = 0.
+            iteration  = 0
+            for local_batch, local_labels in training_generator:
+                # Zero the parameter gradients
+                self.optimizer_instance.zero_grad()
+                # Check Label shapes
+                if len(local_labels.shape) < 2:
+                    local_labels = local_labels.unsqueeze(1)
+                elif len(local_labels.shape) > 2:
+                    raise Exception('Primitive accepts labels to be in size (minibatch, 1)!,\
+                                     even for multiclass classification problems, it must be in\
+                                     the range from 0 to C-1 as the target')
+                # Forward Pass
+                if self.hyperparams['cnn_type'] == 'googlenet':
+                    local_outputs, _, _ = self.model(local_batch.to(self.device), include_last_layer=self.include_last_layer)
+                else:
+                    local_outputs = self.model(local_batch.to(self.device), include_last_layer=self.include_last_layer)
+                # Loss and backward pass
+                local_loss = criterion(local_outputs, local_labels.float())
+                local_loss.backward()
+                self.optimizer_instance.step()
+                # Increment
+                epoch_loss += local_loss
+                iteration  += 1
+
+            # Final epoch loss
+            epoch_loss /= iteration
+            self._iterations_done += 1
+            logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, iterations))
+            if epoch_loss < self.hyperparams['fit_threshold']:
+                self._has_finished = True
+                self._fitted = True
+
+                return CallResult(None)
+
+        self._fitted = True
+
+        return base.CallResult(None)
+
 
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
         """
@@ -519,141 +646,6 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         return base.CallResult(outputs)
 
 
-    def get_params(self) -> Params:
-        return None
-
-
-    def set_params(self, *, params: Params) -> None:
-        return None
-
-
-    def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
-        """
-        Inputs: Dataset list
-        Returns: None
-        """
-        if self._fitted:
-            return CallResult(None)
-
-        if self._training_inputs is None:
-            raise ValueError("Missing training data.")
-
-        # Get all Nested media files
-        image_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
-        label_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget') # [2]
-        if len(label_columns) == 0:
-            label_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget') # [2]
-        base_paths     = [self._training_inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
-        base_paths     = [base_paths[t]['location_base_uris'][0].replace('file:///', '/') for t in range(len(base_paths))] # Path + media
-        all_img_paths  = [[os.path.join(base_path, filename) for filename in self._training_inputs.iloc[:, col]] for base_path, col in zip(base_paths, image_columns)]
-        all_img_labls  = [[os.path.join(label) for label in self._training_inputs.iloc[:, col]] for col in label_columns]
-
-        # Check if data is matched
-        for idx in range(len(all_img_paths)):
-            if len(all_img_paths[idx]) != len(all_img_labls[idx]):
-                raise Exception('Size mismatch between training inputs and labels!')
-
-        if np.array([all_img_labls[0][0]]).size > 1:
-            raise Exception('Primitive accepts labels to be in size (minibatch, 1)!,\
-                             even for multiclass classification problems, it must be in\
-                             the range from 0 to C-1 as the target')
-
-        # Organize data into training format
-        all_train_data = []
-        for idx in range(len(all_img_paths)):
-            img_paths = all_img_paths[idx]
-            img_labls = all_img_labls[idx]
-            for eachIdx in range(len(img_paths)):
-                all_train_data.append([img_paths[eachIdx], img_labls[eachIdx]])
-
-        # del to free memory
-        del all_img_paths, all_img_labls
-
-        if len(all_train_data) == 0:
-            raise Exception('Cannot fit when no training data is present.')
-
-        # Set all files
-        if timeout is None:
-            timeout = np.inf
-        if iterations is None:
-            iterations = 10 # Default interations
-
-        _minibatch_size = self.hyperparams['minibatch_size']
-        if _minibatch_size > len(all_train_data):
-            _minibatch_size = len(all_train_data)
-
-        # Dataset Parameters
-        train_params = {'batch_size': _minibatch_size,
-                        'shuffle': self.hyperparams['shuffle'],
-                        'num_workers': 4}
-
-        # DataLoader
-        training_set = Dataset(all_data=all_train_data, preprocess=self.pre_process)
-
-        # Data Generators
-        training_generator = data.DataLoader(training_set, **train_params)
-
-        # Set model to training mode
-        self.model.train()
-
-        # Loss function
-        if self.hyperparams['loss_type'] == 'crossentropy':
-            criterion = nn.CrossEntropyLoss().to(self.device)
-        elif self.hyperparams['loss_type'] == 'mse':
-            criterion = nn.MSELoss().to(self.device)
-        elif self.hyperparams['loss_type'] == 'l1':
-            criterion = nn.L1Loss().to(self.device)
-        else:
-            raise ValueError('Unsupported loss_type: {}. Available options: crossentropy, mse, l1'.format(self.hyperparams['loss_type']))
-
-        # Train functions
-        start = time.time()
-        self._iterations_done = 0
-
-        # Set model to training
-        self.model.train()
-
-        for itr in range(iterations):
-            epoch_loss = 0.
-            iteration  = 0
-            for local_batch, local_labels in training_generator:
-                # Zero the parameter gradients
-                self.optimizer_instance.zero_grad()
-                # Check Label shapes
-                if len(local_labels.shape) < 2:
-                    local_labels = local_labels.unsqueeze(1)
-                elif len(local_labels.shape) > 2:
-                    raise Exception('Primitive accepts labels to be in size (minibatch, 1)!,\
-                                     even for multiclass classification problems, it must be in\
-                                     the range from 0 to C-1 as the target')
-                # Forward Pass
-                if self.hyperparams['cnn_type'] == 'googlenet':
-                    local_outputs, _, _ = self.model(local_batch.to(self.device), include_last_layer=self.include_last_layer)
-                else:
-                    local_outputs = self.model(local_batch.to(self.device), include_last_layer=self.include_last_layer)
-                # Loss and backward pass
-                local_loss = criterion(local_outputs, local_labels.float())
-                local_loss.backward()
-                self.optimizer_instance.step()
-                # Increment
-                epoch_loss += local_loss
-                iteration  += 1
-
-            # Final epoch loss
-            epoch_loss /= iteration
-            self._iterations_done += 1
-            logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, iterations))
-            if epoch_loss < self.hyperparams['fit_threshold']:
-                self._has_finished = True
-                self._fitted = True
-
-                return CallResult(None)
-
-        self._fitted = True
-
-        return base.CallResult(None)
-
-
     def _find_weights_dir(self, key_filename, weights_configs):
         if key_filename in self.volumes:
             _weight_file_path = self.volumes[key_filename]
@@ -668,3 +660,11 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             raise ValueError("Can't get weights file from the volume by key: {} or in the static folder: {}".format(key_filename, _weight_file_path))
 
         return _weight_file_path
+
+
+    def get_params(self) -> Params:
+        return None
+
+
+    def set_params(self, *, params: Params) -> None:
+        return None
