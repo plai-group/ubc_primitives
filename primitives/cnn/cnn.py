@@ -516,8 +516,8 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
                     if self.hyperparams['train_endToend']:
                         # Loss
                         local_loss = criterion(local_outputs, local_labels.float())
-                        local_loss += 0.4 * criterion(aux_1, local_labels.float())
-                        local_loss += 0.4 * criterion(aux_2, local_labels.float())
+                        local_loss += 0.4 * criterion(aux_1,  local_labels.float())
+                        local_loss += 0.4 * criterion(aux_2,  local_labels.float())
                     else:
                         local_loss = criterion(local_outputs, local_labels.float())
                     # Backward pass
@@ -539,7 +539,6 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, iterations))
             # print('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
             if epoch_loss < self.hyperparams['fit_threshold']:
-                self._has_finished = True
                 self._fitted = True
 
                 return CallResult(None)

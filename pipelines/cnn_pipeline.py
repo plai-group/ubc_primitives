@@ -48,14 +48,14 @@ def make_pipeline_1():
     # Step 4: Extract Attributes
     step_4 = PrimitiveStep(primitive_description=ExtractColumnsBySemanticTypesPrimitive.metadata.query())
     step_4.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.3.produce')
-    step_4.add_hyperparameter(name='semantic_types', argument_type=ArgumentType.VALUE, data=['https://metadata.datadrivendiscovery.org/types/Attribute'] )
+    step_4.add_hyperparameter(name='semantic_types', argument_type=ArgumentType.VALUE, data=['https://metadata.datadrivendiscovery.org/types/Attribute'])
     step_4.add_output('produce')
     pipeline.add_step(step_4)
 
     # Step 5: Extract Targets
     step_5 = PrimitiveStep(primitive_description=ExtractColumnsBySemanticTypesPrimitive.metadata.query())
     step_5.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
-    step_5.add_hyperparameter(name='semantic_types', argument_type=ArgumentType.VALUE, data=['https://metadata.datadrivendiscovery.org/types/TrueTarget'] )
+    step_5.add_hyperparameter(name='semantic_types', argument_type=ArgumentType.VALUE, data=['https://metadata.datadrivendiscovery.org/types/SuggestedTarget'])
     step_5.add_output('produce')
     pipeline.add_step(step_5)
 
@@ -111,14 +111,14 @@ def make_pipeline_2():
     # Step 3: Extract Attributes
     step_3 = PrimitiveStep(primitive_description=ExtractColumnsBySemanticTypesPrimitive.metadata.query())
     step_3.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.2.produce')
-    step_3.add_hyperparameter(name='semantic_types', argument_type=ArgumentType.VALUE, data=['https://metadata.datadrivendiscovery.org/types/Attribute'] )
+    step_3.add_hyperparameter(name='semantic_types', argument_type=ArgumentType.VALUE, data=['https://metadata.datadrivendiscovery.org/types/Attribute'])
     step_3.add_output('produce')
     pipeline.add_step(step_3)
 
     # Step 4: Extract Targets
     step_4 = PrimitiveStep(primitive_description=ExtractColumnsBySemanticTypesPrimitive.metadata.query())
     step_4.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
-    step_4.add_hyperparameter(name='semantic_types', argument_type=ArgumentType.VALUE, data=['https://metadata.datadrivendiscovery.org/types/TrueTarget'] )
+    step_4.add_hyperparameter(name='semantic_types', argument_type=ArgumentType.VALUE, data=['https://metadata.datadrivendiscovery.org/types/SuggestedTarget'])
     step_4.add_output('produce')
     pipeline.add_step(step_4)
 
@@ -132,7 +132,7 @@ def make_pipeline_2():
     step_5.add_hyperparameter(name='feature_extract_only', argument_type=ArgumentType.VALUE, data=False)
     step_5.add_argument(name='inputs',     argument_type=ArgumentType.CONTAINER, data_reference=attributes)
     step_5.add_argument(name='outputs',    argument_type=ArgumentType.CONTAINER, data_reference=targets)
-    step_5.add_argument(name='iterations', argument_type=ArgumentType.VALUE,     data=100)
+    step_5.add_argument(name='iterations', argument_type=ArgumentType.VALUE,     data=200)
     step_5.add_output('fit')
     step_5.add_output('produce')
     pipeline.add_step(step_5)
