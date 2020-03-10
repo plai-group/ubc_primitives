@@ -478,11 +478,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             if not self._fitted and self.hyperparams['output_dim'] != 1000:
                 raise Exception('Please fit the model before calling produce!')
 
-<<<<<<< HEAD
             predictions = []
-=======
-            outputs = []
->>>>>>> origin/master
             for idx in range(len(all_img_paths)):
                 img_paths = all_img_paths[idx]
                 for imagefile in img_paths:
@@ -523,7 +519,6 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         return base.CallResult(outputs)
 
 
-<<<<<<< HEAD
     def get_params(self) -> Params:
         return None
 
@@ -533,9 +528,6 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
 
 
     def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
-=======
-    def fit(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
->>>>>>> origin/master
         """
         Inputs: Dataset list
         Returns: None
