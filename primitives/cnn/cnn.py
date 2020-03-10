@@ -460,7 +460,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         if timeout is None:
             timeout = np.inf
         if iterations is None:
-            iterations = 10 # Default interations
+            iterations = 100 # Default interations
 
         _minibatch_size = self.hyperparams['minibatch_size']
         if _minibatch_size > len(all_train_data):
@@ -527,6 +527,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             epoch_loss /= iteration
             self._iterations_done += 1
             logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, iterations))
+            # print('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
             if epoch_loss < self.hyperparams['fit_threshold']:
                 self._has_finished = True
                 self._fitted = True
@@ -580,8 +581,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
                         if len(feature.shape) > 1:
                             feature = torch.flatten(feature)
                         feature = feature.data.cpu().numpy()
-
-                        print(feature.shape)
+                        #print(feature.shape)
                     else:
                         logging.warning("No such file {}. Feature vector will be set to all zeros.".format(file_path))
                         feature = np.zeros((self.expected_feature_out_dim))
