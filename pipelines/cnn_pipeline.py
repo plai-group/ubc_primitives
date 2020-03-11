@@ -125,7 +125,7 @@ def make_pipeline_2():
     step_4.add_output('produce')
     pipeline.add_step(step_4)
 
-    attributes = 'steps.3.produce'
+    attributes = 'steps.1.produce'
     targets    = 'steps.4.produce'
 
     # Step 5: Feature Extraction and Fit Primitive
