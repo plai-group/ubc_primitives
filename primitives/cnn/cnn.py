@@ -441,10 +441,10 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         # If feature extract only, Skip Fit
         if self.hyperparams['feature_extract_only']:
             self._fitted = True
-            return CallResult(None)
+            return base.CallResult(None)
 
         if self._fitted:
-            return CallResult(None)
+            return base.CallResult(None)
 
         if self._training_inputs is None:
             raise ValueError("Missing training data.")
@@ -564,7 +564,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             # print('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
             if epoch_loss < self.hyperparams['fit_threshold']:
                 self._fitted = True
-                return CallResult(None)
+                return base.CallResult(None)
         self._fitted = True
 
         return base.CallResult(None)
