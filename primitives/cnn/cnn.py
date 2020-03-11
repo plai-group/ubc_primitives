@@ -676,7 +676,6 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
 
             # Add the features to the input labels with data removed
             outputs = outputs.append_columns(preds)
-            print(outputs)
         #-----------------------------------------------------------------------
 
         return base.CallResult(outputs)
