@@ -236,6 +236,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             self.pre_process = transforms.Compose([
                                 transforms.Resize(255),
                                 transforms.RandomCrop(self._img_size),
+                                transforms.ColorJitter(brightness=0.5),
                                 transforms.ToTensor()])
         else:
             # All other pre-trained models are normalized in the same way
@@ -249,6 +250,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             self.pre_process = transforms.Compose([
                                 transforms.Resize(255),
                                 transforms.RandomCrop(self._img_size),
+                                transforms.ColorJitter(brightness=0.5),
                                 transforms.ToTensor(),
                                 transforms.Normalize(mean=[0.485, 0.456, 0.406],\
                                                      std=[0.229, 0.224, 0.225])])
