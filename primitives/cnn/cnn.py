@@ -160,7 +160,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
     Used to extract deep features from images.
     It can be used as a pre-trained feature extractor, to extract features from
     convolutional layers or the fully connected layers by setting include_top.
-    It can also be fine-tunned to fit new data.
+    It can also be fine-tunned to fit new data, by setting feature extraction to False.
     Available pre-trained CNN models are:
       - VGG-16
       - VGG-16 with Batch-Norm
@@ -556,7 +556,6 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
                 # Increment
                 epoch_loss += local_loss
                 iteration  += 1
-
             # Final epoch loss
             epoch_loss /= iteration
             self._iterations_done += 1
@@ -581,6 +580,11 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         base_paths    = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
         base_paths    = [base_paths[t]['location_base_uris'][0].replace('file:///', '/') for t in range(len(base_paths))] # Path + media
         all_img_paths = [[os.path.join(base_path, filename) for filename in inputs.iloc[:,col]] for base_path, col in zip(base_paths, image_columns)]
+        # Get Label Columns Names
+        label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget') # [2]
+        if len(label_columns) == 0:
+            label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget') # [2]
+        label_columns_names = [list(self._training_outputs.columns)[i] for i in label_columns]
 
         # Delete columns with path names of nested media files
         outputs = inputs.remove_columns(image_columns)
@@ -618,9 +622,10 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
                         feature = np.zeros((self.expected_feature_out_dim))
                     # Collect features
                     features.append(feature)
+            # Feature vector data frame
             feature_vectors = container.DataFrame(features, generate_metadata=True)
 
-            # Update Metadata for each feature vector column
+            # Update Metadata for each feature vector dataframe column
             for col in range(feature_vectors.shape[1]):
                 col_dict = dict(feature_vectors.metadata.query((metadata_base.ALL_ELEMENTS, col)))
                 col_dict['structural_type'] = type(1.0)
@@ -665,12 +670,13 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             for col in range(preds.shape[1]):
                 col_dict = dict(preds.metadata.query((metadata_base.ALL_ELEMENTS, col)))
                 col_dict['structural_type'] = type(1.0)
-                col_dict['name']            = 'return_result'
+                col_dict['name']            = label_columns_names[col]
                 col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/PredictedTarget",)
                 preds.metadata = preds.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
 
             # Add the features to the input labels with data removed
             outputs = outputs.append_columns(preds)
+            print(outputs)
         #-----------------------------------------------------------------------
 
         return base.CallResult(outputs)
