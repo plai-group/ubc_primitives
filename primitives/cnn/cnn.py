@@ -655,7 +655,6 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
 
             # Convert to d3m type with metadata
             preds = container.DataFrame(predictions, generate_metadata=True)
-            preds.columns = ["return_result"]
 
             # Update Metadata for each feature vector column
             for col in range(preds.shape[1]):
