@@ -47,8 +47,10 @@ class WeightsDirPrimitive:
     @staticmethod
     def _weights_data_dir(dir_name='/static'):
         if not os.path.isdir(dir_name):
-            os.mkdir(dir_name)
-
+            try:
+                os.mkdir(dir_name)
+            except FileNotFoundError or FileExistsError:
+                os.mkdir('/static')
 
 class Params(params.Params):
     None
@@ -682,12 +684,23 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
 
 
     def _find_weights_dir(self, key_filename, weights_configs):
+        # Check common places
         if key_filename in self.volumes:
             _weight_file_path = self.volumes[key_filename]
         elif os.path.isdir('/static'):
             _weight_file_path = os.path.join('/static', weights_configs['file_digest'], key_filename)
+            if not os.path.exists(_weight_file_path):
+                _weight_file_path = os.path.join('/static', weights_configs['file_digest'])
+        # Check other directories
+        if not os.path.exists(_weight_file_path):
+            home = expanduser("/")
+            _weight_file_path = os.path.join(home, weights_configs['file_digest'])
+            if not os.path.exists(_weight_file_path):
+                _weight_file_path = os.path.join(home, weights_configs['file_digest'], key_filename)
+            if not os.path.exists(_weight_file_path):
+                _weight_file_path = os.path.join('.', weights_configs['file_digest'], key_filename)
         else:
-            _weight_file_path = os.path.join('.', weights_configs['file_digest'], key_filename)
+            _weight_file_path = os.path.join(weights_configs['file_digest'], key_filename)
 
         if os.path.isfile(_weight_file_path):
             return _weight_file_path

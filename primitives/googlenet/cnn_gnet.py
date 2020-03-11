@@ -530,19 +530,23 @@ class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
 
 
     def _find_weights_dir(self, key_filename, weights_configs):
+        # Check common places
         if key_filename in self.volumes:
             _weight_file_path = self.volumes[key_filename]
         elif os.path.isdir('/static'):
             _weight_file_path = os.path.join('/static', weights_configs['file_digest'], key_filename)
             if not os.path.exists(_weight_file_path):
                 _weight_file_path = os.path.join('/static', weights_configs['file_digest'])
-        else:
+        # Check other directories
+        if not os.path.exists(_weight_file_path):
             home = expanduser("/")
             _weight_file_path = os.path.join(home, weights_configs['file_digest'])
             if not os.path.exists(_weight_file_path):
                 _weight_file_path = os.path.join(home, weights_configs['file_digest'], key_filename)
             if not os.path.exists(_weight_file_path):
                 _weight_file_path = os.path.join('.', weights_configs['file_digest'], key_filename)
+        else:
+            _weight_file_path = os.path.join(weights_configs['file_digest'], key_filename)
 
         if os.path.isfile(_weight_file_path):
             return _weight_file_path
@@ -550,7 +554,6 @@ class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
             raise ValueError("Can't get weights file from the volume by key: {} or in the static folder: {}".format(key_filename, _weight_file_path))
 
         return _weight_file_path
-
 
     def get_params(self) -> Params:
         return None
