@@ -170,7 +170,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
     All available models are pre-trained on ImageNet.
     """
     # Check if the weights directory exist, else create one. Default: /static
-    WeightsDirPrimitive._weights_data_dir()
+    WeightsDirPrimitive._weights_data_dir(dir_name="/ubc_primitives/static")
     # Metadata
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     global _weights_configs
@@ -570,7 +570,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         return base.CallResult(None)
 
 
-    def produce(self, *, inputs: Inputs, timeout: float = None) -> base.CallResult[Outputs]:
+    def produce(self, *, inputs: Inputs, iterations: int = None, timeout: float = None) -> base.CallResult[Outputs]:
         """
         Inputs: Dataset list
         Returns: Pandas DataFramefor feature extraction
