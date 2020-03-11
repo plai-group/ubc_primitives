@@ -49,8 +49,11 @@ class WeightsDirPrimitive:
         if not os.path.isdir(dir_name):
             try:
                 os.mkdir(dir_name)
-            except FileNotFoundError or FileExistsError:
-                os.mkdir('/static')
+            except FileNotFoundError or FileExistsError or PermissionError:
+                try:
+                    os.mkdir('/static')
+                except PermissionError:
+                    return None
 
 class Params(params.Params):
     None
