@@ -15,6 +15,7 @@ import os
 import time
 import logging
 import numpy as np
+from os.path import expanduser
 from collections import OrderedDict
 from PIL import Image
 import torch
@@ -536,7 +537,12 @@ class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
             if not os.path.exists(_weight_file_path):
                 _weight_file_path = os.path.join('/static', weights_configs['file_digest'])
         else:
-            _weight_file_path = os.path.join('.', weights_configs['file_digest'], key_filename)
+            home = expanduser("/")
+            _weight_file_path = os.path.join(home, weights_configs['file_digest'])
+            if not os.path.exists(_weight_file_path):
+                _weight_file_path = os.path.join(home, weights_configs['file_digest'], key_filename)
+            if not os.path.exists(_weight_file_path):
+                _weight_file_path = os.path.join('.', weights_configs['file_digest'], key_filename)
 
         if os.path.isfile(_weight_file_path):
             return _weight_file_path
