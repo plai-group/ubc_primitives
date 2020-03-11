@@ -34,6 +34,7 @@ def make_pipeline_1():
 
     # Step 2: Feature Extraction Primitive
     step_2 = PrimitiveStep(primitive=ConvolutionalNeuralNetwork)
+    step_2.add_hyperparameter(name='feature_extract_only', argument_type=ArgumentType.VALUE, data=True)
     step_2.add_hyperparameter(name='include_top', argument_type=ArgumentType.VALUE, data=False)
     step_2.add_hyperparameter(name='cnn_type',    argument_type=ArgumentType.VALUE, data='mobilenet')
     step_2.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')

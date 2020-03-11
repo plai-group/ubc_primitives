@@ -438,6 +438,11 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         Inputs: Dataset list
         Returns: None
         """
+        # If feature extract only, Skip Fit
+        if self.hyperparams['feature_extract_only']:
+            self._fitted = True
+            return CallResult(None)
+
         if self._fitted:
             return CallResult(None)
 
