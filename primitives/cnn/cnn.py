@@ -433,7 +433,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             self.final_layer = None
         #----------------------------------------------------------------------#
 
-    def fit(self, *, timeout: float = None) -> base.CallResult[None]:
+    def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
         """
         Inputs: Dataset list
         Returns: None
