@@ -37,5 +37,6 @@ setup(name='ubc_primitives',
               'feature_extraction.bag_of_words.UBC=primitives.bow:BagOfWords',
               'feature_extraction.cnn.UBC=primitives.cnn:ConvolutionalNeuralNetwork',
               'feature_extraction.googlenet.UBC=primitives.googlenet:GoogleNetCNN',
+              'feature_extraction.mobilenet.UBC=primitives.mobilenet:MobileNetCNN',
           ],
       })

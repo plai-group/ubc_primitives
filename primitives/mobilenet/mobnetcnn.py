@@ -28,7 +28,7 @@ from primitives.cnn.dataset import Dataset
 # Import CNN models
 from primitives.googlenet.googlenet import GoogLeNet
 
-__all__ = ('GoogleNetCNN',)
+__all__ = ('MobileNetCNN',)
 logger  = logging.getLogger(__name__)
 
 Inputs  = container.DataFrame
@@ -146,15 +146,15 @@ class Hyperparams(hyperparams.Hyperparams):
     )
 
 
-class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperparams], WeightsDirPrimitive):
+class MobileNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperparams], WeightsDirPrimitive):
     """
-    GoogleNet Convolutional Neural Network primitive using PyTorch framework.
-    Used to extract deep features from images.
+    MobileNet is a light weight Convolutional Neural Network primitive using
+    PyTorch framework. Used to extract deep features from images.
     It can be used as a pre-trained feature extractor, to extract features from
     convolutional layers or the fully connected layers by setting include_top.
     It can also be fine-tunned to fit new data, by setting feature extraction to False.
     Model pre-trained on ImageNet.
-    Citation: https://arxiv.org/pdf/1409.4842.pdf
+    Citation: https://arxiv.org/pdf/1704.04861.pdf
     """
     # Check if the weights directory exist, else create one. Default: /static
     WeightsDirPrimitive._weights_data_dir(dir_name="/ubc_primitives/static")
@@ -162,15 +162,15 @@ class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     global _weights_configs
     _weights_configs = [{'type': 'FILE',
-                         'key': 'googlenet-1378be20.pth',
-                         'file_uri': 'https://download.pytorch.org/models/googlenet-1378be20.pth',
-                         'file_digest': '1378be20a8e875cf1568b8a71654e704449655e34711a959a38b04fb34905cef'},]
+                         'key': 'mobilenet_v2-b0353104.pth',
+                         'file_uri': 'https://download.pytorch.org/models/mobilenet_v2-b0353104.pth',
+                         'file_digest': 'b03531047ffacf1e2488318dcd2aba1126cde36e3bfe1aa5cb07700aeeee9889'},]
     metadata = metadata_base.PrimitiveMetadata({
-        "id": "5e785bd4-04cd-42d6-9a49-cbfb06e5036e",
+        "id": "947f024c-32fe-4707-b98a-53323c79310f",
         "version": config.VERSION,
-        "name": "GoogLeNet Convolutional Neural Network",
+        "name": "MobileNet Convolutional Neural Network",
         "description": "A primitive to extract features and to fit model for images",
-        "python_path": "d3m.primitives.feature_extraction.googlenet.UBC",
+        "python_path": "d3m.primitives.feature_extraction.mobilenet.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.FEATURE_EXTRACTION,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.CONVOLUTIONAL_NEURAL_NETWORK],
         "source": {
@@ -178,7 +178,7 @@ class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
             "contact": config.D3M_CONTACT,
             "uris": [config.REPOSITORY],
         },
-        "keywords": ["cnn", "googlenet", "convolutional neural network", "deep learning"],
+        "keywords": ["cnn", "mobilenet", "convolutional neural network", "deep learning"],
         "installation": [config.INSTALLATION] + _weights_configs,
         "hyperparams_to_tune": ['learning_rate', 'optimizer_type']
     })
@@ -222,30 +222,30 @@ class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
         else:
             self.include_last_layer = True
 
-        #----------------------------GoogLeNet---------------------------------#
+        #----------------------------MobileNet---------------------------------#
         # Get CNN Model
-        self.model = GoogLeNet(include_top=self.hyperparams['include_top'], num_classes=int(self.hyperparams['output_dim']))
+        self.model = MobileNet(include_top=self.hyperparams['include_top'])
         if self.hyperparams['use_pretrained']:
-            weights_path = self._find_weights_dir(key_filename='googlenet-1378be20.pth', weights_configs=_weights_configs[0])
+            weights_path = self._find_weights_dir(key_filename='mobilenet_v2-b0353104.pth', weights_configs=_weights_configs[0])
             checkpoint   = torch.load(weights_path)
             self.model.load_state_dict(checkpoint)
-            self.expected_feature_out_dim = (1024 * 7 * 7)
+            self.expected_feature_out_dim = (1280 * 7 * 7)
             logging.info("Pre-Trained imagenet weights loaded!")
 
         # Final layer Augmentation
         if (not self.hyperparams['feature_extract_only']) and self.hyperparams['output_dim'] != 1000:
-            num_ftrs = self.model.fc.in_features
-            self.model.fc = nn.Linear(num_ftrs, self.hyperparams['output_dim'])
+            num_ftrs = self.model.classifier[1].in_features
+            self.model.classifier[1] = nn.Linear(num_ftrs, self.hyperparams['output_dim'])
             # Intialize with random weights
-            nn.init.normal_(self.model.fc.weight, 0, 0.01)
-            nn.init.constant_(self.model.fc.bias, 0)
+            nn.init.normal_(self.model.classifier[1].weight, 0, 0.01)
+            nn.init.constant_(self.model.classifier[1].bias, 0)
 
         # Freeze all layers except the last layer and gather params
         if not self.hyperparams['train_endToend']:
             for param in self.model.parameters():
                 param.requires_grad = False
             if (not self.hyperparams['feature_extract_only']):
-                for parameter in self.model.fc.parameters():
+                for parameter in self.model.classifier[1].parameters():
                     parameter.requires_grad = True
 
         #----------------------------------------------------------------------#
@@ -296,7 +296,7 @@ class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
 
     def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
         """
-        Inputs: Dataset list
+        Inputs: DatasetFrame
         Returns: None
         """
         # If feature extract only, Skip Fit

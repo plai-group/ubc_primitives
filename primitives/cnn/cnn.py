@@ -574,9 +574,8 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
 
     def produce(self, *, inputs: Inputs, iterations: int = None, timeout: float = None) -> base.CallResult[Outputs]:
         """
-        Inputs: Dataset list
-        Returns: Pandas DataFramefor feature extraction
-                 or Numpy array for classification or regression task.
+        Inputs: Pandas DatasetFrame
+        Returns: Pandas DataFramefor for classification or regression task
         """
         # Get all Nested media files
         image_columns = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
