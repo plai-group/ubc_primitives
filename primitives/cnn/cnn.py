@@ -438,7 +438,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
 
     def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
         """
-        Inputs: Dataset list
+        Inputs: Dataset dataFrame
         Returns: None
         """
         # If feature extract only, Skip Fit
@@ -574,7 +574,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
 
     def produce(self, *, inputs: Inputs, iterations: int = None, timeout: float = None) -> base.CallResult[Outputs]:
         """
-        Inputs: Pandas DatasetFrame
+        Inputs: Dataset dataFrame
         Returns: Pandas DataFramefor for classification or regression task
         """
         # Get all Nested media files
@@ -685,23 +685,28 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
 
 
     def _find_weights_dir(self, key_filename, weights_configs):
+        _weight_file_path = None
         # Check common places
         if key_filename in self.volumes:
             _weight_file_path = self.volumes[key_filename]
-        elif os.path.isdir('/static'):
-            _weight_file_path = os.path.join('/static', weights_configs['file_digest'], key_filename)
+        else:
+            if os.path.isdir('/static'):
+                _weight_file_path = os.path.join('/static', weights_configs['file_digest'], key_filename)
+                if not os.path.exists(_weight_file_path):
+                    _weight_file_path = os.path.join('/static', weights_configs['file_digest'])
+            # Check other directories
             if not os.path.exists(_weight_file_path):
-                _weight_file_path = os.path.join('/static', weights_configs['file_digest'])
-        # Check other directories
-        if not os.path.exists(_weight_file_path):
-            home = expanduser("/")
-            _weight_file_path = os.path.join(home, weights_configs['file_digest'])
-            if not os.path.exists(_weight_file_path):
-                _weight_file_path = os.path.join(home, weights_configs['file_digest'], key_filename)
-            if not os.path.exists(_weight_file_path):
-                _weight_file_path = os.path.join('.', weights_configs['file_digest'], key_filename)
-            if not os.path.exists(_weight_file_path):
-                _weight_file_path = os.path.join(weights_configs['file_digest'], key_filename)
+                home = expanduser("/")
+                root = expanduser("~")
+                _weight_file_path = os.path.join(home, weights_configs['file_digest'])
+                if not os.path.exists(_weight_file_path):
+                    _weight_file_path = os.path.join(home, weights_configs['file_digest'], key_filename)
+                if not os.path.exists(_weight_file_path):
+                    _weight_file_path = os.path.join('.', weights_configs['file_digest'], key_filename)
+                if not os.path.exists(_weight_file_path):
+                    _weight_file_path = os.path.join(root, weights_configs['file_digest'], key_filename)
+                if not os.path.exists(_weight_file_path):
+                    _weight_file_path = os.path.join(weights_configs['file_digest'], key_filename)
 
         if os.path.isfile(_weight_file_path):
             return _weight_file_path

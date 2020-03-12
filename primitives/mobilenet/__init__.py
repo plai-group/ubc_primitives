@@ -1,4 +1,4 @@
-from .gnetcnn import GoogleNetCNN
+from .mobnetcnn import MobileNetCNN
 
 
 __all__ = ['MobileNetCNN', 'Dataset']

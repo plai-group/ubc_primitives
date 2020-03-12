@@ -26,7 +26,7 @@ from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
 from primitives.cnn.dataset import Dataset
 
 # Import CNN models
-from primitives.googlenet.googlenet import GoogLeNet
+from primitives.cnn.cnn_models.mobilenet import MobileNet
 
 __all__ = ('MobileNetCNN',)
 logger  = logging.getLogger(__name__)
@@ -126,7 +126,7 @@ class Hyperparams(hyperparams.Hyperparams):
     )
     weight_decay = hyperparams.Hyperparameter[float](
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
-        default=0.0005,
+        default=0.0001,
         description='Weight decay (L2 regularization) used during training (fit).'
     )
     shuffle = hyperparams.UniformBool(
@@ -208,7 +208,6 @@ class MobileNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
                             transforms.ToTensor()])
         # Is the model fit on data
         self._fitted = False
-
 
     def set_training_data(self, *, inputs: Inputs, outputs: Outputs) -> None:
         self._training_inputs   = inputs
@@ -296,7 +295,7 @@ class MobileNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
 
     def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
         """
-        Inputs: DatasetFrame
+        Inputs: Dataset dataFrame
         Returns: None
         """
         # If feature extract only, Skip Fit
@@ -396,14 +395,9 @@ class MobileNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
                                      even for multiclass classification problems, it must be in\
                                      the range from 0 to C-1 as the target')
                 # Forward Pass
-                local_outputs, aux_1, aux_2 = self.model(local_batch.to(self.device), include_last_layer=self.include_last_layer)
-                if self.hyperparams['train_endToend']:
-                    # Loss
-                    local_loss = criterion(local_outputs, local_labels.float())
-                    local_loss += 0.4 * criterion(aux_1,  local_labels.float())
-                    local_loss += 0.4 * criterion(aux_2,  local_labels.float())
-                else:
-                    local_loss = criterion(local_outputs, local_labels.float())
+                local_outputs = self.model(local_batch.to(self.device), include_last_layer=self.include_last_layer)
+                # Loss and backward pass
+                local_loss = criterion(local_outputs, local_labels.float())
                 # Backward pass
                 local_loss.backward()
                 # Update weights
@@ -426,7 +420,7 @@ class MobileNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
 
     def produce(self, *, inputs: Inputs, iterations: int = None, timeout: float = None) -> base.CallResult[Outputs]:
         """
-        Inputs: Pandas DatasetFrame
+        Inputs: Dataset dataFrame
         Returns: Pandas DataFramefor for classification or regression task
         """
         # Get all Nested media files
@@ -456,7 +450,7 @@ class MobileNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
                         image = Image.open(imagefile)
                         image = self.val_pre_process(image) # To pytorch tensor
                         image = image.unsqueeze(0) # 1 x C x H x W
-                        feature, _, _ = self.model(image.to(self.device), include_last_layer=self.include_last_layer)
+                        feature = self.model(image.to(self.device), include_last_layer=self.include_last_layer)
                         if self.final_layer != None:
                             feature = self.final_layer(feature)
                         if len(feature.shape) > 1:
@@ -501,7 +495,7 @@ class MobileNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
                         image = Image.open(imagefile)
                         image = self.val_pre_process(image) # To pytorch tensor
                         image = image.unsqueeze(0) # 1 x C x H x W
-                        _out, _, _ = self.model(image.to(self.device), include_last_layer=self.include_last_layer)
+                        _out  = self.model(image.to(self.device), include_last_layer=self.include_last_layer)
                         if return_argmax:
                             _out = torch.argmax(_out, dim=-1, keepdim=False)
                         _out  = torch.flatten(_out)
@@ -531,23 +525,28 @@ class MobileNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
 
 
     def _find_weights_dir(self, key_filename, weights_configs):
+        _weight_file_path = None
         # Check common places
         if key_filename in self.volumes:
             _weight_file_path = self.volumes[key_filename]
-        elif os.path.isdir('/static'):
-            _weight_file_path = os.path.join('/static', weights_configs['file_digest'], key_filename)
+        else:
+            if os.path.isdir('/static'):
+                _weight_file_path = os.path.join('/static', weights_configs['file_digest'], key_filename)
+                if not os.path.exists(_weight_file_path):
+                    _weight_file_path = os.path.join('/static', weights_configs['file_digest'])
+            # Check other directories
             if not os.path.exists(_weight_file_path):
-                _weight_file_path = os.path.join('/static', weights_configs['file_digest'])
-        # Check other directories
-        if not os.path.exists(_weight_file_path):
-            home = expanduser("/")
-            _weight_file_path = os.path.join(home, weights_configs['file_digest'])
-            if not os.path.exists(_weight_file_path):
-                _weight_file_path = os.path.join(home, weights_configs['file_digest'], key_filename)
-            if not os.path.exists(_weight_file_path):
-                _weight_file_path = os.path.join('.', weights_configs['file_digest'], key_filename)
-            if not os.path.exists(_weight_file_path):
-                _weight_file_path = os.path.join(weights_configs['file_digest'], key_filename)
+                home = expanduser("/")
+                root = expanduser("~")
+                _weight_file_path = os.path.join(home, weights_configs['file_digest'])
+                if not os.path.exists(_weight_file_path):
+                    _weight_file_path = os.path.join(home, weights_configs['file_digest'], key_filename)
+                if not os.path.exists(_weight_file_path):
+                    _weight_file_path = os.path.join('.', weights_configs['file_digest'], key_filename)
+                if not os.path.exists(_weight_file_path):
+                    _weight_file_path = os.path.join(root, weights_configs['file_digest'], key_filename)
+                if not os.path.exists(_weight_file_path):
+                    _weight_file_path = os.path.join(weights_configs['file_digest'], key_filename)
 
         if os.path.isfile(_weight_file_path):
             return _weight_file_path
@@ -555,6 +554,7 @@ class MobileNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
             raise ValueError("Can't get weights file from the volume by key: {} or in the static folder: {}".format(key_filename, _weight_file_path))
 
         return _weight_file_path
+
 
     def get_params(self) -> Params:
         return None
