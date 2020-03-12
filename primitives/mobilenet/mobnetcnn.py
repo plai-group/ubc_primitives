@@ -26,7 +26,7 @@ from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
 from primitives.cnn.dataset import Dataset
 
 # Import CNN models
-from primitives.cnn.cnn_models.mobilenet import MobileNet
+from primitives.mobilenet.mobnetcnn import MobileNet
 
 __all__ = ('MobileNetCNN',)
 logger  = logging.getLogger(__name__)

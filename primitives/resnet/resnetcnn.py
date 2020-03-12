@@ -26,7 +26,7 @@ from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
 from primitives.cnn.dataset import Dataset
 
 # Import CNN models
-from primitives.cnn.cnn_models.mobilenet import MobileNet
+from primitives.resnet.resnet import ResNeT
 
 __all__ = ('ResNetCNN',)
 logger  = logging.getLogger(__name__)
@@ -226,7 +226,7 @@ class ResNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperpar
         # Get CNN Model
         self.model = ResNeT(include_top=self.hyperparams['include_top'])
         if self.hyperparams['use_pretrained']:
-            weights_path = self._find_weights_dir(key_filename='resnet34-333f7ec4.pth', weights_configs=_weights_configs[4])
+            weights_path = self._find_weights_dir(key_filename='resnet34-333f7ec4.pth', weights_configs=_weights_configs[0])
             checkpoint   = torch.load(weights_path)
             self.model.load_state_dict(checkpoint)
             self.expected_feature_out_dim = (512 * 7 * 7)
