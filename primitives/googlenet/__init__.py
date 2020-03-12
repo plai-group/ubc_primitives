@@ -1,4 +1,4 @@
-from .cnn import ConvolutionalNeuralNetwork
+from .gnetcnn import GoogleNetCNN
 
 
 __all__ = ['GoogleNetCNN', 'Dataset']

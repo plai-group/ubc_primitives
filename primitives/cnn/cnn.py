@@ -241,7 +241,6 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             self.pre_process = transforms.Compose([
                                 transforms.Resize(255),
                                 transforms.RandomCrop(self._img_size),
-                                transforms.ColorJitter(brightness=0.9),
                                 transforms.ToTensor()])
         else:
             # All other pre-trained models are normalized in the same way
@@ -255,7 +254,6 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             self.pre_process = transforms.Compose([
                                 transforms.Resize(255),
                                 transforms.RandomCrop(self._img_size),
-                                transforms.ColorJitter(brightness=0.9),
                                 transforms.ToTensor(),
                                 transforms.Normalize(mean=[0.485, 0.456, 0.406],\
                                                      std=[0.229, 0.224, 0.225])])
@@ -318,8 +316,8 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             self.model = GoogLeNet(include_top=self.hyperparams['include_top'], num_classes=int(self.hyperparams['output_dim']))
             if self.hyperparams['use_pretrained']:
                 weights_path = self._find_weights_dir(key_filename='googlenet-1378be20.pth', weights_configs=_weights_configs[2])
-                self.model.load_state_dict(checkpoint)
                 checkpoint   = torch.load(weights_path)
+                self.model.load_state_dict(checkpoint)
                 self.expected_feature_out_dim = (1024 * 7 * 7)
                 logging.info("Pre-Trained imagenet weights loaded!")
 
@@ -585,11 +583,6 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         base_paths    = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
         base_paths    = [base_paths[t]['location_base_uris'][0].replace('file:///', '/') for t in range(len(base_paths))] # Path + media
         all_img_paths = [[os.path.join(base_path, filename) for filename in inputs.iloc[:,col]] for base_path, col in zip(base_paths, image_columns)]
-        # Get Label Columns Names
-        label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget') # [2]
-        if len(label_columns) == 0:
-            label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget') # [2]
-        label_columns_names = [list(self._training_outputs.columns)[i] for i in label_columns]
 
         # Delete columns with path names of nested media files
         outputs = inputs.remove_columns(image_columns)
@@ -645,6 +638,12 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             # Inference
             if not self._fitted and self.hyperparams['output_dim'] != 1000:
                 raise Exception('Please fit the model before calling produce!')
+
+            # Get Label Columns Names
+            label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget') # [2]
+            if len(label_columns) == 0 or label_columns == None:
+                label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget') # [2]
+            label_columns_names = [list(self._training_outputs.columns)[i] for i in label_columns]
 
             predictions = []
             for idx in range(len(all_img_paths)):
@@ -702,8 +701,8 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
                 _weight_file_path = os.path.join(home, weights_configs['file_digest'], key_filename)
             if not os.path.exists(_weight_file_path):
                 _weight_file_path = os.path.join('.', weights_configs['file_digest'], key_filename)
-        else:
-            _weight_file_path = os.path.join(weights_configs['file_digest'], key_filename)
+            if not os.path.exists(_weight_file_path):
+                _weight_file_path = os.path.join(weights_configs['file_digest'], key_filename)
 
         if os.path.isfile(_weight_file_path):
             return _weight_file_path

@@ -9,7 +9,6 @@ from d3m import utils as d3m_utils
 # Import config file
 from primitives.config_files import config
 
-
 # Import relevant libraries
 import os
 import time
@@ -26,9 +25,8 @@ import torchvision.transforms as transforms
 from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
 from primitives.cnn.dataset import Dataset
 
-
 # Import CNN models
-from primitives.cnn.googlenet import GoogLeNet
+from primitives.googlenet.googlenet import GoogLeNet
 
 __all__ = ('GoogleNetCNN',)
 logger  = logging.getLogger(__name__)
@@ -48,8 +46,11 @@ class WeightsDirPrimitive:
         if not os.path.isdir(dir_name):
             try:
                 os.mkdir(dir_name)
-            except FileNotFoundError or FileExistsError:
-                os.mkdir('/static')
+            except FileNotFoundError or FileExistsError or PermissionError:
+                try:
+                    os.mkdir('/static')
+                except PermissionError:
+                    return None
 
 
 class Params(params.Params):
@@ -146,41 +147,41 @@ class Hyperparams(hyperparams.Hyperparams):
 
 
 class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperparams], WeightsDirPrimitive):
-        """
-        GoogleNet Convolutional Neural Network primitive using PyTorch framework.
-        Used to extract deep features from images.
-        It can be used as a pre-trained feature extractor, to extract features from
-        convolutional layers or the fully connected layers by setting include_top.
-        It can also be fine-tunned to fit new data, by setting feature extraction to False.
-        Current pre-trained model is on ImageNet.
-        Citation: https://arxiv.org/pdf/1409.4842.pdf
-        """
-        # Check if the weights directory exist, else create one. Default: /static
-        WeightsDirPrimitive._weights_data_dir(dir_name="/ubc_primitives/static")
-        # Metadata
-        __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
-        global _weights_configs
-        _weights_configs = [{'type': 'FILE',
-                             'key': 'googlenet-1378be20.pth',
-                             'file_uri': 'https://download.pytorch.org/models/googlenet-1378be20.pth',
-                             'file_digest': '1378be20a8e875cf1568b8a71654e704449655e34711a959a38b04fb34905cef'},]
-        metadata = metadata_base.PrimitiveMetadata({
-            "id": "5e785bd4-04cd-42d6-9a49-cbfb06e5036e",
-            "version": config.VERSION,
-            "name": "Convolutional Neural Network",
-            "description": "A primitive to extract features and to fit model for images",
-            "python_path": "d3m.primitives.feature_extraction.cnn.UBC",
-            "primitive_family": metadata_base.PrimitiveFamily.FEATURE_EXTRACTION,
-            "algorithm_types": [metadata_base.PrimitiveAlgorithmType.CONVOLUTIONAL_NEURAL_NETWORK],
-            "source": {
-                "name": config.D3M_PERFORMER_TEAM,
-                "contact": config.D3M_CONTACT,
-                "uris": [config.REPOSITORY],
-            },
-            "keywords": ["cnn", "googlenet", "convolutional neural network", "deep learning"],
-            "installation": [config.INSTALLATION] + _weights_configs,
-            "hyperparams_to_tune": ['learning_rate', 'optimizer_type']
-        })
+    """
+    GoogleNet Convolutional Neural Network primitive using PyTorch framework.
+    Used to extract deep features from images.
+    It can be used as a pre-trained feature extractor, to extract features from
+    convolutional layers or the fully connected layers by setting include_top.
+    It can also be fine-tunned to fit new data, by setting feature extraction to False.
+    Current pre-trained model is on ImageNet.
+    Citation: https://arxiv.org/pdf/1409.4842.pdf
+    """
+    # Check if the weights directory exist, else create one. Default: /static
+    WeightsDirPrimitive._weights_data_dir(dir_name="/ubc_primitives/static")
+    # Metadata
+    __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
+    global _weights_configs
+    _weights_configs = [{'type': 'FILE',
+                         'key': 'googlenet-1378be20.pth',
+                         'file_uri': 'https://download.pytorch.org/models/googlenet-1378be20.pth',
+                         'file_digest': '1378be20a8e875cf1568b8a71654e704449655e34711a959a38b04fb34905cef'},]
+    metadata = metadata_base.PrimitiveMetadata({
+        "id": "5e785bd4-04cd-42d6-9a49-cbfb06e5036e",
+        "version": config.VERSION,
+        "name": "Convolutional Neural Network",
+        "description": "A primitive to extract features and to fit model for images",
+        "python_path": "d3m.primitives.feature_extraction.googlenet.UBC",
+        "primitive_family": metadata_base.PrimitiveFamily.FEATURE_EXTRACTION,
+        "algorithm_types": [metadata_base.PrimitiveAlgorithmType.CONVOLUTIONAL_NEURAL_NETWORK],
+        "source": {
+            "name": config.D3M_PERFORMER_TEAM,
+            "contact": config.D3M_CONTACT,
+            "uris": [config.REPOSITORY],
+        },
+        "keywords": ["cnn", "googlenet", "convolutional neural network", "deep learning"],
+        "installation": [config.INSTALLATION] + _weights_configs,
+        "hyperparams_to_tune": ['learning_rate', 'optimizer_type']
+    })
 
 
     def __init__(self, *, hyperparams: Hyperparams, volumes: Union[Dict[str, str], None]=None):
@@ -204,7 +205,6 @@ class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
         self.pre_process = transforms.Compose([
                             transforms.Resize(255),
                             transforms.RandomCrop(self._img_size),
-                            transforms.ColorJitter(brightness=0.95),
                             transforms.ToTensor()])
         # Is the model fit on data
         self._fitted = False
@@ -226,9 +226,9 @@ class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
         # Get CNN Model
         self.model = GoogLeNet(include_top=self.hyperparams['include_top'], num_classes=int(self.hyperparams['output_dim']))
         if self.hyperparams['use_pretrained']:
-            weights_path = self._find_weights_dir(key_filename='googlenet-1378be20.pth', weights_configs=_weights_configs[2])
-            self.model.load_state_dict(checkpoint)
+            weights_path = self._find_weights_dir(key_filename='googlenet-1378be20.pth', weights_configs=_weights_configs[0])
             checkpoint   = torch.load(weights_path)
+            self.model.load_state_dict(checkpoint)
             self.expected_feature_out_dim = (1024 * 7 * 7)
             logging.info("Pre-Trained imagenet weights loaded!")
 
@@ -292,6 +292,7 @@ class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
         else:
             self.final_layer = None
         #----------------------------------------------------------------------#
+
 
     def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
         """
@@ -434,11 +435,6 @@ class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
         base_paths    = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
         base_paths    = [base_paths[t]['location_base_uris'][0].replace('file:///', '/') for t in range(len(base_paths))] # Path + media
         all_img_paths = [[os.path.join(base_path, filename) for filename in inputs.iloc[:,col]] for base_path, col in zip(base_paths, image_columns)]
-        # Get Label Columns Names
-        label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget') # [2]
-        if len(label_columns) == 0:
-            label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget') # [2]
-        label_columns_names = [list(self._training_outputs.columns)[i] for i in label_columns]
 
         # Delete columns with path names of nested media files
         outputs = inputs.remove_columns(image_columns)
@@ -491,6 +487,12 @@ class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
             # Inference
             if not self._fitted and self.hyperparams['output_dim'] != 1000:
                 raise Exception('Please fit the model before calling produce!')
+
+            # Get Label Columns Names
+            label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget') # [2]
+            if len(label_columns) == 0 or label_columns == None:
+                label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget') # [2]
+            label_columns_names = [list(self._training_outputs.columns)[i] for i in label_columns]
 
             predictions = []
             for idx in range(len(all_img_paths)):
@@ -545,8 +547,8 @@ class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
                 _weight_file_path = os.path.join(home, weights_configs['file_digest'], key_filename)
             if not os.path.exists(_weight_file_path):
                 _weight_file_path = os.path.join('.', weights_configs['file_digest'], key_filename)
-        else:
-            _weight_file_path = os.path.join(weights_configs['file_digest'], key_filename)
+            if not os.path.exists(_weight_file_path):
+                _weight_file_path = os.path.join(weights_configs['file_digest'], key_filename)
 
         if os.path.isfile(_weight_file_path):
             return _weight_file_path
