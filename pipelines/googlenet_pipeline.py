@@ -162,7 +162,7 @@ def main(select_pipeline):
         make_pipeline_2()
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Genereate CNN based pipeline.')
+    parser = argparse.ArgumentParser(description='Genereate GoogleNet based pipeline.')
     parser.add_argument('-s', action='store', dest='select_pipeline', type=int, help='Which pipeline to generate')
     args = parser.parse_args()
 
