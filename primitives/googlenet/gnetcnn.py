@@ -153,7 +153,7 @@ class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
     It can be used as a pre-trained feature extractor, to extract features from
     convolutional layers or the fully connected layers by setting include_top.
     It can also be fine-tunned to fit new data, by setting feature extraction to False.
-    Current pre-trained model is on ImageNet.
+    Model pre-trained on ImageNet.
     Citation: https://arxiv.org/pdf/1409.4842.pdf
     """
     # Check if the weights directory exist, else create one. Default: /static
