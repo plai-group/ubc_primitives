@@ -84,7 +84,7 @@ def make_pipeline_1():
 
     # print(pipeline.to_json())
 
-    with open('./gnet_pipeline_1.json', 'w') as write_file:
+    with open('./resnet_pipeline_1.json', 'w') as write_file:
         write_file.write(pipeline.to_json(indent=4, sort_keys=False, ensure_ascii=False))
 
     print('Generated pipeline - 1!')
@@ -150,7 +150,7 @@ def make_pipeline_2():
 
     # print(pipeline.to_json())
 
-    with open('./gnet_pipeline_2.json', 'w') as write_file:
+    with open('./resnet_pipeline_2.json', 'w') as write_file:
         write_file.write(pipeline.to_json(indent=4, sort_keys=False, ensure_ascii=False))
 
     print('Generated pipeline - 2!')
