@@ -14,6 +14,7 @@ import os
 import time
 import logging
 import numpy as np
+from os.path import expanduser
 from collections import OrderedDict
 from PIL import Image
 import torch
@@ -22,20 +23,16 @@ import torch.optim as optim
 from torch.utils import data
 import torchvision.transforms as transforms
 from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
-from primitives.cnn.dataset import Dataset
+from primitives.vgg.dataset import Dataset
 
 # Import CNN models
-from primitives.cnn.cnn_models.vgg import VGG16
-from primitives.cnn.cnn_models.resnet import ResNeT
-from primitives.cnn.cnn_models.googlenet import GoogLeNet
-from primitives.cnn.cnn_models.mobilenet import MobileNet
+from primitives.vgg.vgg import VGG16
 
-__all__ = ('ConvolutionalNeuralNetwork',)
+__all__ = ('VGG16',)
 logger  = logging.getLogger(__name__)
 
 Inputs  = container.DataFrame
 Outputs = container.DataFrame
-
 
 class WeightsDirPrimitive:
     """
@@ -54,6 +51,7 @@ class WeightsDirPrimitive:
                     os.mkdir('/static')
                 except PermissionError:
                     return None
+
 
 class Params(params.Params):
     None
@@ -104,12 +102,6 @@ class Hyperparams(hyperparams.Hyperparams):
         description='Type of activation (non-linearity) following the last layer.',
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
     )
-    cnn_type = hyperparams.Enumeration[str](
-        values=['vgg', 'googlenet', 'mobilenet', 'resnet'],
-        default='resnet',
-        description='Type of convolutional neural network to use.',
-        semantic_types=['https://metadata.datadrivendiscovery.org/types/TuningParameter'],
-    )
     loss_type = hyperparams.Enumeration[str](
         values=['mse', 'crossentropy', 'l1'],
         default='mse',
@@ -159,20 +151,18 @@ class Hyperparams(hyperparams.Hyperparams):
     )
 
 
-class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperparams], WeightsDirPrimitive):
+class VGG16CNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperparams], WeightsDirPrimitive):
     """
-    Convolutional Neural Network primitive using PyTorch framework.
-    Used to extract deep features from images.
+    VGG16 is a standard Convolutional Neural Network primitive using
+    PyTorch framework. It is used to extract deep features from images.
     It can be used as a pre-trained feature extractor, to extract features from
-    convolutional layers or the fully connected layers by setting include_top.
-    It can also be fine-tunned to fit new data, by setting feature extraction to False.
+    convolutional layers or from the fully connected layers by setting include_top.
+    It can also be fine-tunned to fit new data, by setting feature_extraction to False.
+    Model pre-trained on ImageNet.
     Available pre-trained CNN models are:
       - VGG-16
       - VGG-16 with Batch-Norm
-      - GoogLeNet
-      - ResNeT
-      - MobileNet (A Light weight CNN model)
-    All available models are pre-trained on ImageNet.
+    Citation: https://arxiv.org/pdf/1409.1556.pdf
     """
     # Check if the weights directory exist, else create one. Default: /static
     WeightsDirPrimitive._weights_data_dir(dir_name="/ubc_primitives/static")
@@ -186,26 +176,13 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
                          {'type': 'FILE',
                           'key': 'vgg16_bn-6c64b313.pth',
                           'file_uri': 'https://download.pytorch.org/models/vgg16_bn-6c64b313.pth',
-                          'file_digest': '6c64b3138f2f4fcb3bcc4cafde11619c4f440eb1631787e93a682fd88305888a'},
-                         {'type': 'FILE',
-                          'key': 'googlenet-1378be20.pth',
-                          'file_uri': 'https://download.pytorch.org/models/googlenet-1378be20.pth',
-                          'file_digest': '1378be20a8e875cf1568b8a71654e704449655e34711a959a38b04fb34905cef'},
-                         {'type': 'FILE',
-                          'key': 'mobilenet_v2-b0353104.pth',
-                          'file_uri': 'https://download.pytorch.org/models/mobilenet_v2-b0353104.pth',
-                          'file_digest': 'b03531047ffacf1e2488318dcd2aba1126cde36e3bfe1aa5cb07700aeeee9889'},
-                         {'type': 'FILE',
-                          'key': 'resnet34-333f7ec4.pth',
-                          'file_uri': 'https://download.pytorch.org/models/resnet34-333f7ec4.pth',
-                          'file_digest': '333f7ec4c6338da2cbed37f1fc0445f9624f1355633fa1d7eab79a91084c6cef'},
-    ]
+                          'file_digest': '6c64b3138f2f4fcb3bcc4cafde11619c4f440eb1631787e93a682fd88305888a'},]
     metadata = metadata_base.PrimitiveMetadata({
-        "id": "88152884-dc0c-40e5-ba07-6a6c9cd45ef1",
+        "id": "3bc260fb-5d11-452d-af00-986a31d8237c",
         "version": config.VERSION,
-        "name": "Convolutional Neural Network",
-        "description": "A primitive to extract features and to fit model for images",
-        "python_path": "d3m.primitives.feature_extraction.cnn.UBC",
+        "name": "VGG16 Convolutional Neural Network",
+        "description": "A primitive to extract features and to fit model for image data",
+        "python_path": "d3m.primitives.feature_extraction.resnet.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.FEATURE_EXTRACTION,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.CONVOLUTIONAL_NEURAL_NETWORK],
         "source": {
@@ -213,9 +190,9 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             "contact": config.D3M_CONTACT,
             "uris": [config.REPOSITORY],
         },
-        "keywords": ["cnn", "vgg", "googlenet", "resnet", "mobilenet", "convolutional neural network", "deep learning"],
+        "keywords": ["cnn", "vgg", "convolutional neural network", "deep learning"],
         "installation": [config.INSTALLATION] + _weights_configs,
-        "hyperparams_to_tune": ['learning_rate', 'cnn_type']
+        "hyperparams_to_tune": ['learning_rate', 'optimizer_type']
     })
 
 
@@ -231,32 +208,16 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         self._setup_cnn()
         # Image pre-processing function
         self._img_size = int(self.hyperparams['img_resize'])
-        if self.hyperparams['cnn_type'] == 'googlenet':
-            # Normalize done inside GoogLeNet model
-            self.val_pre_process = transforms.Compose([
-                                    transforms.Resize(255),
-                                    transforms.CenterCrop(self._img_size),
-                                    transforms.ToTensor()])
-            # Random Crop during training
-            self.pre_process = transforms.Compose([
+        # Normalize done inside GoogLeNet model
+        self.val_pre_process = transforms.Compose([
                                 transforms.Resize(255),
-                                transforms.RandomCrop(self._img_size),
+                                transforms.CenterCrop(self._img_size),
                                 transforms.ToTensor()])
-        else:
-            # All other pre-trained models are normalized in the same way
-            self.val_pre_process = transforms.Compose([
-                                    transforms.Resize(255),
-                                    transforms.CenterCrop(self._img_size),
-                                    transforms.ToTensor(),
-                                    transforms.Normalize(mean=[0.485, 0.456, 0.406],\
-                                                         std=[0.229, 0.224, 0.225])])
-            # Random Crop during training
-            self.pre_process = transforms.Compose([
-                                transforms.Resize(255),
-                                transforms.RandomCrop(self._img_size),
-                                transforms.ToTensor(),
-                                transforms.Normalize(mean=[0.485, 0.456, 0.406],\
-                                                     std=[0.229, 0.224, 0.225])])
+        # Random Crop during training
+        self.pre_process = transforms.Compose([
+                            transforms.Resize(255),
+                            transforms.RandomCrop(self._img_size),
+                            transforms.ToTensor()])
         # Is the model fit on data
         self._fitted = False
 
@@ -266,7 +227,6 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         self._training_outputs  = outputs
         self._new_training_data = True
 
-
     def _setup_cnn(self):
         #----------------------------------------------------------------------#
         if self.hyperparams['feature_extract_only'] and self.hyperparams['include_top']:
@@ -275,121 +235,39 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             self.include_last_layer = True
 
         #--------------------------------VGG-----------------------------------#
-        if self.hyperparams['cnn_type'] == 'vgg':
-            # Get CNN Model
-            self.model = VGG16(include_top=self.hyperparams['include_top'], batch_norm=self.hyperparams['include_top'])
-            if self.hyperparams['use_pretrained']:
-                if self.hyperparams['use_batch_norm']:
-                    weights_path = self._find_weights_dir(key_filename='vgg16_bn-6c64b313.pth', weights_configs=_weights_configs[1])
-                else:
-                    weights_path = self._find_weights_dir(key_filename='vgg16-397923af.pth', weights_configs=_weights_configs[0])
-                checkpoint = torch.load(weights_path)
-                self.model.load_state_dict(checkpoint)
-                self.expected_feature_out_dim = (512 * 7 * 7)
-                #logging.info("Pre-Trained imagenet weights loaded!")
-                print("Pre-Trained imagenet weights loaded!")
+        # Get CNN Model
+        self.model = VGG16(include_top=self.hyperparams['include_top'], batch_norm=self.hyperparams['include_top'])
+        if self.hyperparams['use_pretrained']:
+            if self.hyperparams['use_batch_norm']:
+                weights_path = self._find_weights_dir(key_filename='vgg16_bn-6c64b313.pth', weights_configs=_weights_configs[1])
+            else:
+                weights_path = self._find_weights_dir(key_filename='vgg16-397923af.pth', weights_configs=_weights_configs[0])
+            checkpoint = torch.load(weights_path)
+            self.model.load_state_dict(checkpoint)
+            self.expected_feature_out_dim = (512 * 7 * 7)
+            #logging.info("Pre-Trained imagenet weights loaded!")
+            print("Pre-Trained imagenet weights loaded!")
 
-            # Final layer Augmentation
-            if (not self.hyperparams['feature_extract_only']) and self.hyperparams['output_dim'] != 1000:
-                num_ftrs = self.model.classifier[6].in_features
-                self.model.classifier[6] = nn.Linear(num_ftrs, self.hyperparams['output_dim'])
-                # Intialize with random weights
-                nn.init.normal_(self.model.classifier[6].weight, 0, 0.01)
-                nn.init.constant_(self.model.classifier[6].bias, 0)
+        # Final layer Augmentation
+        if (not self.hyperparams['feature_extract_only']) and self.hyperparams['output_dim'] != 1000:
+            num_ftrs = self.model.classifier[6].in_features
+            self.model.classifier[6] = nn.Linear(num_ftrs, self.hyperparams['output_dim'])
+            # Intialize with random weights
+            nn.init.normal_(self.model.classifier[6].weight, 0, 0.01)
+            nn.init.constant_(self.model.classifier[6].bias, 0)
 
-            # Remove final layer if needed
-            if (not self.include_last_layer) and self.hyperparams['feature_extract_only']:
-                clsfy_layers = self.model.classifier
-                self.model.classifier = nn.Sequential( *list(clsfy_layers)[:-1])
+        # Remove final layer if needed
+        if (not self.include_last_layer) and self.hyperparams['feature_extract_only']:
+            clsfy_layers = self.model.classifier
+            self.model.classifier = nn.Sequential( *list(clsfy_layers)[:-1])
 
-            # Freeze all layers except the last layer and gather params
-            if not self.hyperparams['train_endToend']:
-                for param in self.model.parameters():
-                    param.requires_grad = False
-                if (not self.hyperparams['feature_extract_only']):
-                    for parameter in self.model.classifier[6].parameters():
-                        parameter.requires_grad = True
-
-        #----------------------------GoogLeNet---------------------------------#
-        elif self.hyperparams['cnn_type'] == 'googlenet':
-            # Get CNN Model
-            self.model = GoogLeNet(include_top=self.hyperparams['include_top'], num_classes=int(self.hyperparams['output_dim']))
-            if self.hyperparams['use_pretrained']:
-                weights_path = self._find_weights_dir(key_filename='googlenet-1378be20.pth', weights_configs=_weights_configs[2])
-                checkpoint   = torch.load(weights_path)
-                self.model.load_state_dict(checkpoint)
-                self.expected_feature_out_dim = (1024 * 7 * 7)
-                logging.info("Pre-Trained imagenet weights loaded!")
-
-            # Final layer Augmentation
-            if (not self.hyperparams['feature_extract_only']) and self.hyperparams['output_dim'] != 1000:
-                num_ftrs = self.model.fc.in_features
-                self.model.fc = nn.Linear(num_ftrs, self.hyperparams['output_dim'])
-                # Intialize with random weights
-                nn.init.normal_(self.model.fc.weight, 0, 0.01)
-                nn.init.constant_(self.model.fc.bias, 0)
-
-            # Freeze all layers except the last layer and gather params
-            if not self.hyperparams['train_endToend']:
-                for param in self.model.parameters():
-                    param.requires_grad = False
-                if (not self.hyperparams['feature_extract_only']):
-                    for parameter in self.model.fc.parameters():
-                        parameter.requires_grad = True
-
-        #----------------------------MobileNet---------------------------------#
-        elif self.hyperparams['cnn_type'] == 'mobilenet':
-            # Get CNN Model
-            self.model = MobileNet(include_top=self.hyperparams['include_top'])
-            if self.hyperparams['use_pretrained']:
-                weights_path = self._find_weights_dir(key_filename='mobilenet_v2-b0353104.pth', weights_configs=_weights_configs[3])
-                checkpoint   = torch.load(weights_path)
-                self.model.load_state_dict(checkpoint)
-                self.expected_feature_out_dim = (1280 * 7 * 7)
-                logging.info("Pre-Trained imagenet weights loaded!")
-
-            # Final layer Augmentation
-            if (not self.hyperparams['feature_extract_only']) and self.hyperparams['output_dim'] != 1000:
-                num_ftrs = self.model.classifier[1].in_features
-                self.model.classifier[1] = nn.Linear(num_ftrs, self.hyperparams['output_dim'])
-                # Intialize with random weights
-                nn.init.normal_(self.model.classifier[1].weight, 0, 0.01)
-                nn.init.constant_(self.model.classifier[1].bias, 0)
-
-            # Freeze all layers except the last layer and gather params
-            if not self.hyperparams['train_endToend']:
-                for param in self.model.parameters():
-                    param.requires_grad = False
-                if (not self.hyperparams['feature_extract_only']):
-                    for parameter in self.model.classifier[1].parameters():
-                        parameter.requires_grad = True
-
-        #-----------------------------ResNeT-----------------------------------#
-        elif self.hyperparams['cnn_type'] == 'resnet':
-            # Get CNN Model
-            self.model = ResNeT(include_top=self.hyperparams['include_top'])
-            if self.hyperparams['use_pretrained']:
-                weights_path = self._find_weights_dir(key_filename='resnet34-333f7ec4.pth', weights_configs=_weights_configs[4])
-                checkpoint   = torch.load(weights_path)
-                self.model.load_state_dict(checkpoint)
-                self.expected_feature_out_dim = (512 * 7 * 7)
-                logging.info("Pre-Trained imagenet weights loaded!")
-
-            # Final layer Augmentation
-            if (not self.hyperparams['feature_extract_only']) and self.hyperparams['output_dim'] != 1000:
-                num_ftrs = self.model.fc.in_features
-                self.model.fc = nn.Linear(num_ftrs, self.hyperparams['output_dim'])
-                # Intialize with random weights
-                nn.init.normal_(self.model.fc.weight, 0, 0.01)
-                nn.init.constant_(self.model.fc.bias, 0)
-
-            # Freeze all layers except the last layer and gather params
-            if not self.hyperparams['train_endToend']:
-                for param in self.model.parameters():
-                    param.requires_grad = False
-                if (not self.hyperparams['feature_extract_only']):
-                    for parameter in self.model.fc.parameters():
-                        parameter.requires_grad = True
+        # Freeze all layers except the last layer and gather params
+        if not self.hyperparams['train_endToend']:
+            for param in self.model.parameters():
+                param.requires_grad = False
+            if (not self.hyperparams['feature_extract_only']):
+                for parameter in self.model.classifier[6].parameters():
+                    parameter.requires_grad = True
 
         #----------------------------------------------------------------------#
         # Model to GPU if available
@@ -435,6 +313,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         else:
             self.final_layer = None
         #----------------------------------------------------------------------#
+
 
     def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
         """
@@ -538,22 +417,11 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
                                      even for multiclass classification problems, it must be in\
                                      the range from 0 to C-1 as the target')
                 # Forward Pass
-                if self.hyperparams['cnn_type'] == 'googlenet':
-                    local_outputs, aux_1, aux_2 = self.model(local_batch.to(self.device), include_last_layer=self.include_last_layer)
-                    if self.hyperparams['train_endToend']:
-                        # Loss
-                        local_loss = criterion(local_outputs, local_labels.float())
-                        local_loss += 0.4 * criterion(aux_1,  local_labels.float())
-                        local_loss += 0.4 * criterion(aux_2,  local_labels.float())
-                    else:
-                        local_loss = criterion(local_outputs, local_labels.float())
-                    # Backward pass
-                    local_loss.backward()
-                else:
-                    local_outputs = self.model(local_batch.to(self.device), include_last_layer=self.include_last_layer)
-                    # Loss and backward pass
-                    local_loss = criterion(local_outputs, local_labels.float())
-                    local_loss.backward()
+                local_outputs = self.model(local_batch.to(self.device), include_last_layer=self.include_last_layer)
+                # Loss and backward pass
+                local_loss = criterion(local_outputs, local_labels.float())
+                # Backward pass
+                local_loss.backward()
                 # Update weights
                 self.optimizer_instance.step()
                 # Increment
@@ -604,10 +472,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
                         image = Image.open(imagefile)
                         image = self.val_pre_process(image) # To pytorch tensor
                         image = image.unsqueeze(0) # 1 x C x H x W
-                        if self.hyperparams['cnn_type'] == 'googlenet':
-                            feature, _, _ = self.model(image.to(self.device), include_last_layer=self.include_last_layer)
-                        else:
-                            feature = self.model(image.to(self.device), include_last_layer=self.include_last_layer)
+                        feature = self.model(image.to(self.device), include_last_layer=self.include_last_layer)
                         if self.final_layer != None:
                             feature = self.final_layer(feature)
                         if len(feature.shape) > 1:
@@ -652,10 +517,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
                         image = Image.open(imagefile)
                         image = self.val_pre_process(image) # To pytorch tensor
                         image = image.unsqueeze(0) # 1 x C x H x W
-                        if self.hyperparams['cnn_type'] == 'googlenet':
-                            _out, _, _ = self.model(image.to(self.device), include_last_layer=self.include_last_layer)
-                        else:
-                            _out  = self.model(image.to(self.device), include_last_layer=self.include_last_layer)
+                        _out  = self.model(image.to(self.device), include_last_layer=self.include_last_layer)
                         if return_argmax:
                             _out = torch.argmax(_out, dim=-1, keepdim=False)
                         _out  = torch.flatten(_out)
@@ -714,7 +576,6 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             raise ValueError("Can't get weights file from the volume by key: {} or in the static folder: {}".format(key_filename, _weight_file_path))
 
         return _weight_file_path
-
 
     def get_params(self) -> Params:
         return None
