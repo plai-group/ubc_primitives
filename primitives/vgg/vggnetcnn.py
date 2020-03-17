@@ -178,11 +178,11 @@ class VGG16CNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperpara
                           'file_uri': 'https://download.pytorch.org/models/vgg16_bn-6c64b313.pth',
                           'file_digest': '6c64b3138f2f4fcb3bcc4cafde11619c4f440eb1631787e93a682fd88305888a'},]
     metadata = metadata_base.PrimitiveMetadata({
-        "id": "3bc260fb-5d11-452d-af00-986a31d8237c",
+        "id": "01dbe13b-fe3e-4ce6-a02e-d4df0d994b9e",
         "version": config.VERSION,
         "name": "VGG16 Convolutional Neural Network",
         "description": "A primitive to extract features and to fit model for image data",
-        "python_path": "d3m.primitives.feature_extraction.resnet.UBC",
+        "python_path": "d3m.primitives.feature_extraction.vgg.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.FEATURE_EXTRACTION,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.CONVOLUTIONAL_NEURAL_NETWORK],
         "source": {
@@ -236,7 +236,7 @@ class VGG16CNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperpara
 
         #--------------------------------VGG-----------------------------------#
         # Get CNN Model
-        self.model = VGG16(include_top=self.hyperparams['include_top'], batch_norm=self.hyperparams['include_top'])
+        self.model = VGG16(include_top=self.hyperparams['include_top'], batch_norm=self.hyperparams['use_batch_norm'])
         if self.hyperparams['use_pretrained']:
             if self.hyperparams['use_batch_norm']:
                 weights_path = self._find_weights_dir(key_filename='vgg16_bn-6c64b313.pth', weights_configs=_weights_configs[1])
@@ -245,8 +245,8 @@ class VGG16CNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperpara
             checkpoint = torch.load(weights_path)
             self.model.load_state_dict(checkpoint)
             self.expected_feature_out_dim = (512 * 7 * 7)
-            #logging.info("Pre-Trained imagenet weights loaded!")
-            print("Pre-Trained imagenet weights loaded!")
+            logging.info("Pre-Trained imagenet weights loaded!")
+            # print("Pre-Trained imagenet weights loaded!")
 
         # Final layer Augmentation
         if (not self.hyperparams['feature_extract_only']) and self.hyperparams['output_dim'] != 1000:

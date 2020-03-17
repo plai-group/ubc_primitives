@@ -277,7 +277,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         #--------------------------------VGG-----------------------------------#
         if self.hyperparams['cnn_type'] == 'vgg':
             # Get CNN Model
-            self.model = VGG16(include_top=self.hyperparams['include_top'], batch_norm=self.hyperparams['include_top'])
+            self.model = VGG16(include_top=self.hyperparams['include_top'], batch_norm=self.hyperparams['use_batch_norm'])
             if self.hyperparams['use_pretrained']:
                 if self.hyperparams['use_batch_norm']:
                     weights_path = self._find_weights_dir(key_filename='vgg16_bn-6c64b313.pth', weights_configs=_weights_configs[1])
@@ -286,8 +286,8 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
                 checkpoint = torch.load(weights_path)
                 self.model.load_state_dict(checkpoint)
                 self.expected_feature_out_dim = (512 * 7 * 7)
-                #logging.info("Pre-Trained imagenet weights loaded!")
-                print("Pre-Trained imagenet weights loaded!")
+                logging.info("Pre-Trained imagenet weights loaded!")
+                # print("Pre-Trained imagenet weights loaded!")
 
             # Final layer Augmentation
             if (not self.hyperparams['feature_extract_only']) and self.hyperparams['output_dim'] != 1000:
