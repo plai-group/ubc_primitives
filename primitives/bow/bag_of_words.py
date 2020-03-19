@@ -48,7 +48,7 @@ class Hyperparams(hyperparams.Hyperparams):
     """
     Hyper-parameters
     """
-    n_samples = hyperparams.Constant(
+    n_samples = hyperparams.Hyperparameter[int](
         default=1000,
         description="Max number of samples/words to select",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
@@ -109,6 +109,8 @@ class BagOfWords(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperpara
         """
         # Get all Nested media files
         text_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
+        if len(text_columns) == 0:
+            text_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute') # [1]
         base_paths    = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t))['location_base_uris'][0].replace('file:///', '/') for t in text_columns] # Path + media
         txt_paths     = [[os.path.join(base_path, filename) for filename in inputs.iloc[:,col]] for base_path, col in zip(base_paths, text_columns)]
         # Extract the data from media files

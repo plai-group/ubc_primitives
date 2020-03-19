@@ -333,6 +333,8 @@ class VGG16CNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperpara
 
         # Get all Nested media files
         image_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
+        if len(image_columns) == 0:
+            image_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute') # [1]
         label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget') # [2]
         if len(label_columns) == 0:
             label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget') # [2]
