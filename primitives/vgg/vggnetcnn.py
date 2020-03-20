@@ -28,7 +28,7 @@ from primitives.vgg.dataset import Dataset
 # Import CNN models
 from primitives.vgg.vgg import VGG16
 
-__all__ = ('VGG16',)
+__all__ = ('VGG16CNN',)
 logger  = logging.getLogger(__name__)
 
 Inputs  = container.DataFrame
@@ -182,7 +182,7 @@ class VGG16CNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperpara
         "version": config.VERSION,
         "name": "VGG16 Convolutional Neural Network",
         "description": "A primitive to extract features and to fit model for image data",
-        "python_path": "d3m.primitives.feature_extraction.vgg.UBC",
+        "python_path": "d3m.primitives.feature_extraction.vggnet.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.FEATURE_EXTRACTION,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.CONVOLUTIONAL_NEURAL_NETWORK],
         "source": {

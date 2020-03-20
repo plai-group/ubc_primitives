@@ -42,6 +42,6 @@ setup(name='ubc_primitives',
               'feature_extraction.googlenet.UBC=primitives.googlenet:GoogleNetCNN',
               'feature_extraction.mobilenet.UBC=primitives.mobilenet:MobileNetCNN',
               'feature_extraction.resnet.UBC=primitives.resnet:ResNetCNN',
-              'feature_extraction.vgg.UBC=primitives.vgg:VGG16CNN',
+              'feature_extraction.vggnet.UBC=primitives.vgg:VGG16CNN',
           ],
       })

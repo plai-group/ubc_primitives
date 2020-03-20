@@ -14,8 +14,7 @@ from common_primitives.xgboost_regressor import XGBoostGBTreeRegressorPrimitive
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
 
 # Testing Primitive
-from primitives.resnet.resnetcnn import ResNetCNN
-
+from primitives.vgg.vggnetcnn import VGG16CNN
 
 def make_pipeline_1():
     pipeline = Pipeline()
@@ -34,7 +33,7 @@ def make_pipeline_1():
     pipeline.add_step(step_1)
 
     # Step 2: Feature Extraction Primitive
-    step_2 = PrimitiveStep(primitive=ResNetCNN)
+    step_2 = PrimitiveStep(primitive=VGG16CNN)
     step_2.add_hyperparameter(name='feature_extract_only', argument_type=ArgumentType.VALUE, data=True)
     step_2.add_hyperparameter(name='include_top', argument_type=ArgumentType.VALUE, data=False)
     step_2.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
@@ -84,7 +83,7 @@ def make_pipeline_1():
 
     # print(pipeline.to_json())
 
-    with open('./resnet_pipeline_1.json', 'w') as write_file:
+    with open('./vggnet_pipeline_1.json', 'w') as write_file:
         write_file.write(pipeline.to_json(indent=4, sort_keys=False, ensure_ascii=False))
 
     print('Generated pipeline - 1!')
@@ -129,7 +128,7 @@ def make_pipeline_2():
     targets    = 'steps.4.produce'
 
     # Step 5: Feature Extraction and Fit Primitive
-    step_5 = PrimitiveStep(primitive=ResNetCNN)
+    step_5 = PrimitiveStep(primitive=VGG16CNN)
     step_5.add_hyperparameter(name='output_dim', argument_type=ArgumentType.VALUE, data=1)
     step_5.add_hyperparameter(name='num_iterations', argument_type=ArgumentType.VALUE, data=100)
     step_5.add_hyperparameter(name='feature_extract_only', argument_type=ArgumentType.VALUE, data=False)
@@ -150,7 +149,7 @@ def make_pipeline_2():
 
     # print(pipeline.to_json())
 
-    with open('./resnet_pipeline_2.json', 'w') as write_file:
+    with open('./vggnet_pipeline_2.json', 'w') as write_file:
         write_file.write(pipeline.to_json(indent=4, sort_keys=False, ensure_ascii=False))
 
     print('Generated pipeline - 2!')
@@ -163,7 +162,7 @@ def main(select_pipeline):
         make_pipeline_2()
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Genereate ResNet based pipeline.')
+    parser = argparse.ArgumentParser(description='Genereate VGGNET based pipeline.')
     parser.add_argument('-s', action='store', dest='select_pipeline', type=int, help='Which pipeline to generate')
     args = parser.parse_args()
 
