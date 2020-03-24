@@ -43,8 +43,8 @@ def plotCCFDecisionSurface(name, CCF, x1Lims, x2Lims, XTrain, X, Y, nx1Res=250, 
     elif islogical(Y):
         Y = Y + 1
 
-    plt.contour(x1, x2, numericPreds, n_contours_or_vals, cmap=plt.cm.get_cmap('viridis'))
-    plt.colorbar()
+    plt.contourf(x1, x2, numericPreds, n_contours_or_vals, cmap=plt.cm.get_cmap('viridis'))
+    plt.contour(x1, x2, numericPreds, n_contours_or_vals, colors='k')  # negative contours will be dashed by default
 
     if plot_X:
         for k in range(1, np.max(Y)+1):
