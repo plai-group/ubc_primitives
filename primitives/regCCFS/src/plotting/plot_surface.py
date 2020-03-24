@@ -1,5 +1,5 @@
 import sys
-sys.path.append("/ccfs_ubc/primitives/regCCFS/src")
+sys.path.append("/ubc_primitives/primitives/regCCFS/src")
 
 import scipy.io
 import numpy as np
@@ -44,6 +44,7 @@ def plotCCFDecisionSurface(name, CCF, x1Lims, x2Lims, XTrain, X, Y, nx1Res=250, 
         Y = Y + 1
 
     plt.contour(x1, x2, numericPreds, n_contours_or_vals, cmap=plt.cm.get_cmap('viridis'))
+    plt.colorbar()
 
     if plot_X:
         for k in range(1, np.max(Y)+1):

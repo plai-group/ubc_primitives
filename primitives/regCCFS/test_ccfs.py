@@ -82,7 +82,7 @@ class TestCanonicalCorrelationForestsRegressionPrimitive(unittest.TestCase):
         # print(optionsClassCCF)
         #-----------------------------------------------------------------------
         # Load data
-        Tdata  = scipy.io.loadmat('/ccfs_ubc/datasets/seed_datasets_current/test_dataset/camel6.mat')
+        Tdata  = scipy.io.loadmat('/ubc_primitives/datasets/seed_datasets_current/test_dataset/camel6.mat')
         XTrain = Tdata['XTrain']
         YTrain = Tdata['YTrain']
         XTest  = Tdata['XTest']
@@ -93,7 +93,7 @@ class TestCanonicalCorrelationForestsRegressionPrimitive(unittest.TestCase):
 
         # Call CCF
         print('CCF.......')
-        CCF = genCCF(XTrain, YTrain, nTrees=200, bReg=True, optionsFor=optionsClassCCF)
+        CCF = genCCF(XTrain, YTrain, nTrees=200, bReg=True, optionsFor=optionsClassCCF, do_parallel=True)
         YpredCCF, _, _ = predictFromCCF(CCF, XTest)
         print('CCF Mean squared error (lower better): ', (np.mean((YpredCCF - YTest)**2)))
 
