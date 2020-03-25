@@ -20,7 +20,8 @@ import torch  # type: ignore
 import torch.nn as nn  # type: ignore
 import torch.optim as optim # type: ignore
 from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
-from primitives.clfyMLP.dataset import Dataset
+from primitives.clfyMLP.dataset import Dataset_1
+from primitives.clfyMLP.dataset import Dataset_2
 
 
 __all__ = ('MultilayerPerceptronClassifierPrimitive',)
@@ -304,7 +305,21 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
             raise exceptions.InvalidStateError("Missing training data.")
 
         # Get training data and labels data
-        feature_columns = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute')
+        try:
+            feature_columns_1 = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute')
+        except:
+            feature_columns_1 = None
+        try:
+            feature_columns_2 = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName')
+        except:
+            feature_columns_2 = None
+        # Remove columns if outputs present in inputs
+        if len(feature_columns_2) >= 1:
+            for fc_2 in feature_columns_2:
+                try:
+                    feature_columns_1.remove(fc_2)
+                except ValueError:
+                    pass
         # Get labels data if present in training input
         try:
             label_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
@@ -317,13 +332,13 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
         if len(label_columns) >= 1:
             for lbl_c in label_columns:
                 try:
-                    feature_columns.remove(lbl_c)
+                    feature_columns_1.remove(lbl_c)
                 except ValueError:
                     pass
 
         # Training Set
-        feature_columns = [int(fc) for fc in feature_columns]
-        XTrain = ((self._training_inputs.iloc[:, feature_columns]).to_numpy()).astype(np.float)
+        feature_columns_1 = [int(fc) for fc in feature_columns_1]
+        XTrain = ((self._training_inputs.iloc[:, feature_columns_1]).to_numpy()).astype(np.float)
 
         # Training labels
         try:
@@ -345,92 +360,146 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
         return XTrain, YTrain
 
 
-    def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
-        # Curate data
-        XTrain, YTrain = self._curate_train_data()
+    def fit(self, *, read_img_data: bool = True, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
+        if read_img_data == False:
+            # Curate data
+            XTrain, YTrain = self._curate_train_data()
 
-        # if self._training_inputs is None or self._training_outputs is None:
-        if self.XTrain.shape[1] != self.hyperparams["input_dim"]:
-            raise exceptions.InvalidStateError("Training dataset input is not same as input_dim")
+            # if self._training_inputs is None or self._training_outputs is None:
+            if self.XTrain.shape[1] != self.hyperparams["input_dim"]:
+                raise exceptions.InvalidStateError("Training dataset input is not same as input_dim")
 
-        # Check if data is matched
-        if self.XTrain.shape[0] != self.YTrain.shape[0]:
-            raise Exception('Size mismatch between training inputs and labels!')
+            # Check if data is matched
+            if self.XTrain.shape[0] != self.YTrain.shape[0]:
+                raise Exception('Size mismatch between training inputs and labels!')
 
-        if YTrain[0].size > 1:
-            raise Exception('Primitive accepts labels to be in size (minibatch, 1)!,\
-                             even for multiclass classification problems, it must be in\
-                             the range from 0 to C-1 as the target')
+            if YTrain[0].size > 1:
+                raise Exception('Primitive accepts labels to be in size (minibatch, 1)!,\
+                                 even for multiclass classification problems, it must be in\
+                                 the range from 0 to C-1 as the target')
 
-        # Set all files
-        _iterations = self.hyperparams['num_iterations']
+            # Set all files
+            _iterations = self.hyperparams['num_iterations']
 
-        _minibatch_size = self.hyperparams['minibatch_size']
-        if _minibatch_size > len(all_train_data):
-            _minibatch_size = len(all_train_data)
+            _minibatch_size = self.hyperparams['minibatch_size']
+            if _minibatch_size > len(all_train_data):
+                _minibatch_size = len(all_train_data)
 
-        # Dataset Parameters
-        train_params = {'batch_size': _minibatch_size,
-                        'shuffle': self.hyperparams['shuffle'],
-                        'num_workers': 4}
+            # Dataset Parameters
+            train_params = {'batch_size': _minibatch_size,
+                            'shuffle': self.hyperparams['shuffle'],
+                            'num_workers': 4}
 
-        # Loss function
-        if self.hyperparams['loss_type'] == 'crossentropy':
-            criterion = nn.CrossEntropyLoss().to(self.device)
+            # Loss function
+            if self.hyperparams['loss_type'] == 'crossentropy':
+                criterion = nn.CrossEntropyLoss().to(self.device)
+            else:
+                raise ValueError('Unsupported loss_type: {}. Available options: crossentropy'.format(self.hyperparams['loss_type']))
+
+            # Train functions
+            self._iterations_done = 0
+            # Set all files
+            _iterations = self.hyperparams['num_iterations']
+
+            _minibatch_size = self.hyperparams['minibatch_size']
+            if _minibatch_size > len(all_train_data):
+                _minibatch_size = len(all_train_data)
+
+            # Dataset Parameters
+            train_params = {'batch_size': _minibatch_size,
+                            'shuffle': self.hyperparams['shuffle'],
+                            'num_workers': 4}
+
+            # DataLoader
+            training_set = Dataset(all_data_X=XTrain, all_data_Y=YTrain, use_labels=True)
+
+            # Data Generators
+            training_generator = data.DataLoader(training_set, **train_params)
         else:
-            raise ValueError('Unsupported loss_type: {}. Available options: crossentropy'.format(self.hyperparams['loss_type']))
+            # Get all Nested media files
+            image_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
+            label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget') # [2]
+            if len(label_columns) == 0:
+                label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget') # [2]
+            base_paths     = [self._training_inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
+            base_paths     = [base_paths[t]['location_base_uris'][0].replace('file:///', '/') for t in range(len(base_paths))] # Path + media
+            all_img_paths  = [[os.path.join(base_path, filename) for filename in self._training_inputs.iloc[:, col]] for base_path, col in zip(base_paths, image_columns)]
+            all_img_labls  = [[os.path.join(label) for label in self._training_outputs.iloc[:, col]] for col in label_columns]
 
-        # Train functions
-        self._iterations_done = 0
-        # Set all files
-        _iterations = self.hyperparams['num_iterations']
+            # Check if data is matched
+            for idx in range(len(all_img_paths)):
+                if len(all_img_paths[idx]) != len(all_img_labls[idx]):
+                    raise Exception('Size mismatch between training inputs and labels!')
 
-        _minibatch_size = self.hyperparams['minibatch_size']
-        if _minibatch_size > len(all_train_data):
-            _minibatch_size = len(all_train_data)
+            if np.array([all_img_labls[0][0]]).size > 1:
+                raise Exception('Primitive accepts labels to be in size (minibatch, 1)!,\
+                                 even for multiclass classification problems, it must be in\
+                                 the range from 0 to C-1 as the target')
 
-        # Dataset Parameters
-        train_params = {'batch_size': _minibatch_size,
-                        'shuffle': self.hyperparams['shuffle'],
-                        'num_workers': 4}
+            # Organize data into training format
+            all_train_data = []
+            for idx in range(len(all_img_paths)):
+                img_paths = all_img_paths[idx]
+                img_labls = all_img_labls[idx]
+                for eachIdx in range(len(img_paths)):
+                    all_train_data.append([img_paths[eachIdx], img_labls[eachIdx]])
 
-        # DataLoader
-        training_set = Dataset(all_data_X=XTrain, all_data_Y=YTrain, use_labels=True)
+            # del to free memory
+            del all_img_paths, all_img_labls
 
-        # Data Generators
-        training_generator = data.DataLoader(training_set, **train_params)
+            if len(all_train_data) == 0:
+                raise Exception('Cannot fit when no training data is present.')
+
+            # Set all files
+            _iterations = self.hyperparams['num_iterations']
+
+            _minibatch_size = self.hyperparams['minibatch_size']
+            if _minibatch_size > len(all_train_data):
+                _minibatch_size = len(all_train_data)
+
+            # Dataset Parameters
+            train_params = {'batch_size': _minibatch_size,
+                            'shuffle': self.hyperparams['shuffle'],
+                            'num_workers': 4}
+
+            # DataLoader
+            training_set = Dataset(all_data=all_train_data, preprocess=self.pre_process)
+
+            # Data Generators
+            training_generator = data.DataLoader(training_set, **train_params)
+
 
         # Set model to training
         self._net.train()
 
-        for itr in range(_iterations):
-            epoch_loss = 0.0
-            iteration  = 0
-            for local_batch, local_labels in training_generator:
-                # Zero the parameter gradients
-                self.optimizer_instance.zero_grad()
-                # Check Label shapes
-                if len(local_labels.shape) < 2:
-                    local_labels = local_labels.unsqueeze(0)
-                # Forward Pass
-                local_outputs = self._net(local_batch.to(self.device), inference=False)
-                # Loss and backward pass
-                local_loss = criterion(local_outputs, local_labels.float())
-                local_loss.backward()
-                # Update weights
-                self.optimizer_instance.step()
-                # Increment
-                epoch_loss += local_loss
-                iteration  += 1
-            # Final epoch loss
-            epoch_loss /= iteration
-            self._iterations_done += 1
-            logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
-            # print('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
-            if epoch_loss < self.hyperparams['fit_threshold']:
-                self._fitted = True
-                return base.CallResult(None)
-        self._fitted = True
+        # for itr in range(_iterations):
+        #     epoch_loss = 0.0
+        #     iteration  = 0
+        #     for local_batch, local_labels in training_generator:
+        #         # Zero the parameter gradients
+        #         self.optimizer_instance.zero_grad()
+        #         # Check Label shapes
+        #         if len(local_labels.shape) < 2:
+        #             local_labels = local_labels.unsqueeze(0)
+        #         # Forward Pass
+        #         local_outputs = self._net(local_batch.to(self.device), inference=False)
+        #         # Loss and backward pass
+        #         local_loss = criterion(local_outputs, local_labels.float())
+        #         local_loss.backward()
+        #         # Update weights
+        #         self.optimizer_instance.step()
+        #         # Increment
+        #         epoch_loss += local_loss
+        #         iteration  += 1
+        #     # Final epoch loss
+        #     epoch_loss /= iteration
+        #     self._iterations_done += 1
+        #     logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
+        #     # print('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
+        #     if epoch_loss < self.hyperparams['fit_threshold']:
+        #         self._fitted = True
+        #         return base.CallResult(None)
+        # self._fitted = True
 
         return base.CallResult(None)
 
