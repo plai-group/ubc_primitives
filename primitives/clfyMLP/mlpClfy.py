@@ -354,7 +354,7 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
             raise exceptions.InvalidStateError("Training dataset input is not same as input_dim")
 
         # Check if data is matched
-        if self.XTrain.shape[0] != all_img_labls.shape[0]:
+        if self.XTrain.shape[0] != self.YTrain.shape[0]:
             raise Exception('Size mismatch between training inputs and labels!')
 
         if YTrain[0].size > 1:
@@ -378,7 +378,7 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
         if self.hyperparams['loss_type'] == 'crossentropy':
             criterion = nn.CrossEntropyLoss().to(self.device)
         else:
-            raise ValueError('Unsupported loss_type: {}. Available options: crossentropy, mse, l1'.format(self.hyperparams['loss_type']))
+            raise ValueError('Unsupported loss_type: {}. Available options: crossentropy'.format(self.hyperparams['loss_type']))
 
         # Train functions
         self._iterations_done = 0
@@ -411,11 +411,7 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
                 self.optimizer_instance.zero_grad()
                 # Check Label shapes
                 if len(local_labels.shape) < 2:
-                    local_labels = local_labels.unsqueeze(1)
-                elif len(local_labels.shape) > 2:
-                    raise Exception('Primitive accepts labels to be in size (minibatch, 1)!,\
-                                     even for multiclass classification problems, it must be in\
-                                     the range from 0 to C-1 as the target')
+                    local_labels = local_labels.unsqueeze(0)
                 # Forward Pass
                 local_outputs = self._net(local_batch.to(self.device), inference=False)
                 # Loss and backward pass
