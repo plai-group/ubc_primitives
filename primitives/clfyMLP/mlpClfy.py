@@ -19,6 +19,8 @@ import pandas as pd
 import torch  # type: ignore
 import torch.nn as nn  # type: ignore
 import torch.optim as optim # type: ignore
+from torch.utils import data
+import torchvision.transforms as transforms
 from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
 from primitives.clfyMLP.dataset import Dataset_1
 from primitives.clfyMLP.dataset import Dataset_2
@@ -72,7 +74,7 @@ class Hyperparams(hyperparams.Hyperparams):
     )
     last_activation_type = hyperparams.Enumeration[str](
         values=['linear', 'tanh', 'sigmoid', 'softmax'],
-        default='linear',
+        default='softmax',
         description='Type of activation (non-linearity) following the last layer.',
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
     )
@@ -122,7 +124,13 @@ class Hyperparams(hyperparams.Hyperparams):
         description="Number of iterations to train the model.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
     )
-
+    # Dataset types
+    dataset_type = hyperparams.Enumeration[str](
+        values=['dataset_1', 'dataset_2'],
+        default='dataset_1',
+        description='Type of dataset loader to use. dataset_1 when using DataFrame dataset whose Attributes can be converted to NumPy array. dataset_2 when using to read image based dataset',
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+    )
 
 class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperparams]):
     """
@@ -172,7 +180,8 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
                         activation_type=self.hyperparams["activation_type"],\
                         last_activation_type=self.hyperparams["last_activation_type"],\
                         batch_norm=self.hyperparams["use_batch_norm"])
-
+        # Pre-processing
+        self.pre_process = transforms.Compose([transforms.ToTensor()])
         #----------------------------------------------------------------------#
         # Model to GPU if available
         self._net.to(self.device)
@@ -320,6 +329,7 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
                     feature_columns_1.remove(fc_2)
                 except ValueError:
                     pass
+
         # Get labels data if present in training input
         try:
             label_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
@@ -357,20 +367,21 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
 
         self.label_name_columns = label_name_columns
 
+
         return XTrain, YTrain
 
 
-    def fit(self, *, read_img_data: bool = True, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
-        if read_img_data == False:
+    def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
+        if self.hyperparams['dataset_type'] == 'dataset_1':
             # Curate data
             XTrain, YTrain = self._curate_train_data()
 
             # if self._training_inputs is None or self._training_outputs is None:
-            if self.XTrain.shape[1] != self.hyperparams["input_dim"]:
+            if XTrain.shape[1] != self.hyperparams["input_dim"]:
                 raise exceptions.InvalidStateError("Training dataset input is not same as input_dim")
 
             # Check if data is matched
-            if self.XTrain.shape[0] != self.YTrain.shape[0]:
+            if XTrain.shape[0] != YTrain.shape[0]:
                 raise Exception('Size mismatch between training inputs and labels!')
 
             if YTrain[0].size > 1:
@@ -379,31 +390,9 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
                                  the range from 0 to C-1 as the target')
 
             # Set all files
-            _iterations = self.hyperparams['num_iterations']
-
             _minibatch_size = self.hyperparams['minibatch_size']
-            if _minibatch_size > len(all_train_data):
-                _minibatch_size = len(all_train_data)
-
-            # Dataset Parameters
-            train_params = {'batch_size': _minibatch_size,
-                            'shuffle': self.hyperparams['shuffle'],
-                            'num_workers': 4}
-
-            # Loss function
-            if self.hyperparams['loss_type'] == 'crossentropy':
-                criterion = nn.CrossEntropyLoss().to(self.device)
-            else:
-                raise ValueError('Unsupported loss_type: {}. Available options: crossentropy'.format(self.hyperparams['loss_type']))
-
-            # Train functions
-            self._iterations_done = 0
-            # Set all files
-            _iterations = self.hyperparams['num_iterations']
-
-            _minibatch_size = self.hyperparams['minibatch_size']
-            if _minibatch_size > len(all_train_data):
-                _minibatch_size = len(all_train_data)
+            if _minibatch_size > len(XTrain):
+                _minibatch_size = len(XTrain)
 
             # Dataset Parameters
             train_params = {'batch_size': _minibatch_size,
@@ -411,10 +400,11 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
                             'num_workers': 4}
 
             # DataLoader
-            training_set = Dataset(all_data_X=XTrain, all_data_Y=YTrain, use_labels=True)
+            training_set = Dataset_1(all_data_X=XTrain, all_data_Y=YTrain, use_labels=True)
 
             # Data Generators
             training_generator = data.DataLoader(training_set, **train_params)
+            #-------------------------------------------------------------------
         else:
             # Get all Nested media files
             image_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
@@ -450,9 +440,6 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
             if len(all_train_data) == 0:
                 raise Exception('Cannot fit when no training data is present.')
 
-            # Set all files
-            _iterations = self.hyperparams['num_iterations']
-
             _minibatch_size = self.hyperparams['minibatch_size']
             if _minibatch_size > len(all_train_data):
                 _minibatch_size = len(all_train_data)
@@ -463,43 +450,55 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
                             'num_workers': 4}
 
             # DataLoader
-            training_set = Dataset(all_data=all_train_data, preprocess=self.pre_process)
+            training_set = Dataset_2(all_data=all_train_data, preprocess=self.pre_process, use_labels=True)
+            #-------------------------------------------------------------------
 
-            # Data Generators
-            training_generator = data.DataLoader(training_set, **train_params)
+        # Data Generators
+        training_generator = data.DataLoader(training_set, **train_params)
 
+        # Loss function
+        if self.hyperparams['loss_type'] == 'crossentropy':
+            criterion = nn.CrossEntropyLoss().to(self.device)
+        else:
+            raise ValueError('Unsupported loss_type: {}. Available options: crossentropy'.format(self.hyperparams['loss_type']))
+
+        # Train functions
+        self._iterations_done = 0
+        # Set all files
+        _iterations = self.hyperparams['num_iterations']
 
         # Set model to training
         self._net.train()
 
-        # for itr in range(_iterations):
-        #     epoch_loss = 0.0
-        #     iteration  = 0
-        #     for local_batch, local_labels in training_generator:
-        #         # Zero the parameter gradients
-        #         self.optimizer_instance.zero_grad()
-        #         # Check Label shapes
-        #         if len(local_labels.shape) < 2:
-        #             local_labels = local_labels.unsqueeze(0)
-        #         # Forward Pass
-        #         local_outputs = self._net(local_batch.to(self.device), inference=False)
-        #         # Loss and backward pass
-        #         local_loss = criterion(local_outputs, local_labels.float())
-        #         local_loss.backward()
-        #         # Update weights
-        #         self.optimizer_instance.step()
-        #         # Increment
-        #         epoch_loss += local_loss
-        #         iteration  += 1
-        #     # Final epoch loss
-        #     epoch_loss /= iteration
-        #     self._iterations_done += 1
-        #     logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
-        #     # print('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
-        #     if epoch_loss < self.hyperparams['fit_threshold']:
-        #         self._fitted = True
-        #         return base.CallResult(None)
-        # self._fitted = True
+        for itr in range(_iterations):
+            epoch_loss = 0.0
+            iteration  = 0
+            for local_batch, local_labels in training_generator:
+                # Zero the parameter gradients
+                self.optimizer_instance.zero_grad()
+                # Check Label shapes
+                if len(local_labels.shape) < 2:
+                    local_labels = local_labels.unsqueeze(1)
+                local_batch = torch.flatten(local_batch, start_dim=1)
+                # Forward Pass
+                local_outputs = self._net(local_batch.to(self.device), inference=False)
+                # Loss and backward pass
+                local_loss = criterion(local_outputs, local_labels.float())
+                local_loss.backward()
+                # Update weights
+                self.optimizer_instance.step()
+                # Increment
+                epoch_loss += local_loss
+                iteration  += 1
+            # Final epoch loss
+            epoch_loss /= iteration
+            self._iterations_done += 1
+            logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
+            # print('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
+            if epoch_loss < self.hyperparams['fit_threshold']:
+                self._fitted = True
+                return base.CallResult(None)
+        self._fitted = True
 
         return base.CallResult(None)
 
@@ -538,7 +537,7 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
         outputs = inputs.remove_columns(feature_columns)
 
         # DataLoader
-        testing_set = Dataset(all_data_X=XTest, all_data_Y=None)
+        testing_set = Dataset(all_data_X=XTest, all_data_Y=None, use_labels=False)
 
         # Dataset Parameters
         test_params = {'batch_size': 1,
@@ -553,7 +552,8 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
 
         predictions = []
         for local_batch in testing_generator:
-            local_batch = local_batch.unsqueeze(0) # 1 x F
+            local_batch = local_batch.unsqueeze(1) # 1 x F
+            local_batch = torch.flatten(local_batch, start_dim=1)
             _out = self._net(local_batch.to(self.device), inference=True)
             _out = torch.argmax(_out, dim=-1, keepdim=False)
             _out = _out.data.cpu().numpy()

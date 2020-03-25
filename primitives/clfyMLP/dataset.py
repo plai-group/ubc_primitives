@@ -5,16 +5,16 @@ from torch.utils import data
 __all__ = ('Dataset_1', 'Dataset_2')
 
 class Dataset_1(data.Dataset):
-  # Dataset
+  # NumPy Dataset
   def __init__(self, all_data_X, all_data_Y, use_labels):
       self.all_data_X = all_data_X
       self.all_data_Y = all_data_Y
       self.use_labels = use_labels
       # Check if class index is from 0 to C-1 or 1 to C
       if (0.0 in all_data_Y[:, 0]) or (0 in all_data_Y[:, 0]):
-          sub_class_index = False
+          self.sub_class_index = False
       else:
-          sub_class_index = True
+          self.sub_class_index = True
 
   def __getitem__(self, index):
         """
@@ -28,6 +28,9 @@ class Dataset_1(data.Dataset):
         if self.use_labels:
             sample_label = self.all_data_Y[index]
             sample_label = float(sample_label)
+            # if 1 to C
+            if self.sub_class_index:
+                sample_label = sample_label - 1
 
             return sample_data, sample_label
 
@@ -39,29 +42,38 @@ class Dataset_1(data.Dataset):
 
 
 class Dataset_2(data.Dataset):
-  # Dataset
+  # Image read Dataset
   def __init__(self, all_data, preprocess, use_labels):
       self.all_data    = all_data
       self.pre_process = preprocess
+      self.use_labels  = use_labels
       # Check if class index is from 0 to C-1 or 1 to C
-      if (0.0 in all_data[:, 0]) or (0 in all_data_Y[:, 0]):
-          sub_class_index = False
+      all_labels = [float(all_data[i][1]) for i in range(len(all_data))]
+      if (0.0 in all_labels) or (0 in all_labels):
+          self.sub_class_index = False
       else:
-          sub_class_index = True
+          self.sub_class_index = True
 
   def __getitem__(self, index):
         """
         Generates one sample of data
         """
         # Select sample
-        img_path, label = self.all_data[index]
+        img_path, sample_label = self.all_data[index]
 
         # Load data and get label
         image = Image.open(img_path)
         image = self.pre_process(image)
-        label = float(label)
 
-        return image, label
+        if self.use_labels:
+            sample_label = float(sample_label)
+            # if 1 to C
+            if self.sub_class_index:
+                sample_label = sample_label - 1
+
+            return image, sample_label
+
+        return image
 
   def __len__(self):
         # Total Number of samples
