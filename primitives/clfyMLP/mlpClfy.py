@@ -32,6 +32,7 @@ logger  = logging.getLogger(__name__)
 Inputs  = container.DataFrame
 Outputs = container.DataFrame
 
+DEBUG = True  # type: ignore
 
 class Params(params.Params):
     None
@@ -208,8 +209,9 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
         for name, param in self._net.named_parameters():
             if param.requires_grad == True:
                 self.params_to_update.append(param)
-                # logging.info("\t", name)
-                print("\t", name)
+                logging.info("\t", name)
+                if DEBUG:
+                    print("\t", name)
 
         #----------------------------------------------------------------------#
         # Optimizer
@@ -501,25 +503,25 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
                 # Zero the parameter gradients
                 self.optimizer_instance.zero_grad()
                 local_batch = torch.flatten(local_batch, start_dim=1)
-                print(local_batch.shape, local_labels.shape)
-        #         # Forward Pass
-        #         local_outputs = self._net(local_batch.to(self.device), inference=False)
-        #         # Loss and backward pass
-        #         local_loss = criterion(local_outputs, local_labels.long())
-        #         local_loss.backward()
-        #         # Update weights
-        #         self.optimizer_instance.step()
-        #         Increment
-        #         epoch_loss += local_loss
-        #         iteration  += 1
-        #     # Final epoch loss
-        #     epoch_loss /= iteration
-        #     self._iterations_done += 1
-        #     logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
-        #     # print('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
-        #     if epoch_loss < self.hyperparams['fit_threshold']:
-        #         self._fitted = True
-        #         return base.CallResult(None)
+                # Forward Pass
+                local_outputs = self._net(local_batch.to(self.device), inference=False)
+                # Loss and backward pass
+                local_loss = criterion(local_outputs, local_labels.long())
+                local_loss.backward()
+                # Update weights
+                self.optimizer_instance.step()
+                # Increment
+                epoch_loss += local_loss
+                iteration  += 1
+            # Final epoch loss
+            epoch_loss /= iteration
+            self._iterations_done += 1
+            logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
+            if DEBUG:
+                print('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
+            if epoch_loss < self.hyperparams['fit_threshold']:
+                self._fitted = True
+                return base.CallResult(None)
         self._fitted = True
 
         return base.CallResult(None)
@@ -571,7 +573,7 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
             del all_img_paths
 
             if len(all_test_data) == 0:
-                raise Exception('Cannot fit when no training data is present.')
+                raise ValueError('Cannot fit when no training data is present.')
 
             # DataLoader
             testing_set = Dataset(all_data_X=all_test_data, use_labels=False)
@@ -628,6 +630,7 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
 
     def get_params(self) -> Params:
         return None
+
 
     def set_params(self, *, params: Params) -> None:
         return None
