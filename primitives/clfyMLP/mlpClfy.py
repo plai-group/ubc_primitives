@@ -174,13 +174,27 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
         # Use GPU if available
         use_cuda    = torch.cuda.is_available()
         self.device = torch.device("cuda:0" if use_cuda else "cpu")
+        #----------------------------------------------------------------------#
+        # Final output layer
+        if self.hyperparams['last_activation_type'] == 'linear':
+            self._last_activation = None
+        elif self.hyperparams['last_activation_type'] == 'tanh':
+            self._last_activation = nn.Tanh()
+        elif self.hyperparams['last_activation_type'] == 'sigmoid':
+            self._last_activation = nn.Sigmoid()
+        elif self.hyperparams['last_activation_type'] == 'softmax':
+            self._last_activation = nn.Softmax(dim=-1)
+        else:
+            raise ValueError('Unsupported last_activation_type: {}. Available options: linear, tanh, sigmoid, softmax'.format(self.hyperparams['last_activation_type']))
+        #----------------------------------------------------------------------#
         # Setup MLP Network
         self._setup_mlp(input_dim=self.hyperparams["input_dim"],\
                         output_dim=self.hyperparams["output_dim"],\
                         depth=self.hyperparams["depth"], width=self.hyperparams["width"],\
                         activation_type=self.hyperparams["activation_type"],\
-                        last_activation_type=self.hyperparams["last_activation_type"],\
+                        last_activation_type=self._last_activation,\
                         batch_norm=self.hyperparams["use_batch_norm"])
+        #----------------------------------------------------------------------#
         # Pre-processing
         self.pre_process = transforms.Compose([transforms.ToTensor()])
         #----------------------------------------------------------------------#
@@ -211,19 +225,6 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
         else:
             raise ValueError('Unsupported optimizer_type: {}. Available options: adam, sgd'.format(self.hyperparams['optimizer_type']))
 
-        #----------------------------------------------------------------------#
-        # Final output layer
-        if self.hyperparams['last_activation_type'] == 'linear':
-            self._last_activation = None
-        elif self.hyperparams['last_activation_type'] == 'tanh':
-            self._last_activation = nn.Tanh()
-        elif self.hyperparams['last_activation_type'] == 'sigmoid':
-            self._last_activation = nn.Sigmoid()
-        elif self.hyperparams['last_activation_type'] == 'softmax':
-            self._last_activation = nn.Softmax()
-        else:
-            raise ValueError('Unsupported last_activation_type: {}. Available options: linear, tanh, sigmoid, softmax'.format(self.hyperparams['last_activation_type']))
-
         # Is the model fit on the training data
         self._fitted = False
 
@@ -245,6 +246,7 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
                 super().__init__()
                 self._input_dim = input_dim
                 self.activation_type = activation_type
+                self.last_activation_type = last_activation_type
                 # Neuron Activation
                 if activation_type == 'linear':
                     self._activation = None
@@ -301,7 +303,7 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
                 x = x.view(-1, self._input_dim)
                 x = self.network(x)
                 if inference:
-                    x = self._last_activation(x)
+                    x = self.last_activation_type(x)
 
                 return x
 
@@ -309,18 +311,18 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
         self._net = _Net(input_dim, output_dim, depth, width, activation_type, last_activation_type, batch_norm)
 
 
-    def _curate_train_data(self, get_labels):
+    def _curate_data(self, training_inputs, training_outputs, get_labels):
         # if self._training_inputs is None or self._training_outputs is None:
-        if self._training_inputs is None or self._training_outputs is None:
-            raise exceptions.InvalidStateError("Missing training data.")
+        if training_inputs is None:
+            raise ValueError("Missing data.")
 
         # Get training data and labels data
         try:
-            feature_columns_1 = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute')
+            feature_columns_1 = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute')
         except:
             feature_columns_1 = None
         try:
-            feature_columns_2 = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName')
+            feature_columns_2 = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName')
         except:
             feature_columns_2 = None
         # Remove columns if outputs present in inputs
@@ -333,12 +335,12 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
 
         # Get labels data if present in training input
         try:
-            label_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
+            label_columns  = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
         except:
-            label_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
+            label_columns  = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
         # If no error but no label-columns found, force try SuggestedTarget
         if len(label_columns) == 0 or label_columns == None:
-            label_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
+            label_columns  = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
         # Remove columns if outputs present in inputs
         if len(label_columns) >= 1:
             for lbl_c in label_columns:
@@ -349,40 +351,55 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
 
         # Training Set
         feature_columns_1 = [int(fc) for fc in feature_columns_1]
-        XTrain = ((self._training_inputs.iloc[:, feature_columns_1]).to_numpy()).astype(np.float)
+        try:
+            new_XTrain = ((training_inputs.iloc[:, feature_columns_1]).to_numpy()).astype(np.float)
+        except ValueError:
+            # Most likely Numpy ndarray series
+            XTrain = training_inputs.iloc[:, feature_columns_1]
+            XTrain_shape = XTrain.shape[0]
+            XTrain = ((XTrain.iloc[:, -1]).to_numpy())
+            # Unpack
+            new_XTrain = []
+            for arr in range(XTrain_shape):
+                new_XTrain.append(XTrain[arr])
 
-        # Get label column names
-        label_name_columns  = []
-        label_name_columns_ = list(self._training_outputs.columns)
-        for lbl_c in label_columns:
-            label_name_columns.append(label_name_columns_[lbl_c])
+            new_XTrain = np.array(new_XTrain)
 
-        self.label_name_columns = label_name_columns
+            # del to save memory
+            del XTrain
 
         # Training labels
         if get_labels:
+            if training_outputs is None:
+                raise ValueError("Missing data.")
+
+            # Get label column names
+            label_name_columns  = []
+            label_name_columns_ = list(training_outputs.columns)
+            for lbl_c in label_columns:
+                label_name_columns.append(label_name_columns_[lbl_c])
+
+            self.label_name_columns = label_name_columns
+
+            # Get labelled dataset
             try:
-                label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
+                label_columns  = training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
             except ValueError:
-                label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
+                label_columns  = training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
             # If no error but no label-columns force try SuggestedTarget
             if len(label_columns) == 0 or label_columns == None:
-                label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-            YTrain = ((self._training_outputs.iloc[:, label_columns]).to_numpy()).astype(np.int)
+                label_columns  = training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
+            YTrain = ((training_outputs.iloc[:, label_columns]).to_numpy()).astype(np.int)
 
-            return XTrain, YTrain
+            return new_XTrain, YTrain, feature_columns_1
 
-        return XTrain
+        return new_XTrain, feature_columns_1
 
 
     def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
         if self.hyperparams['dataset_type'] == 'dataset_1':
             # Curate data
-            XTrain, YTrain = self._curate_train_data(get_labels=True)
-
-            # if self._training_inputs is None or self._training_outputs is None:
-            if XTrain.shape[1] != self.hyperparams["input_dim"]:
-                raise Exception("Training dataset input is not same as input_dim")
+            XTrain, YTrain, _ = self._curate_data(training_inputs=self._training_inputs, training_outputs=self._training_inputs, get_labels=True)
 
             # Check if data is matched
             if XTrain.shape[0] != YTrain.shape[0]:
@@ -483,25 +500,26 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
             for local_batch, local_labels in training_generator:
                 # Zero the parameter gradients
                 self.optimizer_instance.zero_grad()
-                local_batch   = torch.flatten(local_batch, start_dim=1)
-                # Forward Pass
-                local_outputs = self._net(local_batch.to(self.device), inference=False)
-                # Loss and backward pass
-                local_loss = criterion(local_outputs, local_labels.long())
-                local_loss.backward()
-                # Update weights
-                self.optimizer_instance.step()
-                # Increment
-                epoch_loss += local_loss
-                iteration  += 1
-            # Final epoch loss
-            epoch_loss /= iteration
-            self._iterations_done += 1
-            logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
-            # print('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
-            if epoch_loss < self.hyperparams['fit_threshold']:
-                self._fitted = True
-                return base.CallResult(None)
+                local_batch = torch.flatten(local_batch, start_dim=1)
+                print(local_batch.shape, local_labels.shape)
+        #         # Forward Pass
+        #         local_outputs = self._net(local_batch.to(self.device), inference=False)
+        #         # Loss and backward pass
+        #         local_loss = criterion(local_outputs, local_labels.long())
+        #         local_loss.backward()
+        #         # Update weights
+        #         self.optimizer_instance.step()
+        #         Increment
+        #         epoch_loss += local_loss
+        #         iteration  += 1
+        #     # Final epoch loss
+        #     epoch_loss /= iteration
+        #     self._iterations_done += 1
+        #     logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
+        #     # print('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
+        #     if epoch_loss < self.hyperparams['fit_threshold']:
+        #         self._fitted = True
+        #         return base.CallResult(None)
         self._fitted = True
 
         return base.CallResult(None)
@@ -514,15 +532,11 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
         """
         # Inference
         if not self._fitted:
-            raise Exception('Please fit the model before calling produce!')
+            raise ValueError('Please fit the model before calling produce!')
 
         if self.hyperparams['dataset_type'] == 'dataset_1':
             # Curate data
-            XTrain = self._curate_train_data(get_labels=False)
-
-            # if self._training_inputs is None or self._training_outputs is None:
-            if XTrain.shape[1] != self.hyperparams["input_dim"]:
-                raise Exception("Training dataset input is not same as input_dim")
+            XTest, feature_columns = self._curate_data(training_inputs=inputs, training_outputs=None, get_labels=False)
 
             # Dataset Parameters
             test_params = {'batch_size': 1,
@@ -530,33 +544,37 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
                             'num_workers': 4}
 
             # DataLoader
-            testing_set = Dataset_1(all_data_X=XTrain, all_data_Y=None, use_labels=False)
+            testing_set = Dataset_1(all_data_X=XTest, all_data_Y=None, use_labels=False)
 
             # Data Generators
-            training_generator = data.DataLoader(training_set, **train_params)
+            testing_generator = data.DataLoader(testing_set, **test_params)
         else:
-            # Get testing data
-            feature_columns = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute')
-            # Get labels data if present in testing input
-            try:
-                label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
-            except ValueError:
-                label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-            # If no error but no label-columns found, force try SuggestedTarget
-            if len(label_columns) == 0 or label_columns == None:
-                label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-            # Remove Label Columns if present from testing data
-            if len(label_columns) >= 1:
-                for lbl_c in label_columns:
-                    try:
-                        feature_columns.remove(lbl_c)
-                    except ValueError:
-                        pass
-            # Testing features
-            XTest = ((inputs.iloc[:, feature_columns]).to_numpy()).astype(np.float)
+            # Get all Nested media files
+            image_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
+            base_paths     = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
+            base_paths     = [base_paths[t]['location_base_uris'][0].replace('file:///', '/') for t in range(len(base_paths))] # Path + media
+            all_img_paths  = [[os.path.join(base_path, filename) for filename in inputs.iloc[:, col]] for base_path, col in zip(base_paths, image_columns)]
+
+            # Check if data is matched
+            for idx in range(len(all_img_paths)):
+                if len(all_img_paths[idx]) != len(all_img_labls[idx]):
+                    raise Exception('Size mismatch between training inputs and labels!')
+
+            # Organize data into training format
+            all_test_data = []
+            for idx in range(len(all_img_paths)):
+                img_paths = all_img_paths[idx]
+                for eachIdx in range(len(img_paths)):
+                    all_test_data.append([img_paths[eachIdx]])
+
+            # del to free memory
+            del all_img_paths
+
+            if len(all_test_data) == 0:
+                raise Exception('Cannot fit when no training data is present.')
 
             # DataLoader
-            testing_set = Dataset(all_data_X=XTest, all_data_Y=None, use_labels=False)
+            testing_set = Dataset(all_data_X=all_test_data, use_labels=False)
 
             # Dataset Parameters
             test_params = {'batch_size': 1,
@@ -565,6 +583,9 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
 
             # Data Generators
             testing_generator = data.DataLoader(testing_set, **test_params)
+
+            # Using columns
+            feature_columns = image_columns
             #-------------------------------------------------------------------
 
         # Delete columns with path names of nested media files
