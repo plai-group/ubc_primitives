@@ -32,7 +32,7 @@ logger  = logging.getLogger(__name__)
 Inputs  = container.DataFrame
 Outputs = container.DataFrame
 
-DEBUG = True  # type: ignore
+DEBUG = False  # type: ignore
 
 class Params(params.Params):
     None
@@ -65,6 +65,11 @@ class Hyperparams(hyperparams.Hyperparams):
     use_batch_norm = hyperparams.UniformBool(
         default=False,
         description="Whether to use batch norm after each layer except the last (output) layer.",
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
+    )
+    use_dropout = hyperparams.UniformBool(
+        default=True,
+        description="Whether to use dropout after each layer.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     activation_type = hyperparams.Enumeration[str](
@@ -194,7 +199,8 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
                         depth=self.hyperparams["depth"], width=self.hyperparams["width"],\
                         activation_type=self.hyperparams["activation_type"],\
                         last_activation_type=self._last_activation,\
-                        batch_norm=self.hyperparams["use_batch_norm"])
+                        batch_norm=self.hyperparams["use_batch_norm"],\
+                        use_dropout=self.hyperparams["use_dropout"])
         #----------------------------------------------------------------------#
         # Pre-processing
         self.pre_process = transforms.Compose([transforms.ToTensor()])
@@ -237,14 +243,14 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
         self._new_training_data = True
 
 
-    def _setup_mlp(self, input_dim, output_dim, depth, width, activation_type, last_activation_type, batch_norm):
+    def _setup_mlp(self, input_dim, output_dim, depth, width, activation_type, last_activation_type, batch_norm, use_dropout):
         #----------------------------------------------------------------------#
         if self.hyperparams['output_dim'] < 2:
             raise ValueError("output_dim must be atleast 2!")
 
         #----------------------------------------------------------------------#
         class _Net(nn.Module):
-            def __init__(self, input_dim, output_dim, depth, width, activation_type, last_activation_type, batch_norm):
+            def __init__(self, input_dim, output_dim, depth, width, activation_type, last_activation_type, batch_norm, use_dropout):
                 super().__init__()
                 self._input_dim = input_dim
                 self.activation_type = activation_type
@@ -264,18 +270,20 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
                     raise ValueError('Unsupported activation_type: {}. Available options: linear, relu, tanh, sigmoid'.format(activation_type))
 
                 # Build network
-                self.network = self._make_layers(input_dim, output_dim, depth, width, self._activation, batch_norm=batch_norm)
+                self.network = self._make_layers(input_dim, output_dim, depth, width, self._activation, batch_norm=batch_norm, use_dropout=use_dropout)
 
                 # Intialize network
                 self._initialize_weights()
 
-            def _make_layers(self, input_dim, output_dim, depth, width, activation, batch_norm):
+            def _make_layers(self, input_dim, output_dim, depth, width, activation, batch_norm, use_dropout):
                 layers = []
                 in_layers = input_dim
                 for v in range(depth):
                     if v == (depth - 1):
                         layer = nn.Linear(in_layers, output_dim)
                         layers += [layer]
+                        if use_dropout:
+                            layers += [torch.nn.Dropout(p=0.5, inplace=True)]
                     else:
                         layer = nn.Linear(in_layers, width)
                         if activation != None:
@@ -288,6 +296,9 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
                                 layers += [layer, nn.BatchNorm1d(num_features=width)]
                             else:
                                 layers += [layer]
+                        if use_dropout:
+                            layers += [torch.nn.Dropout(p=0.5, inplace=True)]
+
                         in_layers = width
 
                 return nn.Sequential(*layers)
@@ -310,7 +321,7 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
                 return x
 
         #----------------------------------------------------------------------#
-        self._net = _Net(input_dim, output_dim, depth, width, activation_type, last_activation_type, batch_norm)
+        self._net = _Net(input_dim, output_dim, depth, width, activation_type, last_activation_type, batch_norm, use_dropout)
 
 
     def _curate_data(self, training_inputs, training_outputs, get_labels):
