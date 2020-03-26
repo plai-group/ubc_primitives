@@ -138,7 +138,8 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
     It can be configured with input and output dimensions, number of layers (depth),
     and number of units in each layer except the last one (width).
     -------------
-    Inputs:  DataFrame of features/inputs of shape: NxM, where N = samples and M = features/numerical inputs.
+    Inputs:  DataFrame of features/inputs of shape: NxM, where N = samples and M = features/numerical (Attribute) inputs.
+             or Denormalized DataFrame of dataset such as image dataset.
     Outputs: DataFrame containing the target column of shape Nx1 or denormalized dataset.
     -------------
     """
@@ -308,7 +309,7 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
         self._net = _Net(input_dim, output_dim, depth, width, activation_type, last_activation_type, batch_norm)
 
 
-    def _curate_train_data(self):
+    def _curate_train_data(self, get_labels):
         # if self._training_inputs is None or self._training_outputs is None:
         if self._training_inputs is None or self._training_outputs is None:
             raise exceptions.InvalidStateError("Missing training data.")
@@ -350,15 +351,6 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
         feature_columns_1 = [int(fc) for fc in feature_columns_1]
         XTrain = ((self._training_inputs.iloc[:, feature_columns_1]).to_numpy()).astype(np.float)
 
-        # Training labels
-        try:
-            label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
-        except ValueError:
-            label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-        # If no error but no label-columns force try SuggestedTarget
-        if len(label_columns) == 0 or label_columns == None:
-            label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-        YTrain = ((self._training_outputs.iloc[:, label_columns]).to_numpy()).astype(np.int)
         # Get label column names
         label_name_columns  = []
         label_name_columns_ = list(self._training_outputs.columns)
@@ -367,18 +359,30 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
 
         self.label_name_columns = label_name_columns
 
+        # Training labels
+        if get_labels:
+            try:
+                label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
+            except ValueError:
+                label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
+            # If no error but no label-columns force try SuggestedTarget
+            if len(label_columns) == 0 or label_columns == None:
+                label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
+            YTrain = ((self._training_outputs.iloc[:, label_columns]).to_numpy()).astype(np.int)
 
-        return XTrain, YTrain
+            return XTrain, YTrain
+
+        return XTrain
 
 
     def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
         if self.hyperparams['dataset_type'] == 'dataset_1':
             # Curate data
-            XTrain, YTrain = self._curate_train_data()
+            XTrain, YTrain = self._curate_train_data(get_labels=True)
 
             # if self._training_inputs is None or self._training_outputs is None:
             if XTrain.shape[1] != self.hyperparams["input_dim"]:
-                raise exceptions.InvalidStateError("Training dataset input is not same as input_dim")
+                raise Exception("Training dataset input is not same as input_dim")
 
             # Check if data is matched
             if XTrain.shape[0] != YTrain.shape[0]:
@@ -451,10 +455,13 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
 
             # DataLoader
             training_set = Dataset_2(all_data=all_train_data, preprocess=self.pre_process, use_labels=True)
+
+            # Data Generators
+            training_generator = data.DataLoader(training_set, **train_params)
             #-------------------------------------------------------------------
 
-        # Data Generators
-        training_generator = data.DataLoader(training_set, **train_params)
+        # Check to add back to class
+        self.add_class_index = training_set.sub_class_index
 
         # Loss function
         if self.hyperparams['loss_type'] == 'crossentropy':
@@ -476,14 +483,11 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
             for local_batch, local_labels in training_generator:
                 # Zero the parameter gradients
                 self.optimizer_instance.zero_grad()
-                # Check Label shapes
-                if len(local_labels.shape) < 2:
-                    local_labels = local_labels.unsqueeze(1)
-                local_batch = torch.flatten(local_batch, start_dim=1)
+                local_batch   = torch.flatten(local_batch, start_dim=1)
                 # Forward Pass
                 local_outputs = self._net(local_batch.to(self.device), inference=False)
                 # Loss and backward pass
-                local_loss = criterion(local_outputs, local_labels.float())
+                local_loss = criterion(local_outputs, local_labels.long())
                 local_loss.backward()
                 # Update weights
                 self.optimizer_instance.step()
@@ -512,40 +516,59 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
         if not self._fitted:
             raise Exception('Please fit the model before calling produce!')
 
-        # Get testing data
-        feature_columns = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute')
-        # Get labels data if present in testing input
-        try:
-            label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
-        except ValueError:
-            label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-        # If no error but no label-columns found, force try SuggestedTarget
-        if len(label_columns) == 0 or label_columns == None:
-            label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-        # Remove Label Columns if present from testing data
-        if len(label_columns) >= 1:
-            for lbl_c in label_columns:
-                try:
-                    feature_columns.remove(lbl_c)
-                except ValueError:
-                    pass
+        if self.hyperparams['dataset_type'] == 'dataset_1':
+            # Curate data
+            XTrain = self._curate_train_data(get_labels=False)
 
-        # Testing features
-        XTest = ((inputs.iloc[:, feature_columns]).to_numpy()).astype(np.float)
+            # if self._training_inputs is None or self._training_outputs is None:
+            if XTrain.shape[1] != self.hyperparams["input_dim"]:
+                raise Exception("Training dataset input is not same as input_dim")
+
+            # Dataset Parameters
+            test_params = {'batch_size': 1,
+                            'shuffle': False,
+                            'num_workers': 4}
+
+            # DataLoader
+            testing_set = Dataset_1(all_data_X=XTrain, all_data_Y=None, use_labels=False)
+
+            # Data Generators
+            training_generator = data.DataLoader(training_set, **train_params)
+        else:
+            # Get testing data
+            feature_columns = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute')
+            # Get labels data if present in testing input
+            try:
+                label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
+            except ValueError:
+                label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
+            # If no error but no label-columns found, force try SuggestedTarget
+            if len(label_columns) == 0 or label_columns == None:
+                label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
+            # Remove Label Columns if present from testing data
+            if len(label_columns) >= 1:
+                for lbl_c in label_columns:
+                    try:
+                        feature_columns.remove(lbl_c)
+                    except ValueError:
+                        pass
+            # Testing features
+            XTest = ((inputs.iloc[:, feature_columns]).to_numpy()).astype(np.float)
+
+            # DataLoader
+            testing_set = Dataset(all_data_X=XTest, all_data_Y=None, use_labels=False)
+
+            # Dataset Parameters
+            test_params = {'batch_size': 1,
+                            'shuffle': False,
+                            'num_workers': 4}
+
+            # Data Generators
+            testing_generator = data.DataLoader(testing_set, **test_params)
+            #-------------------------------------------------------------------
 
         # Delete columns with path names of nested media files
         outputs = inputs.remove_columns(feature_columns)
-
-        # DataLoader
-        testing_set = Dataset(all_data_X=XTest, all_data_Y=None, use_labels=False)
-
-        # Dataset Parameters
-        test_params = {'batch_size': 1,
-                        'shuffle': False,
-                        'num_workers': 4}
-
-        # Data Generators
-        testing_generator = data.DataLoader(testing_set, **test_params)
 
         # Set model to evaluate mode
         self._net.eval()
@@ -556,6 +579,9 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
             local_batch = torch.flatten(local_batch, start_dim=1)
             _out = self._net(local_batch.to(self.device), inference=True)
             _out = torch.argmax(_out, dim=-1, keepdim=False)
+            # Add back to predictions if ground truth range is from 1 to C
+            if self.add_class_index:
+                _out = torch.add(_out, 1)
             _out = _out.data.cpu().numpy()
             # Collect features
             predictions.append(_out)
