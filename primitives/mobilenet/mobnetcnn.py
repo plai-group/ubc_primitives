@@ -394,10 +394,14 @@ class MobileNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
                     raise Exception('Primitive accepts labels to be in size (minibatch, 1)!,\
                                      even for multiclass classification problems, it must be in\
                                      the range from 0 to C-1 as the target')
+                if self.hyperparams['loss_type'] == 'crossentropy':
+                    local_labels = (local_labels.long()).to(self.device)
+                else:
+                    local_labels = (local_labels.float()).to(self.device)
                 # Forward Pass
                 local_outputs = self.model(local_batch.to(self.device), include_last_layer=self.include_last_layer)
                 # Loss and backward pass
-                local_loss = criterion(local_outputs, local_labels.float())
+                local_loss = criterion(local_outputs, local_labels)
                 # Backward pass
                 local_loss.backward()
                 # Update weights

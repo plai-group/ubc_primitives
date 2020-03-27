@@ -537,22 +537,26 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
                     raise Exception('Primitive accepts labels to be in size (minibatch, 1)!,\
                                      even for multiclass classification problems, it must be in\
                                      the range from 0 to C-1 as the target')
+                if self.hyperparams['loss_type'] == 'crossentropy':
+                    local_labels = (local_labels.long()).to(self.device)
+                else:
+                    local_labels = (local_labels.float()).to(self.device)
                 # Forward Pass
                 if self.hyperparams['cnn_type'] == 'googlenet':
                     local_outputs, aux_1, aux_2 = self.model(local_batch.to(self.device), include_last_layer=self.include_last_layer)
                     if self.hyperparams['train_endToend']:
                         # Loss
-                        local_loss = criterion(local_outputs, local_labels.float())
-                        local_loss += 0.4 * criterion(aux_1,  local_labels.float())
-                        local_loss += 0.4 * criterion(aux_2,  local_labels.float())
+                        local_loss = criterion(local_outputs, local_labels)
+                        local_loss += 0.4 * criterion(aux_1,  local_labels)
+                        local_loss += 0.4 * criterion(aux_2,  local_labels)
                     else:
-                        local_loss = criterion(local_outputs, local_labels.float())
+                        local_loss = criterion(local_outputs, local_labels)
                     # Backward pass
                     local_loss.backward()
                 else:
                     local_outputs = self.model(local_batch.to(self.device), include_last_layer=self.include_last_layer)
                     # Loss and backward pass
-                    local_loss = criterion(local_outputs, local_labels.float())
+                    local_loss = criterion(local_outputs, local_labels)
                     local_loss.backward()
                 # Update weights
                 self.optimizer_instance.step()

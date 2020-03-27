@@ -516,8 +516,9 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
                 local_batch = torch.flatten(local_batch, start_dim=1)
                 # Forward Pass
                 local_outputs = self._net(local_batch.to(self.device), inference=False)
+                local_labels  = (local_labels.long()).to(self.device)
                 # Loss and backward pass
-                local_loss = criterion(local_outputs, local_labels.long())
+                local_loss = criterion(local_outputs, local_labels)
                 local_loss.backward()
                 # Update weights
                 self.optimizer_instance.step()
