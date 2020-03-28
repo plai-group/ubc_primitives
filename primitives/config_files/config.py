@@ -11,7 +11,7 @@ except Exception:
 VERSION = "0.1.0"
 TAG_NAME = "{git_commit}".format(git_commit=utils.current_git_commit(os.path.dirname(__file__)), )
 
-REPOSITORY = "https://github.com/tonyjo/ubc_primitives.git"
+REPOSITORY = "https://github.com/plai-group/ubc_primitives.git"
 PACAKGE_NAME = "ubc_primitives"
 
 D3M_PERFORMER_TEAM = 'UBC'
