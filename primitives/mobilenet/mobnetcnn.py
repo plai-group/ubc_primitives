@@ -166,7 +166,7 @@ class MobileNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
                          'file_uri': 'https://download.pytorch.org/models/mobilenet_v2-b0353104.pth',
                          'file_digest': 'b03531047ffacf1e2488318dcd2aba1126cde36e3bfe1aa5cb07700aeeee9889'},]
     metadata = metadata_base.PrimitiveMetadata({
-        "id": "947f024c-32fe-4707-b98a-53323c79310f",
+        "id": "6bf5e790-8672-4cd2-bf88-c595e9c11f1d",
         "version": config.VERSION,
         "name": "MobileNet Convolutional Neural Network",
         "description": "A primitive to extract features and to fit model for images",
@@ -196,16 +196,20 @@ class MobileNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
         self._setup_cnn()
         # Image pre-processing function
         self._img_size = int(self.hyperparams['img_resize'])
-        # Normalize done inside GoogLeNet model
+        # Pre-process data
         self.val_pre_process = transforms.Compose([
                                 transforms.Resize(255),
                                 transforms.CenterCrop(self._img_size),
-                                transforms.ToTensor()])
+                                transforms.ToTensor(),
+                                transforms.Normalize(mean=[0.485, 0.456, 0.406],\
+                                                     std=[0.229, 0.224, 0.225])])
         # Random Crop during training
         self.pre_process = transforms.Compose([
                             transforms.Resize(255),
                             transforms.RandomCrop(self._img_size),
-                            transforms.ToTensor()])
+                            transforms.ToTensor(),
+                            transforms.Normalize(mean=[0.485, 0.456, 0.406],\
+                                                 std=[0.229, 0.224, 0.225])])
         # Is the model fit on data
         self._fitted = False
 

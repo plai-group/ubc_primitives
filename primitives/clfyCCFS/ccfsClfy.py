@@ -211,7 +211,7 @@ class CanonicalCorrelationForestsClassifierPrimitive(SupervisedLearnerPrimitiveB
     # Metadata
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata   =  metadata_base.PrimitiveMetadata({
-        "id": "575a62a3-7093-483b-a265-f65d15690969",
+        "id": "13e32378-a1ed-425e-8a9b-b4463b6921fa",
         "version": config.VERSION,
         "name": "Canonical Correlation Forests Classifier",
         "description": "A decision tree ensemble primitive like random forests",

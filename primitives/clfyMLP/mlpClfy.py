@@ -152,7 +152,7 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
     # Metadata
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata   =  metadata_base.PrimitiveMetadata({
-        "id": "5a7426f9-905e-46ce-945a-3e1fbb67d596",
+        "id": "b76a6841-a871-47bc-89ac-e734de5c2924",
         "version": config.VERSION,
         "name": "Neural Network Classifier",
         "description": "A feed-forward neural network primitive",

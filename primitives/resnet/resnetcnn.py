@@ -166,7 +166,7 @@ class ResNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperpar
                          'file_uri': 'https://download.pytorch.org/models/resnet34-333f7ec4.pth',
                          'file_digest': '333f7ec4c6338da2cbed37f1fc0445f9624f1355633fa1d7eab79a91084c6cef'},]
     metadata = metadata_base.PrimitiveMetadata({
-        "id": "3bc260fb-5d11-452d-af00-986a31d8237c",
+        "id": "f6d596f9-4bfd-4a9c-abb5-16d45ff4cff8",
         "version": config.VERSION,
         "name": "ResNet Convolutional Neural Network",
         "description": "A primitive to extract features and to fit model for image data",
@@ -196,16 +196,20 @@ class ResNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperpar
         self._setup_cnn()
         # Image pre-processing function
         self._img_size = int(self.hyperparams['img_resize'])
-        # Normalize done inside GoogLeNet model
+        # Pre-process data
         self.val_pre_process = transforms.Compose([
                                 transforms.Resize(255),
                                 transforms.CenterCrop(self._img_size),
-                                transforms.ToTensor()])
+                                transforms.ToTensor(),
+                                transforms.Normalize(mean=[0.485, 0.456, 0.406],\
+                                                     std=[0.229, 0.224, 0.225])])
         # Random Crop during training
         self.pre_process = transforms.Compose([
                             transforms.Resize(255),
                             transforms.RandomCrop(self._img_size),
-                            transforms.ToTensor()])
+                            transforms.ToTensor(),
+                            transforms.Normalize(mean=[0.485, 0.456, 0.406],\
+                                                 std=[0.229, 0.224, 0.225])])
         # Is the model fit on data
         self._fitted = False
 

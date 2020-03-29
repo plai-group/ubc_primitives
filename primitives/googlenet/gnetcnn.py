@@ -166,7 +166,7 @@ class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
                          'file_uri': 'https://download.pytorch.org/models/googlenet-1378be20.pth',
                          'file_digest': '1378be20a8e875cf1568b8a71654e704449655e34711a959a38b04fb34905cef'},]
     metadata = metadata_base.PrimitiveMetadata({
-        "id": "5e785bd4-04cd-42d6-9a49-cbfb06e5036e",
+        "id": "413079f4-57d7-4f2a-86bc-36bf5ec29b11",
         "version": config.VERSION,
         "name": "GoogLeNet Convolutional Neural Network",
         "description": "A primitive to extract features and to fit model for images",

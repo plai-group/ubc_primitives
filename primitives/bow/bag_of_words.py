@@ -75,7 +75,7 @@ class BagOfWords(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperpara
 
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata = hyperparams.base.PrimitiveMetadata({
-        "id": "56333866-f8db-4d74-9b36-48f7d5a073e9",
+        "id": "7d3dee2f-326c-42a9-bafb-99abd7c4c251",
         "version": config.VERSION,
         "name": "Bag of Words feature extraction",
         "description": "A primitive to extract features describing the global statistics of words in a column",

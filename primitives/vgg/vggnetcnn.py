@@ -178,7 +178,7 @@ class VGG16CNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperpara
                           'file_uri': 'https://download.pytorch.org/models/vgg16_bn-6c64b313.pth',
                           'file_digest': '6c64b3138f2f4fcb3bcc4cafde11619c4f440eb1631787e93a682fd88305888a'},]
     metadata = metadata_base.PrimitiveMetadata({
-        "id": "01dbe13b-fe3e-4ce6-a02e-d4df0d994b9e",
+        "id": "2e15cd20-7edd-4830-9b3f-c97682514d02",
         "version": config.VERSION,
         "name": "VGG16 Convolutional Neural Network",
         "description": "A primitive to extract features and to fit model for image data",

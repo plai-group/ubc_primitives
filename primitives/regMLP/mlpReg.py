@@ -133,6 +133,7 @@ class Hyperparams(hyperparams.Hyperparams):
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
     )
 
+
 class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperparams]):
     """
     A feed-forward neural network primitive using PyTorch.
@@ -147,7 +148,7 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
     # Metadata
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata   =  metadata_base.PrimitiveMetadata({
-        "id": "c2666bd2-b486-4f20-b550-c3f693d946f4",
+        "id": "1776e6ce-f0d8-44bd-bad5-176710524128",
         "version": config.VERSION,
         "name": "Neural Network Regressor",
         "description": "A feed-forward neural network primitive",
@@ -393,124 +394,122 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
             # Curate data
             XTrain, YTrain, _ = self._curate_data(training_inputs=self._training_inputs, training_outputs=self._training_outputs, get_labels=True)
 
-            print(XTrain)
-            print(YTrain)
+            # Check if data is matched
+            if XTrain.shape[0] != YTrain.shape[0]:
+                raise Exception('Size mismatch between training inputs and labels!')
 
-        #     # Check if data is matched
-        #     if XTrain.shape[0] != YTrain.shape[0]:
-        #         raise Exception('Size mismatch between training inputs and labels!')
-        #
-        #     if YTrain[0].size > 1:
-        #         raise Exception('Primitive accepts labels to be in size (minibatch, 1)!')
-        #
-        #     # Set all files
-        #     _minibatch_size = self.hyperparams['minibatch_size']
-        #     if _minibatch_size > len(XTrain):
-        #         _minibatch_size = len(XTrain)
-        #
-        #     # Dataset Parameters
-        #     train_params = {'batch_size': _minibatch_size,
-        #                     'shuffle': self.hyperparams['shuffle'],
-        #                     'num_workers': 4}
-        #
-        #     # DataLoader
-        #     training_set = Dataset_1(all_data_X=XTrain, all_data_Y=YTrain, use_labels=True)
-        #
-        #     # Data Generators
-        #     training_generator = data.DataLoader(training_set, **train_params)
-        #     #-------------------------------------------------------------------
-        # else:
-        #     # Get all Nested media files
-        #     image_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
-        #     label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget') # [2]
-        #     if len(label_columns) == 0:
-        #         label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget') # [2]
-        #     base_paths     = [self._training_inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
-        #     base_paths     = [base_paths[t]['location_base_uris'][0].replace('file:///', '/') for t in range(len(base_paths))] # Path + media
-        #     all_img_paths  = [[os.path.join(base_path, filename) for filename in self._training_inputs.iloc[:, col]] for base_path, col in zip(base_paths, image_columns)]
-        #     all_img_labls  = [[os.path.join(label) for label in self._training_outputs.iloc[:, col]] for col in label_columns]
-        #
-        #     # Check if data is matched
-        #     for idx in range(len(all_img_paths)):
-        #         if len(all_img_paths[idx]) != len(all_img_labls[idx]):
-        #             raise Exception('Size mismatch between training inputs and labels!')
-        #
-        #     if np.array([all_img_labls[0][0]]).size > 1:
-        #         raise Exception('Primitive accepts labels to be in size (minibatch, 1)!')
-        #
-        #     # Organize data into training format
-        #     all_train_data = []
-        #     for idx in range(len(all_img_paths)):
-        #         img_paths = all_img_paths[idx]
-        #         img_labls = all_img_labls[idx]
-        #         for eachIdx in range(len(img_paths)):
-        #             all_train_data.append([img_paths[eachIdx], img_labls[eachIdx]])
-        #
-        #     # del to free memory
-        #     del all_img_paths, all_img_labls
-        #
-        #     if len(all_train_data) == 0:
-        #         raise Exception('Cannot fit when no training data is present.')
-        #
-        #     _minibatch_size = self.hyperparams['minibatch_size']
-        #     if _minibatch_size > len(all_train_data):
-        #         _minibatch_size = len(all_train_data)
-        #
-        #     # Dataset Parameters
-        #     train_params = {'batch_size': _minibatch_size,
-        #                     'shuffle': self.hyperparams['shuffle'],
-        #                     'num_workers': 4}
-        #
-        #     # DataLoader
-        #     training_set = Dataset_2(all_data=all_train_data, preprocess=self.pre_process, use_labels=True)
-        #
-        #     # Data Generators
-        #     training_generator = data.DataLoader(training_set, **train_params)
-        #     #-------------------------------------------------------------------
-        #
-        # # Loss function
-        # if self.hyperparams['loss_type'] == 'mse':
-        #     criterion = nn.MSELoss().to(self.device)
-        # elif self.hyperparams['loss_type'] == 'l1':
-        #     criterion = nn.L1Loss().to(self.device)
-        # else:
-        #     raise ValueError('Unsupported loss_type: {}. Available options: mse, l1'.format(self.hyperparams['loss_type']))
-        #
-        # # Train functions
-        # self._iterations_done = 0
-        # # Set all files
-        # _iterations = self.hyperparams['num_iterations']
-        #
-        # # Set model to training
-        # self._net.train()
-        #
-        # for itr in range(_iterations):
-        #     epoch_loss = 0.0
-        #     iteration  = 0
-        #     for local_batch, local_labels in training_generator:
-        #         # Zero the parameter gradients
-        #         self.optimizer_instance.zero_grad()
-        #         local_batch = torch.flatten(local_batch, start_dim=1)
-        #         # Forward Pass
-        #         local_outputs = self._net(local_batch.to(self.device))
-        #         # Loss and backward pass
-        #         local_loss = criterion(local_outputs, local_labels.float())
-        #         local_loss.backward()
-        #         # Update weights
-        #         self.optimizer_instance.step()
-        #         # Increment
-        #         epoch_loss += local_loss
-        #         iteration  += 1
-        #     # Final epoch loss
-        #     epoch_loss /= iteration
-        #     self._iterations_done += 1
-        #     logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
-        #     if DEBUG:
-        #         print('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
-        #     if epoch_loss < self.hyperparams['fit_threshold']:
-        #         self._fitted = True
-        #         return base.CallResult(None)
-        # self._fitted = True
+            if YTrain[0].size > 1:
+                raise Exception('Primitive accepts labels to be in size (minibatch, 1)!')
+
+            # Set all files
+            _minibatch_size = self.hyperparams['minibatch_size']
+            if _minibatch_size > len(XTrain):
+                _minibatch_size = len(XTrain)
+
+            # Dataset Parameters
+            train_params = {'batch_size': _minibatch_size,
+                            'shuffle': self.hyperparams['shuffle'],
+                            'num_workers': 4}
+
+            # DataLoader
+            training_set = Dataset_1(all_data_X=XTrain, all_data_Y=YTrain, use_labels=True)
+
+            # Data Generators
+            training_generator = data.DataLoader(training_set, **train_params)
+            #-------------------------------------------------------------------
+        else:
+            # Get all Nested media files
+            image_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
+            label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget') # [2]
+            if len(label_columns) == 0:
+                label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget') # [2]
+            base_paths     = [self._training_inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
+            base_paths     = [base_paths[t]['location_base_uris'][0].replace('file:///', '/') for t in range(len(base_paths))] # Path + media
+            all_img_paths  = [[os.path.join(base_path, filename) for filename in self._training_inputs.iloc[:, col]] for base_path, col in zip(base_paths, image_columns)]
+            all_img_labls  = [[os.path.join(label) for label in self._training_outputs.iloc[:, col]] for col in label_columns]
+
+            # Check if data is matched
+            for idx in range(len(all_img_paths)):
+                if len(all_img_paths[idx]) != len(all_img_labls[idx]):
+                    raise Exception('Size mismatch between training inputs and labels!')
+
+            if np.array([all_img_labls[0][0]]).size > 1:
+                raise Exception('Primitive accepts labels to be in size (minibatch, 1)!')
+
+            # Organize data into training format
+            all_train_data = []
+            for idx in range(len(all_img_paths)):
+                img_paths = all_img_paths[idx]
+                img_labls = all_img_labls[idx]
+                for eachIdx in range(len(img_paths)):
+                    all_train_data.append([img_paths[eachIdx], img_labls[eachIdx]])
+
+            # del to free memory
+            del all_img_paths, all_img_labls
+
+            if len(all_train_data) == 0:
+                raise Exception('Cannot fit when no training data is present.')
+
+            _minibatch_size = self.hyperparams['minibatch_size']
+            if _minibatch_size > len(all_train_data):
+                _minibatch_size = len(all_train_data)
+
+            # Dataset Parameters
+            train_params = {'batch_size': _minibatch_size,
+                            'shuffle': self.hyperparams['shuffle'],
+                            'num_workers': 4}
+
+            # DataLoader
+            training_set = Dataset_2(all_data=all_train_data, preprocess=self.pre_process, use_labels=True)
+
+            # Data Generators
+            training_generator = data.DataLoader(training_set, **train_params)
+            #-------------------------------------------------------------------
+
+        # Loss function
+        if self.hyperparams['loss_type'] == 'mse':
+            criterion = nn.MSELoss().to(self.device)
+        elif self.hyperparams['loss_type'] == 'l1':
+            criterion = nn.L1Loss().to(self.device)
+        else:
+            raise ValueError('Unsupported loss_type: {}. Available options: mse, l1'.format(self.hyperparams['loss_type']))
+
+        # Train functions
+        self._iterations_done = 0
+        # Set all files
+        _iterations = self.hyperparams['num_iterations']
+
+        # Set model to training
+        self._net.train()
+
+        for itr in range(_iterations):
+            epoch_loss = 0.0
+            iteration  = 0
+            for local_batch, local_labels in training_generator:
+                # Zero the parameter gradients
+                self.optimizer_instance.zero_grad()
+                local_batch  = torch.flatten(local_batch, start_dim=1)
+                local_labels = local_labels.unsqueeze(1)
+                # Forward Pass
+                local_outputs = self._net(local_batch.to(self.device))
+                # Loss and backward pass
+                local_loss = criterion(local_outputs, local_labels.float())
+                local_loss.backward()
+                # Update weights
+                self.optimizer_instance.step()
+                # Increment
+                epoch_loss += local_loss
+                iteration  += 1
+            # Final epoch loss
+            epoch_loss /= iteration
+            self._iterations_done += 1
+            logging.info('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
+            if DEBUG:
+                print('epoch loss: {} at Epoch: {}'.format(epoch_loss, itr))
+            if epoch_loss < self.hyperparams['fit_threshold']:
+                self._fitted = True
+                return base.CallResult(None)
+        self._fitted = True
 
         return base.CallResult(None)
 
