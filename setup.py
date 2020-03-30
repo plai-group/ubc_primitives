@@ -52,6 +52,6 @@ setup(name='ubc_primitives',
               'classification.ccfs.UBC=primitives.clfyCCFS:CanonicalCorrelationForestsClassifierPrimitive',
               'regression.ccfs.UBC=primitives.regCCFS:CanonicalCorrelationForestsRegressionPrimitive',
               'classification.mlp.UBC=primitives.clfyMLP:MultilayerPerceptronClassifierPrimitive',
-              'clustering.kmeans.UBC=primitives.kmeansClustering:KMeansClusteringPrimitive',
+              'clustering.kmeans.UBC=primitives.kmeans:KMeansClusteringPrimitive',
           ],
       })

@@ -196,7 +196,6 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
             for arr in range(XTrain_shape):
                 XTrain_Flatten = (XTrain[arr]).flatten()
                 new_XTrain.append(XTrain_Flatten)
-
             new_XTrain = np.array(new_XTrain)
 
         if get_labels:
@@ -213,7 +212,6 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
             if len(label_columns) == 0 or label_columns == None:
                 label_columns  = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
             label_name_columns = label_columns
-
             YTrain = ((training_inputs.iloc[:, label_columns]).to_numpy()).astype(np.int)
 
             return new_XTrain, YTrain, feature_columns_1, label_name_columns
