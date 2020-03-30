@@ -148,7 +148,7 @@ class Hyperparams(hyperparams.Hyperparams):
 
 class ResNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperparams], WeightsDirPrimitive):
     """
-    ResnNet is a standard Convolutional Neural Network primitive using
+    ResNet is a standard Convolutional Neural Network primitive using
     PyTorch framework. It is used to extract deep features from images.
     It can be used as a pre-trained feature extractor, to extract features from
     convolutional layers or from the fully connected layers by setting include_top.
