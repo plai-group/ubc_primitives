@@ -201,18 +201,27 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
         if get_labels:
             # Training labels
             YTrain = np.array([])
+
             # Get label column names
-            label_name_columns = []
-            # Get labelled dataset
+            label_name_columns  = []
+            label_name_columns_ = list(training_inputs.columns)
+            for lbl_c in label_columns:
+                label_name_columns.append(label_name_columns_[lbl_c])
+
+            # Get labelled dataset if available
             try:
                 label_columns  = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
             except ValueError:
                 label_columns  = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
             # If no error but no label-columns force try SuggestedTarget
-            if len(label_columns) == 0 or label_columns == None:
+            if len(label_columns) == 0 or label_columns == []:
                 label_columns  = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-            label_name_columns = label_columns
-            YTrain = ((training_inputs.iloc[:, label_columns]).to_numpy()).astype(np.int)
+            if len(label_columns) > 0:
+                try:
+                    YTrain = ((training_inputs.iloc[:, label_columns]).to_numpy()).astype(np.int)
+                except:
+                    # Maybe no labels or missing labels
+                    YTrain = (training_inputs.iloc[:, label_columns].to_numpy())
 
             return new_XTrain, YTrain, feature_columns_1, label_name_columns
 
@@ -228,8 +237,6 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
 
         # Curate data
         XTrain, _ = self._curate_data(training_inputs=self._training_inputs, get_labels=False)
-
-        print(XTrain.shape)
 
         self._kmeans = self._kmeans.fit(XTrain)
         self._fitted = True
@@ -273,8 +280,8 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
         # Update Metadata for each feature vector column
         for col in range(predictions.shape[1]):
             col_dict = dict(predictions.metadata.query((metadata_base.ALL_ELEMENTS, col)))
-            col_dict['structural_type'] = type(1)
-            col_dict['name']            = 'predictions'
+            col_dict['structural_type'] = type(1.0)
+            col_dict['name']            = label_name_columns[col]
             col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/PredictedTarget",)
             predictions.metadata        = predictions.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
 

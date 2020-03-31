@@ -12,6 +12,7 @@ from common_primitives.dataset_to_dataframe   import DatasetToDataFramePrimitive
 from common_primitives. ndarray_to_dataframe  import NDArrayToDataFramePrimitive
 from common_primitives.dataframe_image_reader import DataFrameImageReaderPrimitive
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
+from common_primitives.construct_predictions import ConstructPredictionsPrimitive
 
 # Testing primitive
 from kmeansClustering import KMeansClusteringPrimitive
@@ -75,7 +76,7 @@ class TestKMeansClusteringPrimitive(unittest.TestCase):
         kmeans_hyperparams = kmeans_hyperparams_class.defaults().replace(
                 {
                 'n_clusters': 10,
-                'n_init': 100
+                'n_init': 1
                 }
         )
         kmeans_primitive = KMeansClusteringPrimitive(hyperparams=kmeans_hyperparams)
@@ -120,7 +121,7 @@ class TestKMeansClusteringPrimitive(unittest.TestCase):
             print('Meta-data - {}'.format(col), col_dict)
 
         # Computer Error
-        ground_truth = ((score_dataframe.value['label']).to_numpy()).astype(np.float)
+        ground_truth = ((score_dataframe.value['label']).to_numpy())
         predictions  = ((score.iloc[:, -1]).to_numpy()).astype(np.float)
         print('------------------------')
         print('Predictions')
@@ -132,6 +133,14 @@ class TestKMeansClusteringPrimitive(unittest.TestCase):
 
         print('------------------------')
         print('MLP Test missclassification rate (lower better):  ',  (100*(1 - np.mean(ground_truth==predictions))))
+        print('------------------------')
+
+        # Step 1: Dataset to DataFrame
+        cpp_dataframe_hyperparams_class = ConstructPredictionsPrimitive.metadata.get_hyperparams()
+        cpp_dataframe_primitive = ConstructPredictionsPrimitive(hyperparams=cpp_dataframe_hyperparams_class.defaults())
+        cpp_dataframe = cpp_dataframe_primitive.produce(inputs=score, reference=score_dataframe.value)
+
+        print(cpp_dataframe.value)
         print('------------------------')
 
 
