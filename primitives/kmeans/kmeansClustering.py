@@ -153,11 +153,11 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
         try:
             feature_columns_1 = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute')
         except:
-            feature_columns_1 = None
+            feature_columns_1 = []
         try:
             feature_columns_2 = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName')
         except:
-            feature_columns_2 = None
+            feature_columns_2 = []
         # Remove columns if outputs present in inputs
         if len(feature_columns_2) >= 1:
             for fc_2 in feature_columns_2:
@@ -253,7 +253,7 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
         if not self._fitted:
             raise ValueError('Please fit the model before calling produce!')
 
-        # Curate data, outputs given
+        # Curate data
         XTest, YTest, feature_columns, label_name_columns = self._curate_data(training_inputs=inputs, get_labels=True)
 
         add_class_index = False
@@ -263,10 +263,8 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
               add_class_index = False
             else:
               add_class_index = True
-        else:
-            XTest, feature_columns = self._curate_data(training_inputs=inputs, get_labels=False)
 
-        # Delete columns with path names of nested media files
+        # Delete columns with inputs
         outputs = inputs.remove_columns(feature_columns)
 
         # Predictions
@@ -278,16 +276,22 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
         predictions = container.DataFrame(predictions, generate_metadata=True)
 
         # Update Metadata for each feature vector column
-        for col in range(predictions.shape[1]):
-            col_dict = dict(predictions.metadata.query((metadata_base.ALL_ELEMENTS, col)))
-            col_dict['structural_type'] = type(1.0)
-            col_dict['name']            = label_name_columns[col]
-            col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/PredictedTarget",)
-            predictions.metadata        = predictions.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
-
         if len(label_name_columns) != 0:
+            for col in range(predictions.shape[1]):
+                col_dict = dict(predictions.metadata.query((metadata_base.ALL_ELEMENTS, col)))
+                col_dict['structural_type'] = type(1.0)
+                col_dict['name']            = label_name_columns[col]
+                col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/PredictedTarget",)
+                predictions.metadata        = predictions.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
             # Rename Columns to match label columns
             predictions.columns = label_name_columns
+        else:
+            for col in range(predictions.shape[1]):
+                col_dict = dict(predictions.metadata.query((metadata_base.ALL_ELEMENTS, col)))
+                col_dict['structural_type'] = type(1.0)
+                col_dict['name']            = "KMeansPredictions"
+                col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/PredictedTarget",)
+                predictions.metadata        = predictions.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
 
         # Append predictions to outputs
         outputs = outputs.append_columns(predictions)

@@ -76,7 +76,8 @@ class TestKMeansClusteringPrimitive(unittest.TestCase):
         kmeans_hyperparams = kmeans_hyperparams_class.defaults().replace(
                 {
                 'n_clusters': 10,
-                'n_init': 1
+                'n_init': 10,
+                'max_iter': 1000
                 }
         )
         kmeans_primitive = KMeansClusteringPrimitive(hyperparams=kmeans_hyperparams)
@@ -121,7 +122,7 @@ class TestKMeansClusteringPrimitive(unittest.TestCase):
             print('Meta-data - {}'.format(col), col_dict)
 
         # Computer Error
-        ground_truth = ((score_dataframe.value['label']).to_numpy())
+        ground_truth = ((score_dataframe.value['label']).to_numpy()).astype(np.float)
         predictions  = ((score.iloc[:, -1]).to_numpy()).astype(np.float)
         print('------------------------')
         print('Predictions')

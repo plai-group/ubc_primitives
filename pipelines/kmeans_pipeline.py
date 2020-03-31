@@ -41,7 +41,7 @@ def make_pipeline():
     # Step 3: Feature Extraction Primitive
     step_3 = PrimitiveStep(primitive=KMeansClusteringPrimitive)
     step_3.add_hyperparameter(name='n_clusters', argument_type=ArgumentType.VALUE, data=10)
-    step_3.add_hyperparameter(name='n_init',     argument_type=ArgumentType.VALUE, data=100)
+    step_3.add_hyperparameter(name='n_init',     argument_type=ArgumentType.VALUE, data=10)
     step_3.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.2.produce')
     step_3.add_output('produce')
     pipeline.add_step(step_3)
