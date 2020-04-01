@@ -59,3 +59,4 @@ setup(name='ubc_primitives',
               'dimensionality_reduction.pca.UBC=primitives.pca:PrincipalComponentAnalysisPrimitive',
           ],
       })
+
