@@ -42,7 +42,7 @@ def make_pipeline():
     step_2.add_output('produce')
     pipeline.add_step(step_2)
 
-    # Step 3: Feature Extraction Primitive
+    # Step 3: Regression Primitive
     step_3 = PrimitiveStep(primitive=MultilayerPerceptronRegressionPrimitive)
     step_3.add_hyperparameter(name='input_dim',       argument_type=ArgumentType.VALUE, data=25088)
     step_3.add_hyperparameter(name='depth',           argument_type=ArgumentType.VALUE, data=1)

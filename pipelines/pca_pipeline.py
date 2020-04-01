@@ -77,7 +77,7 @@ def make_pipeline():
     print('Generated pipeline!')
 
 
-def main(select_pipeline):
+def main():
         make_pipeline()
 
 if __name__ == '__main__':

@@ -64,15 +64,15 @@ class PrincipalComponentAnalysisPrimitive(PrimitiveBase[Inputs, Outputs, Params,
         "version": config.VERSION,
         "name": "Principal Component Analysis",
         "description": "Projects data to a lower dimensional space.",
-        "python_path": "d3m.primitives.feature_extraction.pca.UBC",
-        "primitive_family": metadata_base.PrimitiveFamily.FEATURE_EXTRACTION,
+        "python_path": "d3m.primitives.dimensionality_reduction.pca.UBC",
+        "primitive_family": metadata_base.PrimitiveFamily.DIMENSIONALITY_REDUCTION,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.PRINCIPAL_COMPONENT_ANALYSIS],
         "source": {
             "name": config.D3M_PERFORMER_TEAM,
             "contact": config.D3M_CONTACT,
             "uris": [config.REPOSITORY],
         },
-        "keywords": ['pca', 'principal components', 'deep learning'],
+        "keywords": ['pca', 'principal components'],
         "installation": [config.INSTALLATION],
     })
 
