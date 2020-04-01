@@ -148,7 +148,7 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
     # Metadata
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata   =  metadata_base.PrimitiveMetadata({
-        "id": "1776e6ce-f0d8-44bd-bad5-176710524128",
+        "id": "bee81534-9c96-4f42-aed5-8cf5389700a5",
         "version": config.VERSION,
         "name": "Neural Network Regressor",
         "description": "A feed-forward neural network primitive",
@@ -313,11 +313,11 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
         try:
             feature_columns_1 = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute')
         except:
-            feature_columns_1 = None
+            feature_columns_1 = []
         try:
             feature_columns_2 = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName')
         except:
-            feature_columns_2 = None
+            feature_columns_2 = []
         # Remove columns if outputs present in inputs
         if len(feature_columns_2) >= 1:
             for fc_2 in feature_columns_2:
@@ -354,45 +354,44 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
             # Unpack
             new_XTrain = []
             for arr in range(XTrain_shape):
-                new_XTrain.append(XTrain[arr])
-
+                XTrain_Flatten = (XTrain[arr]).flatten()
+                new_XTrain.append(XTrain_Flatten)
             new_XTrain = np.array(new_XTrain)
 
-            # del to save memory
-            del XTrain
+        # Get label column names
+        label_name_columns  = []
+        label_name_columns_ = list(training_inputs.columns)
+        for lbl_c in label_columns:
+            label_name_columns.append(label_name_columns_[lbl_c])
 
-        # Training labels
         if get_labels:
-            if training_outputs is None:
-                raise ValueError("Missing data.")
+            # Training labels
+            YTrain = np.array([])
 
-            # Get label column names
-            label_name_columns  = []
-            label_name_columns_ = list(training_outputs.columns)
-            for lbl_c in label_columns:
-                label_name_columns.append(label_name_columns_[lbl_c])
-
-            self.label_name_columns = label_name_columns
-
-            # Get labelled dataset
+            # Get labelled dataset if available
             try:
                 label_columns  = training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
             except ValueError:
                 label_columns  = training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
             # If no error but no label-columns force try SuggestedTarget
-            if len(label_columns) == 0 or label_columns == None:
-                label_columns  = training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-            YTrain = ((training_outputs.iloc[:, label_columns]).to_numpy()).astype(np.float)
+            if len(label_columns) == 0 or label_columns == []:
+                label_columns  = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
+            if len(label_columns) > 0:
+                try:
+                    YTrain = ((training_inputs.iloc[:, label_columns]).to_numpy()).astype(np.int)
+                except:
+                    # Maybe no labels or missing labels
+                    YTrain = (training_inputs.iloc[:, label_columns].to_numpy())
 
-            return new_XTrain, YTrain, feature_columns_1
+            return new_XTrain, YTrain, feature_columns_1, label_name_columns
 
-        return new_XTrain, feature_columns_1
+        return new_XTrain, feature_columns_1, label_name_columns
 
 
     def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
         if self.hyperparams['dataset_type'] == 'dataset_1':
             # Curate data
-            XTrain, YTrain, _ = self._curate_data(training_inputs=self._training_inputs, training_outputs=self._training_outputs, get_labels=True)
+            XTrain, YTrain, _, label_columns = self._curate_data(training_inputs=self._training_inputs, training_outputs=self._training_outputs, get_labels=True)
 
             # Check if data is matched
             if XTrain.shape[0] != YTrain.shape[0]:
@@ -466,6 +465,8 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
             training_generator = data.DataLoader(training_set, **train_params)
             #-------------------------------------------------------------------
 
+        self.label_name_columns = label_columns
+
         # Loss function
         if self.hyperparams['loss_type'] == 'mse':
             criterion = nn.MSELoss().to(self.device)
@@ -525,7 +526,7 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
 
         if self.hyperparams['dataset_type'] == 'dataset_1':
             # Curate data
-            XTest, feature_columns = self._curate_data(training_inputs=inputs, training_outputs=None, get_labels=False)
+            XTest, feature_columns, _ = self._curate_data(training_inputs=inputs, training_outputs=None, get_labels=False)
 
             # Dataset Parameters
             test_params = {'batch_size': 1,
@@ -563,7 +564,7 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
                 raise ValueError('Cannot fit when no training data is present.')
 
             # DataLoader
-            testing_set = Dataset(all_data_X=all_test_data, use_labels=False)
+            testing_set = Dataset_2(all_data_X=all_test_data, use_labels=False)
 
             # Dataset Parameters
             test_params = {'batch_size': 1,
