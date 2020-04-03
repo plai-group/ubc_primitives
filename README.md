@@ -5,7 +5,7 @@
 Project repository for TA-1 primitives for [D3M](https://www.darpa.mil/program/data-driven-discovery-of-models) program.
 
 
-### Running the code using docker image which has all dependencies and requirements
+## Install
 
 1. Get docker image which contains all dependencies and requirements:
 ```
@@ -28,3 +28,38 @@ cd /ubc_primitives
 pip3 install -e .
 ```
 
+## Available TA-1 primitives
+
+1. **Bag-of-Characters**
+
+2. **Bag-of-Words**
+
+3. **Canonical Correlation Forests Classifier**
+
+4. **Canonical Correlation Forests Regressor**
+
+5. **Multilayer Perceptron Classifier**
+
+6. **Multilayer Perceptron Regressor**
+
+7. **Convolutional Neural Network**
+
+8. **GoogleNet CNN**
+
+9. **MobileNet CNN**
+
+10. **ResNet CNN**
+
+11. **VGGNet CNN**
+
+12. **Principal Component Analysis**
+
+13. **K-Means**
+
+14. **Semantic Type Inference**
+
+
+
+## Affiliations
+| ![alt-text-1](./logo/plai.jpeg "PLAI-LAB")  | ![alt-text-2](./logo/darpa.png "DARPA-D3M") |
+|:---:|:---:|
