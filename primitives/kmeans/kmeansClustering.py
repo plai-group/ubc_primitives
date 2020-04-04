@@ -238,8 +238,8 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
         # Curate data
         XTrain, _ = self._curate_data(training_inputs=self._training_inputs, get_labels=False)
 
-        self._kmeans = self._kmeans.fit(XTrain)
-        self._fitted = True
+        self._kmeans_ = self._kmeans.fit(XTrain)
+        self._fitted  = True
 
         return base.CallResult(None)
 
@@ -268,7 +268,7 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
         outputs = inputs.remove_columns(feature_columns)
 
         # Predictions
-        predictions = self._kmeans.predict(XTest)
+        predictions = self._kmeans_.predict(XTest)
         if add_class_index:
             predictions = np.add(predictions, 1)
 
