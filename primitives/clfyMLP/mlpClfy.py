@@ -5,8 +5,6 @@ from d3m.metadata import base as metadata_base, hyperparams, params
 from d3m.base import utils as base_utils
 from d3m.primitive_interfaces.supervised_learning import SupervisedLearnerPrimitiveBase
 
-from d3m import utils as d3m_utils
-
 # Import config file
 from primitives.config_files import config
 
