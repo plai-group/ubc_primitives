@@ -57,6 +57,6 @@ setup(name='ubc_primitives',
               'regression.mlp.UBC=primitives.regMLP:MultilayerPerceptronRegressionPrimitive',
               'clustering.kmeans.UBC=primitives.kmeans:KMeansClusteringPrimitive',
               'dimensionality_reduction.pca.UBC=primitives.pca:PrincipalComponentAnalysisPrimitive',
+              'classification.simpleCnaps.UBC=primitives.simpleCNAPS:SimpleCNAPSClassifierPrimitive',
           ],
       })
-

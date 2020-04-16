@@ -45,7 +45,7 @@ class Hyperparams(hyperparams.Hyperparams):
     )
     use_pretrained = hyperparams.UniformBool(
         default=True,
-        description="Re-Train using new data.",
+        description="Whether to fit on new data.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
     )
     use_two_gpus = hyperparams.UniformBool(
@@ -97,7 +97,7 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
         "id": "97c01f04-83c5-459c-8df6-dbc50b3ced9b",
         "version": config.VERSION,
         "name": "Simple CNAPS primitive",
-        "description": "A primitive for few-shot learning task",
+        "description": "A primitive for few-shot learning classification",
         "python_path": "d3m.primitives.classification.simpleCnaps.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.CLASSIFICATION,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.NEURAL_NETWORK_BACKPROPAGATION,
@@ -108,7 +108,7 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
             "uris": [config.REPOSITORY],
         },
         "keywords": ['neural network', 'few-shot learning', 'deep learning'],
-        "installation": [config.INSTALLATION],
+        "installation": [config.INSTALLATION] + _weights_configs,
         "hyperparams_to_tune": ['learning_rate']
     })
 
@@ -126,10 +126,6 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
         self.use_two_gpus    = self.hyperparams["use_two_gpus"]
         self.tasks_per_batch = self.hyperparams["tasks_per_batch"]
         self.use_pretrained  = self.hyperparams["use_pretrained"]
-        self.loss            = loss
-        self.optimizer       = torch.optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
-        self.optimizer.zero_grad()
-        self.validation_accuracies = ValidationAccuracies(self.validation_set)
         # Is the model fit on the training data
         self._fitted = False
         # Arguments
@@ -141,10 +137,13 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
 
     def _setup_model(self):
         self.model = SimpleCnaps(device=self.device, use_two_gpus=use_two_gpus, args=self.args).to(self.device)
-        self.model.train()  # set encoder is always in train mode to process context data
-        self.model.feature_extractor.eval()  # feature extractor is always in eval mode
+        self.model.train() # set encoder is always in train mode to process context data
+        self.model.feature_extractor.eval() # feature extractor is always in eval mode
         if self.use_two_gpus:
             self.model.distribute_model()
+        self.loss      = loss
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.hyperparams["learning_rate"])
+        self.optimizer.zero_grad()
 
     def set_training_data(self, *, inputs: Inputs, outputs: Outputs) -> None:
         self._training_inputs   = inputs
@@ -208,6 +207,13 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
             raise Exception('Please fit the model before calling produce!')
 
         if self.use_pretrained:
+            if self.hyperparams["feature_adaptation"] == 'film+ar':
+                pretrained_weight_path = self._find_weights_dir(key_filename='best_simple_ar_cnaps.pt', weights_configs=_weights_configs[1])
+            else:
+                pretrained_weight_path = self._find_weights_dir(key_filename='best_simple_cnaps.pt', weights_configs=_weights_configs[2])
+            # Load pre-trained model
+            self.model.load_state_dict(torch.load(pretrained_weight_path))
+
 
         image_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
         base_paths     = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
@@ -235,13 +241,31 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
                 local_target_labels  = torch.squeeze(local_target_labels,  dim=0).to(self.device)
                 # Forwards pass
                 target_logits = self.model(context_images, context_labels, target_images)
-                target_logits = torch.argmax(target_logits, dim=-1)
-                target_logits = target_logits.data.cpu().numpy()
+                averaged_predictions = torch.logsumexp(target_logits, dim=0)
+                final_predictions = torch.argmax(averaged_predictions, dim=-1)
+                final_predictions = final_predictions.data.cpu().numpy()
                 # Convert to list
-                target_logits = target_logits.tolist()
-                predictions.append(target_logits)
+                final_predictions = final_predictions.tolist()
+                predictions.append(final_predictions)
 
-        return 0
+        # Convert from ndarray from DataFrame
+        predictions = container.DataFrame(predictions, generate_metadata=True)
+
+        # Update Metadata for each feature vector column
+        for col in range(predictions.shape[1]):
+            col_dict = dict(predictions.metadata.query((metadata_base.ALL_ELEMENTS, col)))
+            col_dict['structural_type'] = type(1.0)
+            col_dict['name']            = self.label_name_columns[col]
+            col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/PredictedTarget",)
+            predictions.metadata        = predictions.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
+        # Rename Columns to match label columns
+        predictions.columns = ['label']
+
+        # Append to outputs
+        outputs = outputs.append_columns(predictions)
+
+        return base.CallResult(outputs)
+
 
     def _find_weights_dir(self, key_filename, weights_configs):
         _weight_file_path = None
