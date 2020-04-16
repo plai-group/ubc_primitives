@@ -1,15 +1,20 @@
+import os
+import numpy as np
 from PIL import Image
 import torch
 from torch.utils import data
+import torchvision.transforms as transforms
 
 __all__ = ('Dataset')
 
 class Dataset(data.Dataset):
-  def __init__(self, datalist, base_dir, mode="Train"):
+  def __init__(self, datalist, base_dir, mode="TRAIN"):
+      self.mode       = mode
       self.base_dir   = base_dir
       self.datalist   = datalist
       self._preproces = transforms.Compose([transforms.ToTensor(),
-                                            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+                                            transforms.Normalize((0.5, 0.5, 0.5),\
+                                                                 (0.5, 0.5, 0.5))])
       self.__curate_datalist()
 
   def __curate_datalist(self):
@@ -46,6 +51,11 @@ class Dataset(data.Dataset):
 
       return all_support_set, all_query_set
 
+  def __shuffle_set(self, images, labels):
+      permutation = np.random.permutation(images.shape[0])
+
+      return images[permutation], labels[permutation]
+
   def __prepare_task(self, all_support_set, all_query_set):
       context_images = []
       context_labels = []
@@ -54,26 +64,32 @@ class Dataset(data.Dataset):
 
       # Get support set
       for supp_set in all_support_set:
-          supp_image_path = os.join.path(base_dir, supp_set[0])
+          supp_image_path = os.path.join(self.base_dir, supp_set[0])
           supp_image = Image.open(supp_image_path)
-          supp_image = self.pre_process(supp_image)
+          supp_image = self._preproces(supp_image)
+          supp_image = torch.unsqueeze(supp_image, dim=0)
+          supp_label = torch.tensor([int(supp_set[1])])
+          supp_label = torch.unsqueeze(supp_label, dim=0)
           context_images.append(supp_image)
-          context_labels.append(int(supp_set[1]))
+          context_labels.append(supp_label)
 
       # Get target set
       for qury_set in all_query_set:
-          qury_image_path = os.join.path(base_dir, qury_set[0])
+          qury_image_path = os.path.join(self.base_dir, qury_set[0])
           qury_image = Image.open(qury_image_path)
-          qury_image = self.pre_process(qury_image)
+          qury_image = self._preproces(qury_image)
+          qury_image = torch.unsqueeze(qury_image, dim=0)
+          qury_label = torch.tensor([int(qury_set[1])])
+          qury_label = torch.unsqueeze(qury_label, dim=0)
           target_images.append(qury_image)
-          target_labels.append(int(qury_set[1]))
+          target_labels.append(qury_label)
 
-    context_images = torch.FloatTensor(context_images)
-    context_labels = torch.LongTensor(context_labels)
-    target_images  = torch.FloatTensor(target_images)
-    target_labels  = torch.LongTensor(target_labels)
+      context_images = (torch.cat(context_images, dim=0)).float()
+      context_labels = (torch.cat(context_labels, dim=0)).long()
+      target_images  = (torch.cat(target_images, dim=0)).float()
+      target_labels  = (torch.cat(target_labels, dim=0)).long()
 
-    return context_images, target_images, context_labels, target_labels
+      return context_images, target_images, context_labels, target_labels
 
   def __getitem__(self, index):
       """
@@ -81,6 +97,10 @@ class Dataset(data.Dataset):
       """
       all_support_set, all_query_set = self.__get_task_set(index=(index+self.start_idx))
       context_images, target_images, context_labels, target_labels = self.__prepare_task(all_support_set, all_query_set)
+
+      if self.mode == "TRAIN":
+          context_images, context_labels = self.__shuffle_set(images=context_images, labels=context_labels)
+          target_images,  target_labels  = self.__shuffle_set(images=target_images,  labels=target_labels)
 
       return context_images, target_images, context_labels, target_labels
 

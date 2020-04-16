@@ -8,10 +8,15 @@ from d3m.primitive_interfaces.supervised_learning import SupervisedLearnerPrimit
 # Import config file
 from primitives.config_files import config
 
+import os
 import logging
 import numpy as np
+import torch
 from torch.utils import data
 from primitives.simpleCNAPS.dataset import Dataset
+from primitives.simpleCNAPS.src.model import SimpleCnaps
+from primitives.simpleCNAPS.src.utils import print_and_log, get_log_files
+from primitives.simpleCNAPS.src.utils import ValidationAccuracies, loss, aggregate_accuracy
 
 __all__ = ('SimpleCNAPSClassifierPrimitive',)
 logger  = logging.getLogger(__name__)
@@ -33,7 +38,32 @@ class Hyperparams(hyperparams.Hyperparams):
         description='Learning rate used during training (fit).',
         semantic_types=['https://metadata.datadrivendiscovery.org/types/TuningParameter'],
     )
-
+    num_iterations = hyperparams.Hyperparameter[int](
+        default=100,
+        description="Number of iterations to train the model.",
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+    )
+    use_pretrained = hyperparams.UniformBool(
+        default=True,
+        description="Re-Train using new data.",
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+    )
+    use_two_gpus = hyperparams.UniformBool(
+        default=False,
+        description="film+ar model does not fit on one GPU, so use model parallelism.",
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+    )
+    tasks_per_batch= hyperparams.Hyperparameter[int](
+        default=16,
+        description="Number of tasks per batch",
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+    )
+    feature_adaptation = hyperparams.Enumeration[str](
+        values=["no_adaptation", "film", "film+ar"],
+        default='film',
+        description='Type of activation (non-linearity) following the last layer.',
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+    )
 
 class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperparams]):
     """
@@ -64,13 +94,14 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
                          'file_digest': '79c93169d567ccb50d4303fbd366560effc4d05dfd7e1a4fa7bca0b3dd0c8d6d'},
     ]
     metadata   =  metadata_base.PrimitiveMetadata({
-        "id": "b76a6841-a871-47bc-89ac-e734de5c2924",
+        "id": "97c01f04-83c5-459c-8df6-dbc50b3ced9b",
         "version": config.VERSION,
         "name": "Simple CNAPS primitive",
         "description": "A primitive for few-shot learning task",
         "python_path": "d3m.primitives.classification.simpleCnaps.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.CLASSIFICATION,
-        "algorithm_types": [metadata_base.PrimitiveAlgorithmType.NEURAL_NETWORK_BACKPROPAGATION],
+        "algorithm_types": [metadata_base.PrimitiveAlgorithmType.NEURAL_NETWORK_BACKPROPAGATION,
+                            metadata_base.PrimitiveAlgorithmType.CONVOLUTIONAL_NEURAL_NETWORK],
         "source": {
             "name": config.D3M_PERFORMER_TEAM,
             "contact": config.D3M_CONTACT,
@@ -89,8 +120,31 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
         self._verbose      = _verbose
         self._training_inputs: Inputs   = None
         self._training_outputs: Outputs = None
+        # Use GPU if available
+        use_cuda    = torch.cuda.is_available()
+        self.device = torch.device("cuda:0" if use_cuda else "cpu")
+        self.use_two_gpus    = self.hyperparams["use_two_gpus"]
+        self.tasks_per_batch = self.hyperparams["tasks_per_batch"]
+        self.use_pretrained  = self.hyperparams["use_pretrained"]
+        self.loss            = loss
+        self.optimizer       = torch.optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
+        self.optimizer.zero_grad()
+        self.validation_accuracies = ValidationAccuracies(self.validation_set)
         # Is the model fit on the training data
         self._fitted = False
+        # Arguments
+        self.args = {}
+        self.args["feature_adaptation"] = self.hyperparams["feature_adaptation"]
+        self.args["pretrained_resnet_path"] = self._find_weights_dir(key_filename='pretrained_resnet.pt.tar', weights_configs=_weights_configs[0])
+        # Setup model
+        self._setup_model()
+
+    def _setup_model(self):
+        self.model = SimpleCnaps(device=self.device, use_two_gpus=use_two_gpus, args=self.args).to(self.device)
+        self.model.train()  # set encoder is always in train mode to process context data
+        self.model.feature_extractor.eval()  # feature extractor is always in eval mode
+        if self.use_two_gpus:
+            self.model.distribute_model()
 
     def set_training_data(self, *, inputs: Inputs, outputs: Outputs) -> None:
         self._training_inputs   = inputs
@@ -99,31 +153,126 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
 
 
     def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
-        image_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
-        base_paths     = [self._training_inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
+        if self.use_pretrained:
+            self._fitted = True
+        else:
+            image_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
+            base_paths     = [self._training_inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
+            base_path      = [base_paths[t]['location_base_uris'][0].replace('file:///', '/') for t in range(len(base_paths))][0] # Path + media
+
+            # Dataset Parameters
+            train_params = {'batch_size': 1,
+                            'shuffle': False,
+                            'num_workers': 0}
+            # DataLoader
+            training_set = Dataset(datalist=self._training_inputs, base_dir=base_path)
+
+            # Data Generators
+            training_generator = data.DataLoader(training_set, **train_params)
+
+            # Number of Iterations
+            _iterations = self.hyperparams['num_iterations']
+
+            counter = 0
+            for itr in range(_iterations):
+                for local_context_images, local_target_images, local_context_labels, local_target_labels in training_generator:
+                    local_context_images = torch.squeeze(local_context_images, dim=0).to(self.device)
+                    local_context_labels = torch.squeeze(local_context_labels, dim=0).to(self.device)
+                    local_target_images  = torch.squeeze(local_target_images,  dim=0).to(self.device)
+                    local_target_labels  = torch.squeeze(local_target_labels,  dim=0).to(self.device)
+                    # Forward-Pass
+                    target_logits = self.model(context_images, context_labels, target_images)
+                    task_loss     = self.loss(target_logits, target_labels, self.device) / self.tasks_per_batch
+                    if self.args["feature_adaptation"] == 'film' or self.args["feature_adaptation"] == 'film+ar':
+                        if self.use_two_gpus:
+                            regularization_term = (self.model.feature_adaptation_network.regularization_term()).cuda(0)
+                        else:
+                            regularization_term = (self.model.feature_adaptation_network.regularization_term())
+                        regularizer_scaling = 0.001
+                        task_loss += regularizer_scaling * regularization_term
+                    task_accuracy  = self.accuracy_fn(target_logits, target_labels)
+                    task_loss.backward(retain_graph=False)
+                    # Optimize
+                    if ((counter+1)%self.tasks_per_batch) or (iteration == (total_iterations - 1)):
+                            self.optimizer.step()
+                            self.optimizer.zero_grad()
+            # Set fit to True
+            self._fitted = True
+
+        return base.CallResult(None)
+
+
+    def produce(self, *, inputs: Inputs, iterations: int = None, timeout: float = None) -> base.CallResult[Outputs]:
+        # Inference
+        if not self._fitted:
+            raise Exception('Please fit the model before calling produce!')
+
+        if self.use_pretrained:
+
+        image_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
+        base_paths     = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
         base_path      = [base_paths[t]['location_base_uris'][0].replace('file:///', '/') for t in range(len(base_paths))][0] # Path + media
 
         # Dataset Parameters
         train_params = {'batch_size': 1,
                         'shuffle': False,
-                        'num_workers': 4}
+                        'num_workers': 0}
         # DataLoader
-        training_set = Dataset(datalist=self._training_inputs, base_dir=base_path)
+        testing_set = Dataset(datalist=inputs, base_dir=base_path, mode="TEST")
 
         # Data Generators
-        training_generator = data.DataLoader(training_set, **train_params)
+        testing_generator = data.DataLoader(testing_set, **train_params)
 
-        # print(training_set.__getitem__(index=0))
-        # for local_context_images, local_target_images, local_context_labels, local_target_labels in training_generator:
-        #     print(local_context_images.shape)
-        #     break
+        # Delete columns with path names of nested media files
+        outputs = inputs.remove_columns(image_columns)
 
-
-        return base.CallResult(None)
-
-    def produce(self, *, inputs: Inputs, iterations: int = None, timeout: float = None) -> base.CallResult[Outputs]:
+        predictions = []
+        with torch.no_grad():
+            for local_context_images, local_target_images, local_context_labels, local_target_labels in testing_generator:
+                local_context_images = torch.squeeze(local_context_images, dim=0).to(self.device)
+                local_context_labels = torch.squeeze(local_context_labels, dim=0).to(self.device)
+                local_target_images  = torch.squeeze(local_target_images,  dim=0).to(self.device)
+                local_target_labels  = torch.squeeze(local_target_labels,  dim=0).to(self.device)
+                # Forwards pass
+                target_logits = self.model(context_images, context_labels, target_images)
+                target_logits = torch.argmax(target_logits, dim=-1)
+                target_logits = target_logits.data.cpu().numpy()
+                # Convert to list
+                target_logits = target_logits.tolist()
+                predictions.append(target_logits)
 
         return 0
+
+    def _find_weights_dir(self, key_filename, weights_configs):
+        _weight_file_path = None
+        # Check common places
+        if key_filename in self.volumes:
+            _weight_file_path = self.volumes[key_filename]
+        else:
+            if os.path.isdir('/static'):
+                _weight_file_path = os.path.join('/static', weights_configs['file_digest'], key_filename)
+                if not os.path.exists(_weight_file_path):
+                    _weight_file_path = os.path.join('/static', weights_configs['file_digest'])
+            # Check other directories
+            if not os.path.exists(_weight_file_path):
+                home = expanduser("/")
+                root = expanduser("~")
+                _weight_file_path = os.path.join(home, weights_configs['file_digest'])
+                if not os.path.exists(_weight_file_path):
+                    _weight_file_path = os.path.join(home, weights_configs['file_digest'], key_filename)
+                if not os.path.exists(_weight_file_path):
+                    _weight_file_path = os.path.join('.', weights_configs['file_digest'], key_filename)
+                if not os.path.exists(_weight_file_path):
+                    _weight_file_path = os.path.join(root, weights_configs['file_digest'], key_filename)
+                if not os.path.exists(_weight_file_path):
+                    _weight_file_path = os.path.join(weights_configs['file_digest'], key_filename)
+
+        if os.path.isfile(_weight_file_path):
+            return _weight_file_path
+        else:
+            raise ValueError("Can't get weights file from the volume by key: {} or in the static folder: {}".format(key_filename, _weight_file_path))
+
+        return _weight_file_path
 
     def get_params(self) -> Params:
         return None
