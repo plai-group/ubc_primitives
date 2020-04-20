@@ -116,9 +116,9 @@ class SimpleCnaps(nn.Module):
                 self.feature_extractor_params = self.feature_adaptation_network(task_representation_1)
             # Given adaptation parameters for task, conditional forward pass through the adapted feature extractor
             context_features_1 = self.feature_extractor(context_images_1, self.feature_extractor_params)
-            context_features = context_features_1.cuda(0)
-            target_features_1 = self.feature_extractor(target_images_1, self.feature_extractor_params)
-            target_features = target_features_1.cuda(0)
+            context_features   = context_features_1
+            target_features_1  = self.feature_extractor(target_images_1, self.feature_extractor_params)
+            target_features    = target_features_1
         else:
             if self.args["feature_adaptation"] == 'film+ar':
                 # Get adaptation params by passing context set through the adaptation networks
@@ -159,7 +159,7 @@ class SimpleCnaps(nn.Module):
             """
             lambda_k_tau = (class_features.size(0) / (class_features.size(0) + 1))
             self.class_precision_matrices[c.item()] = torch.inverse((lambda_k_tau * self.estimate_cov(class_features)) + ((1 - lambda_k_tau) * task_covariance_estimate) \
-                    + torch.eye(class_features.size(1), class_features.size(1)).cuda(0))
+                    + torch.eye(class_features.size(1), class_features.size(1)))
 
     def estimate_cov(self, examples, rowvar=False, inplace=False):
         """

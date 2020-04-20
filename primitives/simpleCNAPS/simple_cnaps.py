@@ -16,7 +16,8 @@ from torch.utils import data
 from primitives.simpleCNAPS.dataset import Dataset
 from primitives.simpleCNAPS.src.model import SimpleCnaps
 from primitives.simpleCNAPS.src.utils import print_and_log, get_log_files
-from primitives.simpleCNAPS.src.utils import ValidationAccuracies, loss, aggregate_accuracy
+from primitives.simpleCNAPS.src.utils import loss
+from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
 
 __all__ = ('SimpleCNAPSClassifierPrimitive',)
 logger  = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ class Hyperparams(hyperparams.Hyperparams):
     )
     use_two_gpus = hyperparams.UniformBool(
         default=False,
-        description="film+ar model does not fit on one GPU, so use model parallelism.",
+        description="film+ar model does not fit on one GPU, so use 2 GPUs for model parallelism.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
     )
     tasks_per_batch= hyperparams.Hyperparameter[int](
@@ -82,15 +83,15 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
     global _weights_configs
     _weights_configs = [{'type': 'FILE',
                          'key': 'pretrained_resnet.pt.tar',
-                         'file_uri': 'https://download.pytorch.org/models/vgg16-397923af.pth',
+                         'file_uri': 'https://dl.dropboxusercontent.com/s/6ezkjgq2wh9iwwx/pretrained_resnet.pt.tar?dl=1',
                          'file_digest': '347cb3a744a8ff172f7cc47b4b74987f07ca3b6a1f5d6e4f0037474a38e6b285'},
                         {'type': 'FILE',
                          'key': 'best_simple_ar_cnaps.pt',
-                         'file_uri': 'https://download.pytorch.org/models/vgg16_bn-6c64b313.pth',
+                         'file_uri': 'https://dl.dropboxusercontent.com/s/4i1xdxqoskp8iuo/best_simple_ar_cnaps.pt?dl=1',
                          'file_digest': '05859f5dec2c70039ff449d37c2474ab07b1a74ab086d2507797d4022d744342'},
                         {'type': 'FILE',
                          'key': 'best_simple_cnaps.pt',
-                         'file_uri': 'https://download.pytorch.org/models/googlenet-1378be20.pth',
+                         'file_uri': 'https://dl.dropboxusercontent.com/s/wk1hoeam4p286oy/best_simple_cnaps.pt?dl=1',
                          'file_digest': '79c93169d567ccb50d4303fbd366560effc4d05dfd7e1a4fa7bca0b3dd0c8d6d'},
     ]
     metadata   =  metadata_base.PrimitiveMetadata({
@@ -113,8 +114,8 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
     })
 
 
-    def __init__(self, *, hyperparams: Hyperparams, random_seed: int = 0, _verbose: int = 0) -> None:
-        super().__init__(hyperparams=hyperparams, random_seed=random_seed)
+    def __init__(self, *, hyperparams: Hyperparams, volumes: Union[Dict[str, str], None]=None, random_seed: int = 0, _verbose: int = 0) -> None:
+        super().__init__(hyperparams=hyperparams,  volumes=volumes, random_seed=random_seed)
         self.hyperparams   = hyperparams
         self._random_state = np.random.RandomState(self.random_seed)
         self._verbose      = _verbose
@@ -129,14 +130,15 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
         # Is the model fit on the training data
         self._fitted = False
         # Arguments
+        pretrained_resnet_path = self._find_weights_dir(key_filename="pretrained_resnet.pt.tar", weights_configs=_weights_configs[0])
         self.args = {}
         self.args["feature_adaptation"] = self.hyperparams["feature_adaptation"]
-        self.args["pretrained_resnet_path"] = self._find_weights_dir(key_filename='pretrained_resnet.pt.tar', weights_configs=_weights_configs[0])
+        self.args["pretrained_resnet_path"] = pretrained_resnet_path
         # Setup model
         self._setup_model()
 
     def _setup_model(self):
-        self.model = SimpleCnaps(device=self.device, use_two_gpus=use_two_gpus, args=self.args).to(self.device)
+        self.model = SimpleCnaps(device=self.device, use_two_gpus=self.use_two_gpus, args=self.args).to(self.device)
         self.model.train() # set encoder is always in train mode to process context data
         self.model.feature_extractor.eval() # feature extractor is always in eval mode
         if self.use_two_gpus:
@@ -212,8 +214,12 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
             else:
                 pretrained_weight_path = self._find_weights_dir(key_filename='best_simple_cnaps.pt', weights_configs=_weights_configs[2])
             # Load pre-trained model
-            self.model.load_state_dict(torch.load(pretrained_weight_path))
-
+            use_cuda = torch.cuda.is_available()
+            if use_cuda:
+                ckpt_dict = torch.load(pretrained_weight_path)
+            else:
+                ckpt_dict = torch.load(pretrained_weight_path, map_location=torch.device('cpu'))
+            self.model.load_state_dict(ckpt_dict)
 
         image_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
         base_paths     = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t)) for t in image_columns] # Image Dataset column names
@@ -246,6 +252,11 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
                 final_predictions = final_predictions.data.cpu().numpy()
                 # Convert to list
                 final_predictions = final_predictions.tolist()
+                # Convert context labels to list
+                context_labels = local_context_labels.data.cpu().numpy()
+                context_labels = context_labels.tolist()
+                # TODO: add a scoring system for target labels only or edit learning labels
+                predictions.append(context_labels) # Adding the context labels back
                 predictions.append(final_predictions)
 
         # Convert from ndarray from DataFrame

@@ -266,22 +266,30 @@ class FilmResNet(ResNet):
 
 def resnet18(pretrained=False, pretrained_model_path=None, **kwargs):
     """
-        Constructs a ResNet-18 model.
+    Constructs a ResNet-18 model.
     """
     model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
     if pretrained:
-        ckpt_dict = torch.load(pretrained_model_path)
+        use_cuda = torch.cuda.is_available()
+        if use_cuda:
+            ckpt_dict = torch.load(pretrained_model_path)
+        else:
+            ckpt_dict = torch.load(pretrained_model_path, map_location=torch.device('cpu'))
         model.load_state_dict(ckpt_dict['state_dict'])
     return model
 
 
 def film_resnet18(pretrained=False, pretrained_model_path=None, **kwargs):
     """
-        Constructs a FiLM adapted ResNet-18 model.
+    Constructs a FiLM adapted ResNet-18 model.
     """
 
     model = FilmResNet(BasicBlockFilm, [2, 2, 2, 2], **kwargs)
     if pretrained:
-        ckpt_dict = torch.load(pretrained_model_path)
+        use_cuda = torch.cuda.is_available()
+        if use_cuda:
+            ckpt_dict = torch.load(pretrained_model_path)
+        else:
+            ckpt_dict = torch.load(pretrained_model_path, map_location=torch.device('cpu'))
         model.load_state_dict(ckpt_dict['state_dict'])
     return model

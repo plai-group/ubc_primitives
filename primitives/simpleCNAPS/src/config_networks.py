@@ -1,14 +1,13 @@
-from resnet import film_resnet18, resnet18
-from adaptation_networks import NullFeatureAdaptationNetwork, FilmAdaptationNetwork, \
+from primitives.simpleCNAPS.src.resnet import film_resnet18, resnet18
+from primitives.simpleCNAPS.src.adaptation_networks import NullFeatureAdaptationNetwork, FilmAdaptationNetwork, \
     LinearClassifierAdaptationNetwork, FilmLayerNetwork, FilmArAdaptationNetwork
-from set_encoder import SetEncoder
-from utils import linear_classifier
+from primitives.simpleCNAPS.src.set_encoder import SetEncoder
+from primitives.simpleCNAPS.src.utils import linear_classifier
 
 
-""" Creates the set encoder, feature extractor, feature adaptation, classifier, and classifier adaptation networks.
 """
-
-
+Creates the set encoder, feature extractor, feature adaptation, classifier, and classifier adaptation networks.
+"""
 class ConfigureNetworks:
     def __init__(self, pretrained_resnet_path, feature_adaptation):
 
