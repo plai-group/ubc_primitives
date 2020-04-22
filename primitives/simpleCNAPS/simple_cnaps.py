@@ -46,7 +46,7 @@ class Hyperparams(hyperparams.Hyperparams):
     )
     use_pretrained = hyperparams.UniformBool(
         default=True,
-        description="Whether to fit on new data.",
+        description="Whether to use pre-trained model. Set to False to fit on new data.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
     )
     use_two_gpus = hyperparams.UniformBool(
@@ -227,8 +227,7 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
 
         # Dataset Parameters
         train_params = {'batch_size': 1,
-                        'shuffle': False,
-                        'num_workers': 0}
+                        'shuffle': False}
         # DataLoader
         testing_set = Dataset(datalist=inputs, base_dir=base_path, mode="TEST")
 
@@ -239,6 +238,7 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
         outputs = inputs.remove_columns(image_columns)
 
         predictions = []
+        progress = 0
         with torch.no_grad():
             for local_context_images, local_target_images, local_context_labels, local_target_labels in testing_generator:
                 local_context_images = torch.squeeze(local_context_images, dim=0).to(self.device)
@@ -246,8 +246,8 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
                 local_target_images  = torch.squeeze(local_target_images,  dim=0).to(self.device)
                 local_target_labels  = torch.squeeze(local_target_labels,  dim=0).to(self.device)
                 # Forwards pass
-                target_logits = self.model(context_images, context_labels, target_images)
-                averaged_predictions = torch.logsumexp(target_logits, dim=0)
+                target_logits = self.model(local_context_images, local_context_labels, local_target_images)
+                averaged_predictions = torch.logsumexp(target_logits,  dim=0)
                 final_predictions = torch.argmax(averaged_predictions, dim=-1)
                 final_predictions = final_predictions.data.cpu().numpy()
                 # Convert to list
@@ -255,9 +255,11 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
                 # Convert context labels to list
                 context_labels = local_context_labels.data.cpu().numpy()
                 context_labels = context_labels.tolist()
-                # TODO: add a scoring system for target labels only or edit learning labels
+                # TODO: add a scoring system for target labels only or edit learningData
                 predictions.append(context_labels) # Adding the context labels back
                 predictions.append(final_predictions)
+                progress += 1
+                print(progress)
 
         # Convert from ndarray from DataFrame
         predictions = container.DataFrame(predictions, generate_metadata=True)
