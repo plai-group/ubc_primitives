@@ -101,7 +101,7 @@ convolutional layers or the fully connected layers by setting `include_top` Hype
   - This algorithm requires the number of clusters, `n_clusters` Hyperparam to be specified.
   - Sample Usage: [K-Means](https://github.com/plai-group/ubc_primitives/blob/master/pipelines/kmeans_pipeline.py) pipeline.
 
-13. **Simple-CNAPS**
+14. **Simple-CNAPS**
   - Simple CNAPS is a simple classcovariance-based distance metric, namely the Mahalanobis distance, adopted into a state-of-the-art few-shot learning approach.
   - Sample Usage: [Simple-CNAPS](https://github.com/plai-group/ubc_primitives/blob/master/pipelines/cnaps_pipeline.py) pipeline.
   - The metadataset dataset accompanying this primitive can be downloaded from [Link](https://dl.dropboxusercontent.com/s/4ehm3rpotv0x0s8/LWLL1_metadataset.zip?dl=1)
