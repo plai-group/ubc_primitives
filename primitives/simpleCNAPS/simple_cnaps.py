@@ -249,7 +249,9 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
                 target_logits = self.model(local_context_images, local_context_labels, local_target_images)
                 averaged_predictions = torch.logsumexp(target_logits,  dim=0)
                 final_predictions = torch.argmax(averaged_predictions, dim=-1)
+                final_predictions = torch.flatten(final_predictions)
                 final_predictions = final_predictions.data.cpu().numpy()
+                 final_predictions = torch.flatten(final_predictions)
                 # Convert to list
                 final_predictions = final_predictions.tolist()
                 # Convert context labels to list
@@ -260,8 +262,8 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
                 predictions.append(final_predictions)
                 progress += 1
                 print(progress)
-
-        # Convert from ndarray from DataFrame
+        print(predictions)
+        # Convert from list from DataFrame
         predictions = container.DataFrame(predictions, generate_metadata=True)
 
         # Update Metadata for each feature vector column
