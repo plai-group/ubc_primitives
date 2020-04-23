@@ -257,6 +257,7 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
                 # Convert to list
                 final_predictions = final_predictions.tolist()
                 # Convert context labels to list
+                context_labels = torch.squeeze(context_labels)
                 context_labels = local_context_labels.data.cpu().numpy()
                 context_labels = context_labels.tolist()
                 # TODO: add a scoring system for target labels only or edit learningData
