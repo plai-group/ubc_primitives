@@ -257,8 +257,8 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
                 context_labels = context_labels.data.cpu().numpy()
                 context_labels = context_labels.tolist()
                 # TODO: add a scoring system for target labels only or edit learningData
-                predictions.append(context_labels) # Adding the context labels back
-                predictions.append(final_predictions)
+                predictions.extend(context_labels) # Adding the context labels back
+                predictions.extend(final_predictions)
 
         # Convert from list from DataFrame
         predictions = container.DataFrame(predictions, generate_metadata=True)
