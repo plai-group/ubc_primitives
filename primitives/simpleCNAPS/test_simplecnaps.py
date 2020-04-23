@@ -7,8 +7,7 @@ from d3m.container.dataset import Dataset
 from d3m.metadata import base as metadata_base
 from common_primitives.denormalize import DenormalizePrimitive
 from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive
-from common_primitives.xgboost_regressor import XGBoostGBTreeRegressorPrimitive
-from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
+from common_primitives.construct_predictions import ConstructPredictionsPrimitive
 
 # Testing primitive
 from primitives.simpleCNAPS import SimpleCNAPSClassifierPrimitive
@@ -36,7 +35,7 @@ class TestSimpleCNAPSClassifierPrimitive(unittest.TestCase):
         """
         print('\n')
         print('########################')
-        print('#--------TEST-3--------#')
+        print('#--------TEST-1--------#')
         print('########################')
 
         # Get volumes:
@@ -75,13 +74,30 @@ class TestSimpleCNAPSClassifierPrimitive(unittest.TestCase):
         print(outputs)
         print(outputs.shape, dataframe.shape)
 
-    def test_1(self):
+        cnaps_hyperparams_class = SimpleCNAPSClassifierPrimitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
+        cnaps_hyperparams = cnaps_hyperparams_class.defaults()
+        cnaps_primitive   = SimpleCNAPSClassifierPrimitive(hyperparams=cnaps_hyperparams, volumes=all_weights)
+        cnaps_primitive.set_training_data(inputs=dataframe, outputs=dataframe)
+        cnaps_primitive.fit()
+        outputs = cnaps_primitive.produce(inputs=dataframe)
+        outputs = outputs.value
+
+        cpp_hyperparams_class = ConstructPredictionsPrimitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
+        cpp_hyperparams = cpp_hyperparams_class.defaults()
+        cpp_primitive   = ConstructPredictionsPrimitive(hyperparams=cpp_hyperparams)
+        final_outputs   = cpp_primitive.produce(inputs=outputs, reference=dataframe)
+
+        print(final_outputs)
+        print(final_outputs.shape, dataframe.shape)
+
+
+    def test_2(self):
         """
         Dataset test
         """
         print('\n')
         print('########################')
-        print('#--------TEST-3--------#')
+        print('#--------TEST-2--------#')
         print('########################')
 
         # Get volumes:
@@ -120,6 +136,14 @@ class TestSimpleCNAPSClassifierPrimitive(unittest.TestCase):
 
         print(outputs)
         print(outputs.shape, dataframe.shape)
+
+        cpp_hyperparams_class = ConstructPredictionsPrimitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
+        cpp_hyperparams = cpp_hyperparams_class.defaults()
+        cpp_primitive   = ConstructPredictionsPrimitive(hyperparams=cpp_hyperparams)
+        final_outputs   = cpp_primitive.produce(inputs=outputs, reference=dataframe)
+
+        print(final_outputs)
+        print(final_outputs.shape, dataframe.shape)
 
 if __name__ == '__main__':
     unittest.main()
