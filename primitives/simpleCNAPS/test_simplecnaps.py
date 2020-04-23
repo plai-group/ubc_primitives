@@ -86,7 +86,7 @@ class TestSimpleCNAPSClassifierPrimitive(unittest.TestCase):
         cpp_hyperparams = cpp_hyperparams_class.defaults()
         cpp_primitive   = ConstructPredictionsPrimitive(hyperparams=cpp_hyperparams)
         final_outputs   = cpp_primitive.produce(inputs=outputs, reference=dataframe)
-
+        final_outputs   = final_outputs.value
         print(final_outputs)
         print(final_outputs.shape, dataframe.shape)
 
@@ -141,7 +141,7 @@ class TestSimpleCNAPSClassifierPrimitive(unittest.TestCase):
         cpp_hyperparams = cpp_hyperparams_class.defaults()
         cpp_primitive   = ConstructPredictionsPrimitive(hyperparams=cpp_hyperparams)
         final_outputs   = cpp_primitive.produce(inputs=outputs, reference=dataframe)
-
+        final_outputs   = final_outputs.value
         print(final_outputs)
         print(final_outputs.shape, dataframe.shape)
 
