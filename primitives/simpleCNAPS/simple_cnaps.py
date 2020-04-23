@@ -238,7 +238,6 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
         outputs = inputs.remove_columns(image_columns)
 
         predictions = []
-        progress = 0
         with torch.no_grad():
             for local_context_images, local_target_images, local_context_labels, local_target_labels in testing_generator:
                 local_context_images = torch.squeeze(local_context_images, dim=0).to(self.device)
@@ -249,11 +248,8 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
                 target_logits = self.model(local_context_images, local_context_labels, local_target_images)
                 averaged_predictions = torch.logsumexp(target_logits,  dim=0)
                 final_predictions = torch.argmax(averaged_predictions, dim=-1)
-                print(final_predictions.shape)
                 final_predictions = torch.squeeze(final_predictions)
-                print(final_predictions.shape)
                 final_predictions = final_predictions.data.cpu().numpy()
-                print(final_predictions.shape)
                 # Convert to list
                 final_predictions = final_predictions.tolist()
                 # Convert context labels to list
@@ -263,9 +259,7 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
                 # TODO: add a scoring system for target labels only or edit learningData
                 predictions.append(context_labels) # Adding the context labels back
                 predictions.append(final_predictions)
-                progress += 1
-                print(progress)
-        print(predictions)
+
         # Convert from list from DataFrame
         predictions = container.DataFrame(predictions, generate_metadata=True)
 
@@ -273,7 +267,7 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
         for col in range(predictions.shape[1]):
             col_dict = dict(predictions.metadata.query((metadata_base.ALL_ELEMENTS, col)))
             col_dict['structural_type'] = type(1.0)
-            col_dict['name']            = self.label_name_columns[col]
+            col_dict['name']            = 'label'
             col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/PredictedTarget",)
             predictions.metadata        = predictions.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
         # Rename Columns to match label columns
