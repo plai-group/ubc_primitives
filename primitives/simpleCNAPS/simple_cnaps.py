@@ -256,7 +256,7 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
                 context_labels = torch.squeeze(local_context_labels)
                 context_labels = context_labels.data.cpu().numpy()
                 context_labels = context_labels.tolist()
-                # TODO: add a scoring system for target labels only or edit learningData
+                # TODO: add a scoring system for target labels only or edit learningData in LWLL1_metadataset
                 predictions.extend(context_labels) # Adding the context labels back
                 predictions.extend(final_predictions)
 
@@ -270,7 +270,7 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
             col_dict['name']            = 'label'
             col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/PredictedTarget",)
             predictions.metadata        = predictions.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
-        # Rename Columns to match label columns
+        # Rename Columns to match label columns similar to LWLL1_metadataset
         predictions.columns = ['label']
 
         # Append to outputs

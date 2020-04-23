@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import unittest
 
+from d3m.metrics import Metric
+from d3m import container, exceptions, utils
 from d3m.container.dataset import Dataset
 from d3m.metadata import base as metadata_base
 from common_primitives.denormalize import DenormalizePrimitive
@@ -43,7 +45,7 @@ class TestSimpleCNAPSClassifierPrimitive(unittest.TestCase):
         all_weights = {w: os.path.join('./static', w) for w in all_weights}
 
         # Loading dataset.
-        path1 = 'file://{uri}'.format(uri=os.path.abspath('/ubc/cs/research/plai-scratch/tonyj/ubc_primitives/my_datasets/contributed_datasets/LWLL1_metadataset/SCORE/dataset_TEST/datasetDoc.json'))
+        path1 = 'file://{uri}'.format(uri=os.path.abspath('/ubc_primitives/my_datasets/contributed_datasets/LWLL1_metadataset/SCORE/dataset_TEST/datasetDoc.json'))
         dataset = Dataset.load(dataset_uri=path1)
 
         # Step 0: Denormalize primitive
