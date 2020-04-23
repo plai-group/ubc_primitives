@@ -249,7 +249,7 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
                 target_logits = self.model(local_context_images, local_context_labels, local_target_images)
                 averaged_predictions = torch.logsumexp(target_logits,  dim=0)
                 final_predictions = torch.argmax(averaged_predictions, dim=-1)
-                final_predictions = torch.flatten(final_predictions)
+                final_predictions = torch.squeeze(final_predictions)
                 final_predictions = final_predictions.data.cpu().numpy()
                 # Convert to list
                 final_predictions = final_predictions.tolist()
