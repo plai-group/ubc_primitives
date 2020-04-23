@@ -251,7 +251,6 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
                 final_predictions = torch.argmax(averaged_predictions, dim=-1)
                 final_predictions = torch.flatten(final_predictions)
                 final_predictions = final_predictions.data.cpu().numpy()
-                 final_predictions = torch.flatten(final_predictions)
                 # Convert to list
                 final_predictions = final_predictions.tolist()
                 # Convert context labels to list
