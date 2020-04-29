@@ -1,18 +1,25 @@
+from d3m import container
 from d3m.container.numpy import ndarray
+from d3m.primitive_interfaces import base
+from d3m.metadata import base as metadata_base, hyperparams, params
 from d3m.primitive_interfaces.supervised_learning import SupervisedLearnerPrimitiveBase
 from d3m.primitive_interfaces.base import ProbabilisticCompositionalityMixin
 from d3m.primitive_interfaces.base import GradientCompositionalityMixin
 from d3m.primitive_interfaces.base import SamplingCompositionalityMixin
 from d3m.primitive_interfaces.base import Gradients
+from d3m.primitive_interfaces.base import CallResult
 
+# Import config file
+from primitives.config_files import config
 
 import os
 import math
+import torch
 import random
 import numpy as np
 from sklearn.metrics import mean_squared_error
 from typing import NamedTuple, Sequence, Any, List, Dict, Union, Tuple
-from .utils import to_variable, refresh_node, log_mvn_likelihood
+from primitives.linearRegression.utils import to_variable, refresh_node, log_mvn_likelihood
 
 
 __all__ = ('LinearRegressionPrimitive',)
@@ -57,7 +64,11 @@ class Hyperparams(hyperparams.Hyperparams):
                     by setting this to zero',
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
     )
-
+    minibatch_size = hyperparams.Hyperparameter[int](
+        default=10,
+        description='Minibatch size used during training (fit), if using gradient fit',
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+    )
 
 class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, Params, Hyperparams],
                                 GradientCompositionalityMixin[Inputs, Outputs, Params, Hyperparams],
@@ -86,7 +97,7 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         },
         "keywords": ['bayesian', 'regression'],
         "installation": [config.INSTALLATION],
-        "hyperparams_to_tune": []
+        "hyperparams_to_tune": ['learning_rate', 'minibatch_size']
     })
 
 
@@ -98,6 +109,7 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         self._training_inputs: Inputs   = None
         self._training_outputs: Outputs = None
 
+        self._batch_size             = hyperparams['minibatch_size']
         self._learning_rate          = hyperparams['learning_rate']
         self._analytic_fit_threshold = hyperparams['analytic_fit_threshold']
         self._weights_prior          = hyperparams['weights_prior']
@@ -221,7 +233,7 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
 
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> CallResult[Outputs]:
         """
-        inputs : (num_inputs,  D) numpy array
+        inputs: (num_inputs,  D) numpy array
         outputs : numpy array of dimension (num_inputs)
         """
 
@@ -241,7 +253,7 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         return CallResult(self._outputs.data.numpy(), has_finished = self._has_finished, iterations_done=self._iterations_done)
 
 
-    def fit(self, *, timeout: float = None, iterations: int = None, fit_threshold: float, batch_size: int) -> CallResult:
+    def fit(self, *, timeout: float = None, iterations: int = None, fit_threshold: float) -> CallResult:
         """
         Runs gradient descent for ``timeout`` seconds or ``iterations``
         iterations, whichever comes sooner, on log normal_density(self.weights * self.input
@@ -262,7 +274,7 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         if self._use_analytic_form:
             self._analytic_fit(iterations=iterations)
         else:
-            self._gradient_fit(timeout=timeout, iterations=iterations, batch_size=batch_size)
+            self._gradient_fit(timeout=timeout, iterations=iterations, batch_size=self._batch_size)
         return CallResult(None, has_finished=self._has_finished, iterations_done=self._iterations_done)
 
 
@@ -296,11 +308,9 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
             raise ValueError("Missing training data.")
 
         if timeout is None:
-            # TODO implement this
             timeout = np.inf
 
         if batch_size is None:
-            # TODO come up with something more reasonable here
             batch_size = 1
         x_batches = []
         y_batches = []
@@ -311,7 +321,6 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         num_batches = len(x_batches)
 
         start = time.time()
-        # TODO fix this below to be the matrix again
         #  self._weights_variance = torch.Tensor()
 
         iter_count = 0
@@ -413,7 +422,7 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         inputs = self._offset_input(inputs=inputs)
 
         outputs_vars = [to_variable(output, requires_grad=True) for output in outputs]
-        inputs_vars = [to_variable(input) for input in inputs]
+        inputs_vars  = [to_variable(input) for input in inputs]
         grad = sum(self._gradient_output_log_likelihood(output=output,
                                                         input=input)
                    for (input, output) in zip(inputs_vars, outputs_vars))
@@ -429,7 +438,7 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         """
 
         outputs_vars = [to_variable(output, requires_grad=True) for output in outputs]
-        inputs_vars = [to_variable(input) for input in inputs]
+        inputs_vars  = [to_variable(input) for input in inputs]
 
         grads = [self._gradient_params_log_likelihood(output=output, input=input)
                  for (input, output) in zip(inputs_vars, outputs_vars)]
@@ -438,6 +447,34 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
 
         return Params(weights=grad_weights, offset=grad_offset, noise_variance=grad_noise_variance)
 
+    def _sample_once(self, *, inputs: Inputs) -> Outputs:
+        """
+        input : NxD numpy ndarray
+        outputs : N-length numpy ndarray
+        """
+        if self._weights is None or self._noise_variance is None or self._weights_variance is None:
+            raise ValueError("Params not set.")
+
+        inputs = self._offset_input(inputs=inputs)
+
+        weights = np.random.multivariate_normal(
+                        self._weights.detach().numpy(),
+                        self._weights_variance.detach().numpy()
+                    )
+
+        # sample outputs
+        output_means = [np.dot(weights, input) for input in inputs]
+        outputs = np.random.normal(output_means, self._noise_variance.data[0])
+
+        return outputs
+
+    def sample(self, *, inputs: Inputs, num_samples: int = 1, timeout: float = None, iterations: int = None) -> Sequence[Outputs]:
+        """
+        input : num_inputs x D numpy ndarray
+        outputs : num_predictions x num_inputs numpy ndarray
+        """
+
+        return [self._sample_once(inputs=inputs) for _ in range(num_samples)]
 
     def backward(self, *, gradient_outputs: Gradients[Outputs], fine_tune: bool = False, fine_tune_learning_rate: float = 0.00001) -> Tuple[Gradients[Inputs], Gradients[Params]]:  # type: ignore
         if self._inputs is None:
@@ -482,6 +519,7 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
                 self._weights_prior.backward(gradient_outputs=grad['weights'], fine_tune=True)
 
             return grad_inputs, grad_params
+
 
     def set_fit_term_temperature(self, *, temperature: float = 0) -> None:
         self._fit_term_temperature = temperature

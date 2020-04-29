@@ -1,5 +1,6 @@
 import torch  # type: ignore
 import numpy as np  # type: ignore
+from typing import *
 from torch.autograd import Variable  # type: ignore
 
 def to_variable(value: Any, requires_grad: bool = False) -> Variable:
