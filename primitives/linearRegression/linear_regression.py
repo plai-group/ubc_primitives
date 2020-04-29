@@ -13,6 +13,7 @@ from d3m.primitive_interfaces.base import CallResult
 from primitives.config_files import config
 
 import os
+import time
 import math
 import torch
 import random
@@ -54,6 +55,11 @@ class Hyperparams(hyperparams.Hyperparams):
                     according to the chain rule.',
         semantic_types=['https://metadata.datadrivendiscovery.org/types/TuningParameter'],
     )
+    use_gradient_fit = hyperparams.UniformBool(
+        default=False,
+        description='Use gradient fit instead of analytic fit.',
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
+    )
     analytic_fit_threshold = hyperparams.Hyperparameter[int](
         default=100,
         description='the threshold used for N/P where n is the number of training data, \
@@ -65,10 +71,16 @@ class Hyperparams(hyperparams.Hyperparams):
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
     )
     minibatch_size = hyperparams.Hyperparameter[int](
-        default=10,
+        default=100,
         description='Minibatch size used during training (fit), if using gradient fit',
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
     )
+    num_iterations = hyperparams.Hyperparameter[int](
+        default=100,
+        description="Number of iterations to train the model.",
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+    )
+
 
 class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, Params, Hyperparams],
                                 GradientCompositionalityMixin[Inputs, Outputs, Params, Hyperparams],
@@ -110,6 +122,8 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         self._training_outputs: Outputs = None
 
         self._batch_size             = hyperparams['minibatch_size']
+        self._use_gradient_fit       = hyperparams['use_gradient_fit']
+        self._num_iterations         = hyperparams['num_iterations']
         self._learning_rate          = hyperparams['learning_rate']
         self._analytic_fit_threshold = hyperparams['analytic_fit_threshold']
         self._weights_prior          = hyperparams['weights_prior']
@@ -205,7 +219,7 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
             # If no error but no label-columns force try SuggestedTarget
             if len(label_columns) == 0 or label_columns == None:
                 label_columns  = training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-            YTrain = ((training_outputs.iloc[:, label_columns]).to_numpy()).astype(np.int)
+            YTrain = ((training_outputs.iloc[:, label_columns]).to_numpy()).astype(np.float)
 
             return new_XTrain, YTrain, feature_columns_1
 
@@ -216,8 +230,9 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         inputs, outputs, _ = self._curate_data(training_inputs=inputs, training_outputs=outputs, get_labels=True)
 
         N, P = inputs.shape
-        if P < N and N/P < self._analytic_fit_threshold:
-            # TODO if P is less than N without regularization give user warning and try to add a default one
+        if self._use_gradient_fit:
+            self._use_analytic_form = False
+        elif P < N and N/P < self._analytic_fit_threshold:
             self._use_analytic_form = True
 
         inputs_with_ones = np.insert(inputs, P, 1, axis=1)
@@ -236,24 +251,46 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         inputs: (num_inputs,  D) numpy array
         outputs : numpy array of dimension (num_inputs)
         """
+        # Curate data
+        XTest, feature_columns = self._curate_data(training_inputs=inputs, training_outputs=None, get_labels=False)
 
-        inputs = self._offset_input(inputs=inputs)
+        XTest = self._offset_input(inputs=XTest)
 
-        self._weights = refresh_node(self._weights)
-        self._noise_variance = refresh_node(self._noise_variance)
+        self._weights          = refresh_node(self._weights)
+        self._noise_variance   = refresh_node(self._noise_variance)
         self._weights_variance = refresh_node(self._weights_variance)
 
-        self._inputs = to_variable(inputs, requires_grad=True)
+        self._inputs = to_variable(XTest, requires_grad=True)
         mu = torch.mm(self._inputs, self._weights.unsqueeze(0).transpose(0, 1)).squeeze()
 
         reparameterized_normal = torch.distributions.normal.Normal(mu, self._noise_variance.expand(len(mu)))
         self._outputs = reparameterized_normal.rsample()
         self._outputs.reqiures_grad = True
+        predictions = self._outputs.data.numpy()
 
-        return CallResult(self._outputs.data.numpy(), has_finished = self._has_finished, iterations_done=self._iterations_done)
+        # Delete columns with path names of nested media files
+        outputs = inputs.remove_columns(feature_columns)
+
+        # Convert from ndarray from DataFrame
+        predictions = container.DataFrame(predictions, generate_metadata=True)
+
+        # Update Metadata for each feature vector column
+        for col in range(predictions.shape[1]):
+            col_dict = dict(predictions.metadata.query((metadata_base.ALL_ELEMENTS, col)))
+            col_dict['structural_type'] = type(1.0)
+            col_dict['name']            = self.label_name_columns[col]
+            col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/PredictedTarget",)
+            predictions.metadata        = predictions.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
+        # Rename Columns to match label columns
+        predictions.columns = self.label_name_columns
+
+        # Append to outputs
+        outputs = outputs.append_columns(predictions)
+
+        return base.CallResult(outputs)
 
 
-    def fit(self, *, timeout: float = None, iterations: int = None, fit_threshold: float) -> CallResult:
+    def fit(self, *, timeout: float = None, iterations: int = None) -> CallResult:
         """
         Runs gradient descent for ``timeout`` seconds or ``iterations``
         iterations, whichever comes sooner, on log normal_density(self.weights * self.input
@@ -261,7 +298,7 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         parameter_prior_primitives["weights"].score(self.weights) +
         parameter_prior_primitives["noise_variance"].score(noise_variance).
         """
-
+        iterations = self._num_iterations
         if self._new_training_data:
             self._weights = torch.FloatTensor(np.random.randn(self._training_inputs.size()[1]) * 0.001)
             self._noise_variance = torch.ones(1)
@@ -275,6 +312,7 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
             self._analytic_fit(iterations=iterations)
         else:
             self._gradient_fit(timeout=timeout, iterations=iterations, batch_size=self._batch_size)
+
         return CallResult(None, has_finished=self._has_finished, iterations_done=self._iterations_done)
 
 
@@ -314,7 +352,7 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
             batch_size = 1
         x_batches = []
         y_batches = []
-        # otpionally do sampling with replacement
+        # optionally do sampling with replacement
         for i in range(0, len(self._training_inputs), batch_size):
             x_batches.append(self._training_inputs[i:i+batch_size])
             y_batches.append(self._training_outputs[i:i+batch_size])
@@ -327,7 +365,7 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         has_converged = False
         while iter_count < iterations and has_converged == False:
             iter_count += 1
-            batch_no = iter_count % num_batches
+            batch_no = iter_count%num_batches
 
             grads = [self._gradient_params_log_likelihood(input=training_input,
                                                           output=training_output)

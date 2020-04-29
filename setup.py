@@ -1,6 +1,6 @@
 from setuptools import setup
 
-with open('my-requirements.txt', 'r') as f:
+with open('requirements.txt', 'r') as f:
     install_requires = list()
     dependency_links = list()
     for line in f:
@@ -38,6 +38,7 @@ setup(name='ubc_primitives',
                 'primitives.pca',
                 'primitives.simpleCNAPS',
                 'primitives.simpleCNAPS.src',
+                'primitives.linearRegression',
                ],
       zip_safe=False,
       python_requires='>=3.6',
@@ -60,5 +61,6 @@ setup(name='ubc_primitives',
               'clustering.kmeans.UBC=primitives.kmeans:KMeansClusteringPrimitive',
               'dimensionality_reduction.pca.UBC=primitives.pca:PrincipalComponentAnalysisPrimitive',
               'classification.simpleCnaps.UBC=primitives.simpleCNAPS:SimpleCNAPSClassifierPrimitive',
+              'regression.LinearRegression.UBC=primitives.linearRegression:LinearRegressionPrimitive',
           ],
       })
