@@ -140,6 +140,8 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         self._outputs              = None
         self._use_analytic_form    = False
 
+        # Is the model fit on data
+        self._fitted = False
 
     def _curate_data(self, training_inputs, training_outputs, get_labels):
         # if self._training_inputs is None or self._training_outputs is None:
@@ -228,7 +230,6 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
 
     def set_training_data(self, *, inputs: Inputs, outputs: Outputs) -> None:
         inputs, outputs, _ = self._curate_data(training_inputs=inputs, training_outputs=outputs, get_labels=True)
-
         N, P = inputs.shape
         if self._use_gradient_fit:
             self._use_analytic_form = False
@@ -298,6 +299,9 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         parameter_prior_primitives["weights"].score(self.weights) +
         parameter_prior_primitives["noise_variance"].score(noise_variance).
         """
+        if self._fitted:
+            return base.CallResult(None)
+
         iterations = self._num_iterations
         if self._new_training_data:
             self._weights = torch.FloatTensor(np.random.randn(self._training_inputs.size()[1]) * 0.001)
@@ -312,6 +316,8 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
             self._analytic_fit(iterations=iterations)
         else:
             self._gradient_fit(timeout=timeout, iterations=iterations, batch_size=self._batch_size)
+
+        self._fitted = True
 
         return CallResult(None, has_finished=self._has_finished, iterations_done=self._iterations_done)
 
@@ -364,6 +370,7 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         iter_count = 0
         has_converged = False
         while iter_count < iterations and has_converged == False:
+            print(iter_count)
             iter_count += 1
             batch_no = iter_count%num_batches
 
