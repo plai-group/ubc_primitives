@@ -106,7 +106,11 @@ convolutional layers or the fully connected layers by setting `include_top` Hype
   - Sample Usage: [Simple-CNAPS](https://github.com/plai-group/ubc_primitives/blob/master/pipelines/cnaps_pipeline.py) pipeline.
   - The metadataset dataset accompanying this primitive can be downloaded from [Link](https://dl.dropboxusercontent.com/s/4ehm3rpotv0x0s8/LWLL1_metadataset.zip?dl=1)
 
-15. **Semantic Type Inference**
+15. **Bayesian Linear-Regression**
+  - This is a Bayesian treatment of linear regression.
+  - Sample Usage: [Bayesian Linear-Regression](https://github.com/plai-group/ubc_primitives/blob/master/pipelines/linearReg_pipeline.py) pipeline.
+
+16. **Semantic Type Inference**
   - A primitive for detecting the semantic type of inputed column data
   - Sample Usage: [SMI](https://github.com/plai-group/ubc_primitives/blob/master/pipelines/smi_pipeline.py) pipeline.
 
