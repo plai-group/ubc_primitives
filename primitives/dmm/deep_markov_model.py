@@ -1,7 +1,9 @@
 import d3m.metadata.base as metadata_module
 from d3m import utils
+from d3m import container
 from d3m.container.numpy import ndarray
 from d3m.metadata import hyperparams, params
+from d3m.metadata import base as metadata_base
 from d3m.primitive_interfaces.supervised_learning import SupervisedLearnerPrimitiveBase
 from d3m.primitive_interfaces.base import CallResult, GradientCompositionalityMixin, Gradients
 
@@ -27,6 +29,8 @@ import pyro.distributions as dist
 from primitives.dmm.utils import to_variable
 from primitives.dmm.dmm   import DMM, GaussianEmitter
 
+# Import config file
+from primitives.config_files import config
 
 __all__ = ('DeepMarkovModelPrimitive',)
 
@@ -140,7 +144,6 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
         },
         "keywords": ['deep markov model', 'regression'],
         "installation": [config.INSTALLATION],
-        "hyperparams_to_tune": ['learning_rate', 'minibatch_size']
     })
 
 

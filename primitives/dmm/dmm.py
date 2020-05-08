@@ -8,7 +8,7 @@ import pyro
 import pyro.distributions as dist
 from pyro.infer import SVI
 from pyro.optim import ClippedAdam
-from pyro.distributions.transformed_distribution import TransformedDistribution
+# from pyro.distributions.transformed_distribution import TransformedDistribution
 
 import os
 import sys
