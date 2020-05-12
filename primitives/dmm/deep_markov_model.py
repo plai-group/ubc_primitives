@@ -32,6 +32,8 @@ from primitives.dmm.dmm   import DMM, GaussianEmitter
 # Import config file
 from primitives.config_files import config
 
+from primitives.dmm.dataset import Dataset
+
 __all__ = ('DeepMarkovModelPrimitive',)
 
 Inputs  = container.DataFrame
@@ -121,7 +123,7 @@ class Hyperparams(hyperparams.Hyperparams):
 class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Params, Hyperparams],
                                SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperparams]):
     """
-    A deep markov model in the d3m interface
+    A deep markov model in the d3m interface implemented in PyTorch
     -------------
     Inputs:  DataFrame of features of shape: NxM, where N = samples and M = features.
     Outputs: DataFrame containing the target column of shape Nx1 or denormalized dataset.
@@ -142,7 +144,7 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
             "contact": config.D3M_CONTACT,
             "uris": [config.REPOSITORY],
         },
-        "keywords": ['deep markov model', 'regression'],
+        "keywords": ['deep markov model', 'regression', 'time series forecasting'],
         "installation": [config.INSTALLATION],
     })
 
@@ -166,6 +168,7 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
 
         self._iterations_done = 0
         self._has_finished = False
+        self._constant = 1  # the constant term to avoid nan
 
         self._adam_params = {"lr": hyperparams['learning_rate'],\
                              "betas": (hyperparams['beta1'], hyperparams['beta2']),\
@@ -178,6 +181,11 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
         # Is the model fit on data
         self._fitted = False
 
+        # Use GPU if available
+        use_cuda    = torch.cuda.is_available()
+        self.device = torch.device("cuda:0" if use_cuda else "cpu")
+
+
     def _create_dmm(self) -> Type[torch.nn.Module]:
         if not self._obs_dim:
             raise ValueError('cannot initialize the dmm without obs dim, set training data first')
@@ -188,112 +196,116 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
 
         return net
 
-
-    def _curate_data(self, training_inputs, training_outputs, get_labels):
-        # if self._training_inputs is None or self._training_outputs is None:
-        if training_inputs is None:
-            raise ValueError("Missing data.")
-
-        # Get training data and labels data
-        try:
-            feature_columns_1 = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute')
-        except:
-            feature_columns_1 = None
-        try:
-            feature_columns_2 = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName')
-        except:
-            feature_columns_2 = None
-        # Remove columns if outputs present in inputs
-        if len(feature_columns_2) >= 1:
-            for fc_2 in feature_columns_2:
-                try:
-                    feature_columns_1.remove(fc_2)
-                except ValueError:
-                    pass
-
-        # Get labels data if present in training input
-        try:
-            label_columns  = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
-        except:
-            label_columns  = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-        # If no error but no label-columns found, force try SuggestedTarget
-        if len(label_columns) == 0 or label_columns == None:
-            label_columns  = training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-        # Remove columns if outputs present in inputs
-        if len(label_columns) >= 1:
-            for lbl_c in label_columns:
-                try:
-                    feature_columns_1.remove(lbl_c)
-                except ValueError:
-                    pass
-
-        # Training Set
-        feature_columns_1 = [int(fc) for fc in feature_columns_1]
-        try:
-            new_XTrain = ((training_inputs.iloc[:, feature_columns_1]).to_numpy()).astype(np.float)
-        except ValueError:
-            # Most likely Numpy ndarray series
-            XTrain = training_inputs.iloc[:, feature_columns_1]
-            XTrain_shape = XTrain.shape[0]
-            XTrain = ((XTrain.iloc[:, -1]).to_numpy())
-            # Unpack
-            new_XTrain = []
-            for arr in range(XTrain_shape):
-                new_XTrain.append(XTrain[arr])
-
-            new_XTrain = np.array(new_XTrain)
-
-            # del to save memory
-            del XTrain
-
-        # Training labels
-        if get_labels:
-            if training_outputs is None:
-                raise ValueError("Missing data.")
-
-            # Get label column names
-            label_name_columns  = []
-            label_name_columns_ = list(training_outputs.columns)
-            for lbl_c in label_columns:
-                label_name_columns.append(label_name_columns_[lbl_c])
-
-            self.label_name_columns = label_name_columns
-
-            # Get labelled dataset
-            try:
-                label_columns  = training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
-            except ValueError:
-                label_columns  = training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-            # If no error but no label-columns force try SuggestedTarget
-            if len(label_columns) == 0 or label_columns == None:
-                label_columns  = training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-            YTrain = ((training_outputs.iloc[:, label_columns]).to_numpy()).astype(np.float)
-
-            return new_XTrain, YTrain, feature_columns_1
-
-        return new_XTrain, feature_columns_1
-
-
     def set_training_data(self, *, inputs: Inputs, outputs: Outputs) -> None:
-        inputs, outputs, _ = self._curate_data(training_inputs=inputs, training_outputs=outputs, get_labels=True)
+        data = inputs.horizontal_concat(outputs)
+        data = data.copy()
 
-        if len(inputs) != len(outputs):
-            raise ValueError('Training data sequences "inputs" and "outputs" should have the same length.')
+        # mark datetime column
+        times = data.metadata.list_columns_with_semantic_types(
+            (
+                "https://metadata.datadrivendiscovery.org/types/Time",
+                "http://schema.org/DateTime",
+            )
+        )
+        if len(times) != 1:
+            raise ValueError(
+                f"There are {len(times)} indices marked as datetime values. Please only specify one"
+            )
+        self._time_column = list(data)[times[0]]
 
-        self._training_size    = len(inputs)
-        self._training_inputs  = to_variable(inputs)
-        self._training_outputs = to_variable(outputs)
+        # if datetime columns are integers, parse as # of days
+        if (
+                "http://schema.org/Integer"
+                in inputs.metadata.query_column(times[0])["semantic_types"]
+        ):
+            self._integer_time = True
+            data[self._time_column] = pd.to_datetime(
+                data[self._time_column] - 1, unit="D"
+            )
+        else:
+            data[self._time_column] = pd.to_datetime(
+                data[self._time_column], unit="s"
+            )
 
-        while len(self._training_outputs.shape) < 3:
-            self._training_outputs = self._training_outputs.unsqueeze(1)
-        while len(self._training_inputs.shape) < 3:
-            self._training_inputs = self._training_inputs.unsqueeze(1)
+        # sort by time column
+        data = data.sort_values(by=[self._time_column])
 
-        # Expects this to be in num_sequences x num_timesteps x obs_dim
-        self._training_data = torch.cat((self._training_inputs, self._training_outputs), dim=1)
+        # mark key and grp variables
+        self.key = data.metadata.get_columns_with_semantic_type(
+            "https://metadata.datadrivendiscovery.org/types/PrimaryKey"
+        )
 
-        self._obs_dim    = self._training_data.shape[-1]
-        self._seq_length = self._training_data.shape[1]
+        # mark target variables
+        self._targets = data.metadata.list_columns_with_semantic_types(
+            (
+                "https://metadata.datadrivendiscovery.org/types/SuggestedTarget",
+                "https://metadata.datadrivendiscovery.org/types/TrueTarget",
+                "https://metadata.datadrivendiscovery.org/types/Target",
+            )
+        )
+        self._target_types = [
+            "i"
+            if "http://schema.org/Integer"
+               in data.metadata.query_column(t)["semantic_types"]
+            else "c"
+            if "https://metadata.datadrivendiscovery.org/types/CategoricalData"
+               in data.metadata.query_column(t)["semantic_types"]
+            else "f"
+            for t in self._targets
+        ]
+        self._targets = [list(data)[t] for t in self._targets]
+
+        self.target_column = self._targets[0]
+
+        # see if 'GroupingKey' has been marked
+        # otherwise fall through to use 'SuggestedGroupingKey'
+        grouping_keys = data.metadata.get_columns_with_semantic_type(
+            "https://metadata.datadrivendiscovery.org/types/GroupingKey"
+        )
+        suggested_grouping_keys = data.metadata.get_columns_with_semantic_type(
+            "https://metadata.datadrivendiscovery.org/types/SuggestedGroupingKey"
+        )
+        if len(grouping_keys) == 0:
+            grouping_keys = suggested_grouping_keys
+            drop_list = []
+        else:
+            drop_list = suggested_grouping_keys
+
+        grouping_keys_counts = [
+            data.iloc[:, key_idx].nunique() for key_idx in grouping_keys
+        ]
+        grouping_keys = [
+            group_key
+            for count, group_key in sorted(zip(grouping_keys_counts, grouping_keys))
+        ]
+        self.filter_idxs = [list(data)[key] for key in grouping_keys]
+
+        # drop index
+        data.drop(
+            columns=[list(data)[i] for i in drop_list + self.key], inplace=True
+        )
+
+        # check whether no grouping keys are labeled
+        if len(grouping_keys) == 0:
+            concat = pd.concat([data[self._time_column], data[self.target_column]], axis=1)
+            concat.columns = ['ds', 'y']
+            concat['unique_id'] = 'series1'  # We have only one series
+        else:
+            # concatenate columns in `grouping_keys` to unique_id column
+            concat = data.loc[:, self.filter_idxs].apply(lambda x: ' '.join([str(v) for v in x]), axis=1)
+            concat = pd.concat([concat,
+                                data[self._time_column],
+                                data[self.target_column]],
+                               axis=1)
+            concat.columns = ['unique_id', 'ds', 'y']
+
+        # Series must be complete in the frequency
+        concat = DeepMarkovModelPrimitive._ffill_missing_dates_per_serie(concat, 'D')
+
+        # remove duplicates
+        concat = concat.drop_duplicates(['unique_id', 'ds'])
+
+        self._training_inputs = concat
 
         self._net = self._create_dmm()
 
@@ -303,63 +315,6 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
         self._has_finished    = False
 
 
-    def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> CallResult[Outputs]:
-        if self._net is None:
-            raise Exception('Neural network not initialized. You need to set training data so that the network structure can be defined.')
-
-        # Set model to eval
-        self._net.eval()
-
-        self._input = to_variable(inputs)
-        while len(self._input.shape) < 3:
-            self._input = self._input.unsqueeze(0)
-        input_reversed = self._reverse_sequences_numpy(self._input.data.numpy())
-
-        # Wrap in PyTorch Variables
-        input_reversed = Variable(torch.Tensor(input_reversed))
-
-        posterior = pyro.infer.Importance(self._net.model, self._net.guide, num_samples=self._predict_samples)
-        posterior_trace_generator = posterior._traces(self._input, input_reversed)
-
-        log_weights = 0
-        log_weighted_samples = 0
-
-        for i in range(self._predict_samples):
-            (model_trace, weight) = next(posterior_trace_generator)
-            sampled_z = model_trace.nodes["_RETURN"]["value"]
-            log_weighted_samples += sampled_z * weight[0]
-            log_weights += weight[0]
-
-        z_t = log_weighted_samples / log_weights
-        z_mu, z_sigma = self._net.trans(z_t)
-        z_tp1 = pyro.sample("z_t_plus_1", dist.normal, z_mu, z_sigma)
-
-        emission_mus_t, emission_sigmas_t = self._net.emitter(z_tp1)
-        zeros   = Variable(torch.zeros(emission_mus_t.size()))
-        timings = pyro.sample("obs_t_plus_1", dist.normal, emission_mus_t, emission_sigmas_t)
-
-        self._input = timings
-
-
-        return timings
-
-    def _reverse_sequences_numpy(self, mini_batch: ndarray) -> ndarray:
-        reversed_mini_batch = mini_batch.copy()
-        for b in range(mini_batch.shape[0]):
-            T = self._seq_length
-            reversed_mini_batch[b, 0:T, :] = mini_batch[b, (T - 1)::-1, :]
-        return reversed_mini_batch
-
-    def _get_mini_batch(self, mini_batch_indices: List, sequences: ndarray) -> Tuple[ndarray, ndarray]:
-        mini_batch = sequences[mini_batch_indices, :, :]
-        mini_batch_reversed = self._reverse_sequences_numpy(mini_batch)
-
-        # Wrap in PyTorch Variables
-        mini_batch = Variable(torch.Tensor(mini_batch))
-        mini_batch_reversed = Variable(torch.Tensor(mini_batch_reversed))
-
-        return mini_batch, mini_batch_reversed
-
     def fit(self, *, timeout: float = None, iterations: int = None) -> CallResult[None]:
         if self._training_inputs is None:
             raise Exception('Cannot fit when no training data is present.')
@@ -367,10 +322,23 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
         if self._fitted:
             return base.CallResult(None)
 
+        # Extract curated data into X and Y's
+        X_train = self._data[['unique_id', 'ds']]
+        X_train['x'] = '1'
+        y_train = self._data[['unique_id', 'ds', 'y']]
+        y_train['y'] += self._constant
+
+        # Dataloader
+        dataloader = Dataset(config=self.hyperparams, X=X_train, y=y_train, min_series_length=40)
+
+
         if timeout is None:
             timeout = np.inf
         if iterations is None:
             iterations = 100
+
+        self._obs_dim    = self._training_data.shape[-1]
+        self._seq_length = self._training_data.shape[1]
 
         N_train_data = self._training_data.shape[0]
         mini_batch_size = self._batch_size
@@ -422,6 +390,114 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
         self._fitted = True
 
         return CallResult(None)
+
+
+    def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> CallResult[Outputs]:
+        if self._net is None:
+            raise Exception('Neural network not initialized. You need to set training data so that the network structure can be defined.')
+
+        # Set model to eval
+        self._net.eval()
+
+        self._input = to_variable(inputs)
+        while len(self._input.shape) < 3:
+            self._input = self._input.unsqueeze(0)
+        input_reversed = self._reverse_sequences_numpy(self._input.data.numpy())
+
+        # Wrap in PyTorch Variables
+        input_reversed = Variable(torch.Tensor(input_reversed))
+
+        posterior = pyro.infer.Importance(self._net.model, self._net.guide, num_samples=self._predict_samples)
+        posterior_trace_generator = posterior._traces(self._input, input_reversed)
+
+        log_weights = 0
+        log_weighted_samples = 0
+
+        for i in range(self._predict_samples):
+            (model_trace, weight) = next(posterior_trace_generator)
+            sampled_z = model_trace.nodes["_RETURN"]["value"]
+            log_weighted_samples += sampled_z * weight[0]
+            log_weights += weight[0]
+
+        z_t = log_weighted_samples / log_weights
+        z_mu, z_sigma = self._net.trans(z_t)
+        z_tp1 = pyro.sample("z_t_plus_1", dist.normal, z_mu, z_sigma)
+
+        emission_mus_t, emission_sigmas_t = self._net.emitter(z_tp1)
+        zeros   = Variable(torch.zeros(emission_mus_t.size()))
+        timings = pyro.sample("obs_t_plus_1", dist.normal, emission_mus_t, emission_sigmas_t)
+
+        self._input = timings
+
+
+        return timings
+
+
+    def _reverse_sequences_numpy(self, mini_batch: ndarray) -> ndarray:
+        reversed_mini_batch = mini_batch.copy()
+        for b in range(mini_batch.shape[0]):
+            T = self._seq_length
+            reversed_mini_batch[b, 0:T, :] = mini_batch[b, (T - 1)::-1, :]
+        return reversed_mini_batch
+
+
+    def _get_mini_batch(self, mini_batch_indices: List, sequences: ndarray) -> Tuple[ndarray, ndarray]:
+        mini_batch = sequences[mini_batch_indices, :, :]
+        mini_batch_reversed = self._reverse_sequences_numpy(mini_batch)
+
+        # Wrap in PyTorch Variables
+        mini_batch = Variable(torch.Tensor(mini_batch))
+        mini_batch_reversed = Variable(torch.Tensor(mini_batch_reversed))
+
+        return mini_batch, mini_batch_reversed
+
+
+    @staticmethod
+    def _ffill_missing_dates_per_serie(df, freq="D", fixed_max_date=None):
+        """
+        Receives a DataFrame with a date column and forward fills the missing
+        gaps in dates, not filling dates before the first appearance of a unique key
+
+        Parameters
+        ----------
+        df: DataFrame
+            Input DataFrame
+        key: str or list
+            Name(s) of the column(s) which make a unique time series
+        date_col: str
+            Name of the column that contains the time column
+        freq: str
+            Pandas time frequency standard strings, like "W-THU" or "D" or "M"
+        numeric_to_fill: str or list
+            Name(s) of the columns with numeric values to fill "fill_value" with
+        """
+        if fixed_max_date is None:
+            df_max_min_dates = df[['unique_id', 'ds']].groupby('unique_id').agg(['min', 'max']).reset_index()
+        else:
+            df_max_min_dates = df[['unique_id', 'ds']].groupby('unique_id').agg(['min']).reset_index()
+            df_max_min_dates['max'] = fixed_max_date
+
+        df_max_min_dates.columns = df_max_min_dates.columns.droplevel()
+        df_max_min_dates.columns = ['unique_id', 'min_date', 'max_date']
+
+        df_list = []
+        for index, row in df_max_min_dates.iterrows():
+            df_id = df[df['unique_id'] == row['unique_id']]
+            df_id = ForecastingESRNNPrimitive._ffill_missing_dates_particular_serie(df_id, row['min_date'],
+                                                                                    row['max_date'], freq)
+            df_list.append(df_id)
+
+        df_dates = pd.concat(df_list).reset_index(drop=True).drop('key', axis=1)[['unique_id', 'ds', 'y']]
+
+        return df_dates
+
+    def _fillna(self, series):
+        if series.isnull().any():
+            # self.logger.warning("The prediction contains NAN. Fill with mean of training data. You may want to "
+            #                     "increase output_size.")
+            return series.fillna(self._data['y'].mean())
+        return series
+
 
     def _get_params(self, state_dict) -> Params:
         s = {k: v.numpy() for k, v in state_dict.items()}
