@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 import pandas as pd
 from torch.utils import data
 import torchvision.transforms as transforms
@@ -11,7 +12,7 @@ class Dataset(data.Dataset):
     def __init__(self, config, X, y, min_series_length, mode='TRAIN'):
         # Parse Model config
         self.mc = config
-        self.batch_size = config.batch_size
+        self.batch_size = config["batch_size"]
 
         self.pre_process = transforms.Compose([transforms.ToTensor()])
 
@@ -23,18 +24,22 @@ class Dataset(data.Dataset):
         assert all([(col in X_df) for col in ['unique_id', 'ds', 'x']])
         assert all([(col in y_df) for col in ['unique_id', 'ds', 'y']])
 
-        X, y = self.long_to_wide(X_df, y_df)
+        X, y = self._long_to_wide(X_df, y_df)
         assert len(X)==len(y)
         assert X.shape[1]>=3
 
         # Exogenous variables
         unique_categories = np.unique(X[:, 0])
         n_series = len(unique_categories)
-        self.mc["category_to_idx"] = dict((word, index) for index, word in enumerate(unique_categories))
+        self.category_to_idx = dict((word, index) for index, word in enumerate(unique_categories))
 
         all_series = list(range(n_series))
-        self.sort_key  = {'unique_id': [unique_idxs[i] for i in all_series],
+        self.sort_key  = {'unique_id': [unique_categories[i] for i in all_series],
                           'sort_key':  all_series}
+
+        # Find min length
+        for idx in range(len(y)):
+            min_series_length = min(min_series_length, len(y[idx]))
 
         self.X = X
         self.y = y
@@ -52,25 +57,26 @@ class Dataset(data.Dataset):
         """
         # Select sample
         u_id  = self.sort_key['unique_id'][index]
-        u_idx = self.mc["category_to_idx"][u_id]
+        u_idx = self.category_to_idx[u_id]
 
         # One hot vector encoded X
         x_feature = np.zeros((1, self.n_series))
         x_feature[0][u_idx] = 1
         # X features
-        X_feat = np.repeat(x_feature, min_series_length, axis=0)
+        X_feat = np.repeat(x_feature, self.min_series_length, axis=0)
 
         # Get Time Series data
         if self.mode == 'TRAIN':
             all_y_labels   = self.y[u_idx]
-            total_y_labels = len(len(all_y_labels))
-            first = np.random.randint(len(total_y_labels))
+            total_y_labels = len(all_y_labels)
+            first = np.random.randint(total_y_labels)
             if (first + self.min_series_length) > (total_y_labels-1):
-                first_delta = (total_y_labels-1) - (first + self.min_series_length)
-                first = first - first_delta
-            last = first + mc.min_series_length
+                first_delta = abs((total_y_labels-1) - (first + self.min_series_length))
+                first = abs(first - first_delta)
+            last = first + self.min_series_length
             # Y features
-            Y_lble = all_y_labels[first:last]
+            Y_labl = all_y_labels[first:last]
+
 
         # Wrap in PyTorch Variables
         X_feat = torch.Tensor(X_feat)
@@ -113,6 +119,6 @@ class Dataset(data.Dataset):
         return X, y
 
 
-  def __len__(self):
+    def __len__(self):
         # Total Number of samples
-        return len(self.n_series)
+        return self.n_series

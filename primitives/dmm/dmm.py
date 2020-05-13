@@ -243,8 +243,7 @@ class DMM(nn.Module):
         if self.emit_dist == 'categorical':
             mini_batch = mini_batch.view(mini_batch.shape[0], mini_batch.shape[1], -1)
 
-        print(mini_batch.shape)
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         left, h_0 = self.rnn(mini_batch, h_0_contig)
         right, h_0 = self.rnn(mini_batch_reversed, h_0_contig)
 
