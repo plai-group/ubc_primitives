@@ -118,13 +118,16 @@ class Hyperparams(hyperparams.Hyperparams):
         default = 0.6,
         description='weight decay'
     )
-
     predict_samples = hyperparams.Hyperparameter[int](
         semantic_types=['https://metadata.datadrivendiscovery.org/types/TuningParameter'],
         default = 10,
         description='number of samples to use in produce'
     )
-
+    num_iterations = hyperparams.Hyperparameter[int](
+        default=100,
+        description="Number of iterations to train the model.",
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+    )
 
 
 class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Params, Hyperparams],
@@ -348,12 +351,19 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
         training_generator = data.DataLoader(training_set, **train_params)
 
         # Setup Model
-        self._obs_dim = training_set.n_series
-        self._net     = self._create_dmm()
-        adam          = ClippedAdam(self._adam_params)
-        self._optimizer       = SVI(self._net.model, self._net.guide, adam, "ELBO")
+        self._obs_dim   = training_set.n_series
+        self._net       = self._create_dmm()
+        adam            = ClippedAdam(self._adam_params)
+        self._optimizer = SVI(self._net.model, self._net.guide, adam, "ELBO")
+
+        # Train functions
         self._iterations_done = 0
         self._has_finished    = False
+        # Total interations
+        _iterations = self.hyperparams['num_iterations']
+
+        # Set model to training
+        self._net.train()
 
         for local_batch, local_labels in training_generator:
             print(local_batch.shape, local_labels.shape)
