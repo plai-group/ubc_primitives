@@ -265,8 +265,8 @@ class DMM(nn.Module):
     def predict(self, test_sequence, test_sequence_reversed):
         num_samples = 1
         # run the guide to get the posterior p(
-        # this thing actually samples from te guide, but gives the log weight based on the pointwise calculation of the original model
-        #
+        # this thing actually samples from te guide, but gives the log weight
+        # based on the pointwise calculation of the original model
         posterior = pyro.infer.Importance(self.model, self.guide, num_samples=num_samples)
         #  return posterior
 

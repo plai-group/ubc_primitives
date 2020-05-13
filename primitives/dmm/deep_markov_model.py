@@ -75,6 +75,11 @@ class Hyperparams(hyperparams.Hyperparams):
         default = 0.0,
         description='dropout when training rnn'
     )
+    seq_length = hyperparams.Hyperparameter[int](
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+        default = 30,
+        description='sequence length of the RNN'
+    )
     # Training parameters
     batch_size = hyperparams.Hyperparameter[int](
         semantic_types=['https://metadata.datadrivendiscovery.org/types/TuningParameter'],
@@ -165,6 +170,7 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
         self._rnn_dim          = hyperparams['rnn_dim']
         self._predict_samples  = hyperparams['predict_samples']
         self._rnn_dropout_rate = hyperparams['rnn_dropout_rate']
+        self._seq_length       = hyperparams['seq_length']
 
         self._iterations_done = 0
         self._has_finished = False
@@ -184,17 +190,19 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
         # Use GPU if available
         use_cuda    = torch.cuda.is_available()
         self.device = torch.device("cuda:0" if use_cuda else "cpu")
+        self.use_cuda = use_cuda
 
 
     def _create_dmm(self) -> Type[torch.nn.Module]:
         if not self._obs_dim:
             raise ValueError('cannot initialize the dmm without obs dim, set training data first')
 
-
         net = DMM(self._obs_dim, 'gaussian', self._latent_dim, self._emission_dim,\
-                  self._transfer_dim, self._combiner_dim, self._rnn_dim, self._rnn_dropout_rate)
+                  self._transfer_dim, self._combiner_dim, self._rnn_dim,\
+                  self._rnn_dropout_rate, use_cuda=use_cuda)
 
         return net
+
 
     def set_training_data(self, *, inputs: Inputs, outputs: Outputs) -> None:
         data = inputs.horizontal_concat(outputs)
@@ -307,13 +315,6 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
 
         self._training_inputs = concat
 
-        self._net = self._create_dmm()
-
-        adam = ClippedAdam(self._adam_params)
-        self._optimizer       = SVI(self._net.model, self._net.guide, adam, "ELBO", trace_graph=False)
-        self._iterations_done = 0
-        self._has_finished    = False
-
 
     def fit(self, *, timeout: float = None, iterations: int = None) -> CallResult[None]:
         if self._training_inputs is None:
@@ -328,17 +329,22 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
         y_train = self._data[['unique_id', 'ds', 'y']]
         y_train['y'] += self._constant
 
-        # Dataloader
-        dataloader = Dataset(config=self.hyperparams, X=X_train, y=y_train, min_series_length=40)
-
-
         if timeout is None:
             timeout = np.inf
         if iterations is None:
             iterations = 100
 
-        self._obs_dim    = self._training_data.shape[-1]
-        self._seq_length = self._training_data.shape[1]
+        # Dataloader
+        dataloader = Dataset(config=self.hyperparams, X=X_train, y=y_train, min_series_length=self._seq_length)
+
+        # Setup Model
+        self._obs_dim = dataloader.n_series
+        self._net     = self._create_dmm()
+        adam          = ClippedAdam(self._adam_params)
+        self._optimizer       = SVI(self._net.model, self._net.guide, adam, "ELBO", trace_graph=False)
+        self._iterations_done = 0
+        self._has_finished    = False
+
 
         N_train_data = self._training_data.shape[0]
         mini_batch_size = self._batch_size
@@ -433,25 +439,6 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
         return timings
 
 
-    def _reverse_sequences_numpy(self, mini_batch: ndarray) -> ndarray:
-        reversed_mini_batch = mini_batch.copy()
-        for b in range(mini_batch.shape[0]):
-            T = self._seq_length
-            reversed_mini_batch[b, 0:T, :] = mini_batch[b, (T - 1)::-1, :]
-        return reversed_mini_batch
-
-
-    def _get_mini_batch(self, mini_batch_indices: List, sequences: ndarray) -> Tuple[ndarray, ndarray]:
-        mini_batch = sequences[mini_batch_indices, :, :]
-        mini_batch_reversed = self._reverse_sequences_numpy(mini_batch)
-
-        # Wrap in PyTorch Variables
-        mini_batch = Variable(torch.Tensor(mini_batch))
-        mini_batch_reversed = Variable(torch.Tensor(mini_batch_reversed))
-
-        return mini_batch, mini_batch_reversed
-
-
     @staticmethod
     def _ffill_missing_dates_per_serie(df, freq="D", fixed_max_date=None):
         """
@@ -493,11 +480,8 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
 
     def _fillna(self, series):
         if series.isnull().any():
-            # self.logger.warning("The prediction contains NAN. Fill with mean of training data. You may want to "
-            #                     "increase output_size.")
             return series.fillna(self._data['y'].mean())
         return series
-
 
     def _get_params(self, state_dict) -> Params:
         s = {k: v.numpy() for k, v in state_dict.items()}

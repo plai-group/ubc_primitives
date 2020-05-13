@@ -2,6 +2,7 @@ import torch
 import pandas as pd
 from torch.utils import data
 import torchvision.transforms as transforms
+from primitives.dmm.utils import to_variable
 
 __all__ = ('Dataset',)
 
@@ -27,9 +28,9 @@ class Dataset(data.Dataset):
         assert X.shape[1]>=3
 
         # Exogenous variables
-        unique_categories     = np.unique(X[:, 0])
-        n_series              = len(unique_categories)
-        mc["category_to_idx"] = dict((word, index) for index, word in enumerate(unique_categories))
+        unique_categories = np.unique(X[:, 0])
+        n_series = len(unique_categories)
+        self.mc["category_to_idx"] = dict((word, index) for index, word in enumerate(unique_categories))
 
         all_series = list(range(n_series))
         self.sort_key  = {'unique_id': [unique_idxs[i] for i in all_series],
@@ -37,41 +38,45 @@ class Dataset(data.Dataset):
 
         self.X = X
         self.y = y
+        self.mode = mode
         self.n_series = n_series
+        self.min_series_length = min_series_length
 
 
     def __getitem__(self, index):
         """
         Generates one sample of data
+        Output:
+               X [= T, F
+               Y [= T, 1
         """
         # Select sample
-        u_id, label = self.sort_key['unique_id'][index]
+        u_id  = self.sort_key['unique_id'][index]
+        u_idx = self.mc["category_to_idx"][u_id]
 
-        X_feature =
-        y_lable   =
+        # One hot vector encoded X
+        x_feature = np.zeros((1, self.n_series))
+        x_feature[0][u_idx] = 1
+        # X features
+        X_feat = np.repeat(x_feature, min_series_length, axis=0)
 
-        # Load data and get label
-        image = Image.open(img_path)
-        image = self.pre_process(image)
-        label = float(label)
+        # Get Time Series data
+        if self.mode == 'TRAIN':
+            all_y_labels   = self.y[u_idx]
+            total_y_labels = len(len(all_y_labels))
+            first = np.random.randint(len(total_y_labels))
+            if (first + self.min_series_length) > (total_y_labels-1):
+                first_delta = (total_y_labels-1) - (first + self.min_series_length)
+                first = first - first_delta
+            last = first + mc.min_series_length
+            # Y features
+            Y_lble = all_y_labels[first:last]
 
-        return image, label
+        # Wrap in PyTorch Variables
+        X_feat = torch.Tensor(X_feat)
+        Y_labl = torch.Tensor(Y_labl)
 
-    def shuffle_dataset(self, random_seed=1):
-        """
-        Return the examples in the dataset in order, or shuffled.
-        """
-        # Random Seed
-        np.random.seed(random_seed)
-        self.random_seed = random_seed
-        shuffle = np.random.choice(self.n_series, self.n_series, replace=False)
-        self.X = self.X[shuffle]
-        self.y = self.y[shuffle]
-
-        old_sort_key = self.sort_key['sort_key']
-        old_unique_idxs = self.sort_key['unique_id']
-        self.sort_key = {'unique_id': [old_unique_idxs[i] for i in shuffle],
-                         'sort_key': [old_sort_key[i] for i in shuffle]}
+        return X_feat, Y_labl
 
 
     def _get_trainable_df(self, X_df, y_df, min_series_length):
@@ -81,6 +86,7 @@ class Dataset(data.Dataset):
         y_df = y_df[y_df['unique_id'].isin(ids)].reset_index(drop=True)
 
         return X_df, y_df, ids
+
 
     def _long_to_wide(self, X_df, y_df):
         data = X_df.copy()
