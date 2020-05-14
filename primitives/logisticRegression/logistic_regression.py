@@ -82,7 +82,7 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
             "contact": config.D3M_CONTACT,
             "uris": [config.REPOSITORY],
         },
-        "keywords": ['bayesian', 'classification'],
+        "keywords": ['bayesian', 'binary classification'],
         "installation": [config.INSTALLATION],
     })
 
@@ -214,13 +214,19 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
         XTest, feature_columns = self._curate_data(training_inputs=inputs, training_outputs=None, get_labels=False)
 
         w = self._trace['weights']
-        predictions = (np.einsum('kj,ij->i', w, XTest) > 0).astype(int)
+        w = np.squeeze(w, axis=2)
 
-        # Delete columns with path names of nested media files
-        outputs = inputs.remove_columns(feature_columns)
+        predictions = (np.einsum('kj,ij->i', w, XTest) > 0).astype(int)
+        predictions_binary = np.eye(2)[predictions]
+
+        # Inverse map categories
+        predictions = self._categories.inverse_transform(predictions_binary)
 
         # Convert from ndarray from DataFrame
         predictions = container.DataFrame(predictions, generate_metadata=True)
+
+        # Delete columns with path names of nested media files
+        outputs = inputs.remove_columns(feature_columns)
 
         # Update Metadata for each feature vector column
         for col in range(predictions.shape[1]):
@@ -262,9 +268,8 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
         # As the model depends on number of features it has to be here
         # and not in __init__
         with Model() as model:
-            bais    = Normal('bais', mu=self._mu, sd=self._sd)
             weights = Normal('weights', mu=self._mu, sd=self._sd, shape=(n_features, 1))
-            p = invlogit(bais + pm.math.dot(self._training_inputs, weights))
+            p = invlogit(pm.math.dot(self._training_inputs, weights))
             Bernoulli('y', p, observed=self._training_outputs)
             trace = sample(iterations,
                            random_seed=self.random_seed,
@@ -316,7 +321,7 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
             i += 1
 
         if return_categories:
-            return dataframe, enc.categories_[0]
+            return dataframe, enc
 
         return dataframe
 
@@ -324,25 +329,21 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
     def _log_likelihood(self, *, input: Inputs, output: Outputs) -> float:
         """
         Provides a likelihood of one output given the inputs and weights
-        .. math
-        \mathcal{L}(y | x; w) = log(p(y | x; w)) = log(p) if y = 0 else log(1 - p)
-         where p = invl(w^T * x)
-               invl(x) = exp(x) / 1 + exp(x)
+        L_(y | x; w) = log(p(y | x; w)) = log(p) if y = 0 else log(1 - p)
+             where p = invl(w^T * x)
+             invl(x) = exp(x) / 1 + exp(x)
         """
         logp = self._model.logp
         weights = self._trace["weights"]
         self._training_inputs.set_value(input)
         self._training_outputs.set_value(output)
-        return float(np.array([logp(dict(y=output,
-                                         weights=w)) for w in weights]).mean())
+        return float(np.array([logp(dict(y=output, weights=w)) for w in weights]).mean())
 
     def log_likelihoods(self, *, outputs: Outputs, inputs: Inputs, timeout: float = None, iterations: int = None) -> CallResult[Sequence[float]]:
         """
         Provides a likelihood of the data given the weights
         """
-        return CallResult(np.array([self._log_likelihood(input=[input], output=[output])
-                                    for input, output in zip(inputs, outputs)]))
-
+        return CallResult(np.array([self._log_likelihood(input=[input], output=[output]) for input, output in zip(inputs, outputs)]))
 
     def gradient_params(self, *, outputs: Outputs, inputs: Inputs) -> Gradients[Params]:
         raise NotImplementedError()
