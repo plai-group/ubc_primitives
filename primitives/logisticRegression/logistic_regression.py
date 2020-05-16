@@ -368,6 +368,3 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
     def set_params(self, *, params: Params) -> None:
         self._trace = params.weights
 
-
-    def set_random_seed(self, *, seed: int) -> None:
-        self._seed = seed
