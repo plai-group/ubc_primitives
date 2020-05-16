@@ -62,5 +62,7 @@ setup(name='ubc_primitives',
               'dimensionality_reduction.pca.UBC=primitives.pca:PrincipalComponentAnalysisPrimitive',
               'classification.simpleCnaps.UBC=primitives.simpleCNAPS:SimpleCNAPSClassifierPrimitive',
               'regression.LinearRegression.UBC=primitives.linearRegression:LinearRegressionPrimitive',
+              'classification.LogisticRegression.UBC=primitives.logisticRegression:LogisticRegressionPrimitive',
           ],
       })
+

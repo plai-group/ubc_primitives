@@ -56,6 +56,11 @@ class Hyperparams(hyperparams.Hyperparams):
         description='Standard deviation of Gaussian prior on weights',
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
+    num_iterations = hyperparams.Hyperparameter[int](
+        default=1000,
+        description="Number of iterations to sample the model.",
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+    )
 
 
 class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, Params, Hyperparams],
@@ -70,11 +75,11 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
     # Metadata
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata   =  metadata_base.PrimitiveMetadata({
-        "id": "f59200c3-f597-4c92-9793-c2664e6932f8",
+        "id": "b9e7389d-a8e9-4fa0-a1a0-00791350cf40",
         "version": config.VERSION,
         "name": "Bayesian Logistic Regression",
         "description": "A bayesian Logistic regression",
-        "python_path": "d3m.primitives.classification.LinearRegression.UBC",
+        "python_path": "d3m.primitives.classification.LogisticRegression.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.CLASSIFICATION,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.LOGISTIC_REGRESSION,],
         "source": {
@@ -104,6 +109,7 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
 
         # Is the model fit on data
         self._fitted = False
+
 
     def _curate_data(self, training_inputs, training_outputs, get_labels):
         # if self._training_inputs is None or self._training_outputs is None:
@@ -145,7 +151,6 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
 
         # Training Set
         feature_columns_1 = [int(fc) for fc in feature_columns_1]
-        print('feature_columns_1', feature_columns_1)
         try:
             new_XTrain = training_inputs.iloc[:, feature_columns_1]
             new_XTrain = self._to_numeric_and_fill_missing_vals(new_XTrain)
@@ -165,7 +170,6 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
             # del to save memory
             del XTrain
 
-        # Convert to
         # Training labels
         if get_labels:
             if training_outputs is None:
@@ -259,6 +263,12 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
         if not ((self._training_outputs == 0) | (self._training_outputs == 1)).all():
             raise ValueError("training outputs must be either 0 or 1")
 
+        # Set all files
+        if iterations == None:
+            _iterations = self.hyperparams['num_iterations']
+        else:
+            _iterations = iterations
+
         # training data needs to be a Theano shared variable for
         # the later produce code to work
         _, n_features = self._training_inputs.shape
@@ -271,7 +281,7 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
             weights = Normal('weights', mu=self._mu, sd=self._sd, shape=(n_features, 1))
             p = invlogit(pm.math.dot(self._training_inputs, weights))
             Bernoulli('y', p, observed=self._training_outputs)
-            trace = sample(iterations,
+            trace = sample(_iterations,
                            random_seed=self.random_seed,
                            trace=self._trace,
                            tune=self._burnin, progressbar=False)
@@ -283,8 +293,7 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
 
 
     def sample(self, *, inputs: Inputs, num_samples: int = 1, timeout: float = None, iterations: int = None) -> CallResult[Sequence[Outputs]]:
-        # Set shared variables to test data, outputs just need to be
-        # the correct shape
+        # Set shared variables to test data, outputs just need to be the correct shape
         self._training_inputs.set_value(inputs)
         self._training_outputs.set_value(np.random.binomial(1, 0.5, inputs.shape[0]))
 
@@ -294,6 +303,7 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
                                    progressbar=False)
 
         return CallResult(post_pred['y'].astype(int))
+
 
     def _to_numeric_and_fill_missing_vals(self, dataframe, return_categories=False):
         # Missing values
@@ -330,7 +340,7 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
         """
         Provides a likelihood of one output given the inputs and weights
         L_(y | x; w) = log(p(y | x; w)) = log(p) if y = 0 else log(1 - p)
-             where p = invl(w^T * x)
+            where: p = invl(w^T * x)
              invl(x) = exp(x) / 1 + exp(x)
         """
         logp = self._model.logp
@@ -339,20 +349,25 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
         self._training_outputs.set_value(output)
         return float(np.array([logp(dict(y=output, weights=w)) for w in weights]).mean())
 
+
     def log_likelihoods(self, *, outputs: Outputs, inputs: Inputs, timeout: float = None, iterations: int = None) -> CallResult[Sequence[float]]:
         """
         Provides a likelihood of the data given the weights
         """
         return CallResult(np.array([self._log_likelihood(input=[input], output=[output]) for input, output in zip(inputs, outputs)]))
 
+
     def gradient_params(self, *, outputs: Outputs, inputs: Inputs) -> Gradients[Params]:
         raise NotImplementedError()
+
 
     def get_params(self) -> Params:
         return Params(weights=self.trace)
 
+
     def set_params(self, *, params: Params) -> None:
         self._trace = params.weights
+
 
     def set_random_seed(self, *, seed: int) -> None:
         self._seed = seed
