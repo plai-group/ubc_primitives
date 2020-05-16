@@ -59,7 +59,7 @@ class Hyperparams(hyperparams.Hyperparams):
     num_iterations = hyperparams.Hyperparameter[int](
         default=1000,
         description="Number of iterations to sample the model.",
-        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
 
 
