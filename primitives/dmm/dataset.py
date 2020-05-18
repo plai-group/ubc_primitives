@@ -76,6 +76,14 @@ class Dataset(data.Dataset):
             last = first + self.min_series_length
             # Y features
             Y_labl = all_y_labels[first:last]
+            Y_labl = np.expand_dims(Y_labl, axis=1)
+            # Wrap in PyTorch Variables
+            X_feat = torch.Tensor(X_feat)
+            Y_labl = torch.Tensor(Y_labl)
+
+            return X_feat, Y_labl
+
+        elif self.mode == 'TEST':
 
 
         # Wrap in PyTorch Variables

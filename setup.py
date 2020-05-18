@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 with open('requirements.txt', 'r') as f:
     install_requires = list()
@@ -15,31 +15,8 @@ setup(name='ubc_primitives',
       url='https://github.com/plai-group/ubc_primitives.git',
       maintainer_email='tonyjos@cs.ubc.ca',
       maintainer='Tony Joseph',
-      license='MIT',
-      packages=[
-                'primitives',
-                'primitives.smi',
-                'primitives.smi.weights',
-                'primitives.boc',
-                'primitives.bow',
-                'primitives.cnn',
-                'primitives.cnn.cnn_models',
-                'primitives.googlenet',
-                'primitives.mobilenet',
-                'primitives.resnet',
-                'primitives.vgg',
-                'primitives.clfyCCFS',
-                'primitives.clfyCCFS.src',
-                'primitives.regCCFS',
-                'primitives.regCCFS.src',
-                'primitives.clfyMLP',
-                'primitives.regMLP',
-                'primitives.kmeans',
-                'primitives.pca',
-                'primitives.simpleCNAPS',
-                'primitives.simpleCNAPS.src',
-                'primitives.linearRegression',
-               ],
+      license='Apache-2.0',
+      packages=find_packages(exclude=['pipelines']),
       zip_safe=False,
       python_requires='>=3.6',
       install_requires=install_requires,
@@ -65,4 +42,3 @@ setup(name='ubc_primitives',
               'classification.LogisticRegression.UBC=primitives.logisticRegression:LogisticRegressionPrimitive',
           ],
       })
-

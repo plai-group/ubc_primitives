@@ -156,6 +156,7 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
         },
         "keywords": ['deep markov model', 'regression', 'time series forecasting'],
         "installation": [config.INSTALLATION],
+        "hyperparams_to_tune": ['batch_size', 'learning_rate', 'clip_norm', 'lr_decay', 'beta1', 'beta2', 'weight_decay', 'predict_samples']
     })
 
 
@@ -175,8 +176,8 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
         self._rnn_dim          = hyperparams['rnn_dim']
         self._predict_samples  = hyperparams['predict_samples']
         self._rnn_dropout_rate = hyperparams['rnn_dropout_rate']
+        self._num_iterations   = hyperparams['num_iterations']
 
-        self._iterations_done = 0
         self._has_finished = False
         self._constant = 1  # the constant term to avoid nan
 
@@ -336,7 +337,9 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
         if timeout is None:
             timeout = np.inf
         if iterations is None:
-            iterations = 100
+            _iterations = self._num_iterations
+        else:
+            _iterations = iterations
 
         # Dataloader
         training_set = Dataset(config=self.hyperparams, X=X_train, y=y_train, min_series_length=self.hyperparams['seq_length'])
@@ -359,62 +362,29 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
         # Train functions
         self._iterations_done = 0
         self._has_finished    = False
-        # Total interations
-        _iterations = self.hyperparams['num_iterations']
 
         # Set model to training
         self._net.train()
 
-        for local_batch, local_labels in training_generator:
-            print(local_batch.shape, local_labels.shape)
-
-        # N_train_data = self._training_data.shape[0]
-        # mini_batch_size = self._batch_size
-        # N_mini_batches = int(N_train_data / mini_batch_size + int(N_train_data % mini_batch_size > 0))
-        #
-        # start = time.time()
-        # self._iterations_done = 0
-        # # We can always iterate more, even if not reasonable.
-        # self._has_finished = False
-        # self._net.train()
-        # times = [time.time()]
-        # iteration_count = 0
-        # epoch = 0
-        #
-        # while(True):
+        # for iters in _iterations:
         #     epoch_nll = 0.0
-        #     shuffled_indices = np.arange(N_train_data)
-        #     np.random.shuffle(shuffled_indices)
-        #     epoch += 1
-        #     for which_mini_batch in range(N_mini_batches):
-        #         mini_batch_start = (which_mini_batch * mini_batch_size)
-        #         mini_batch_end = np.min([(which_mini_batch + 1) * mini_batch_size, N_train_data])
-        #         mini_batch_indices = shuffled_indices[mini_batch_start:mini_batch_end]
-        #
-        #         mini_batch, mini_batch_reversed = self._get_mini_batch(mini_batch_indices, self._training_data.data.numpy())
-        #         should = False
-        #
-        #         # Just give minibatch and minibatch reversed
+        #     iteration_count = 0
+        #     for local_batch, local_labels in training_generator:
+        #         _local_training_batch = torch.cat((local_batch, local_labels), axis=2)
+        #         mini_batch, mini_batch_reversed = self._reverse_sequences(mini_batch=_local_training_batch)
+        #         # Loss for minibatch and minibatch reversed
         #         loss = self._optimizer.step(mini_batch, mini_batch_reversed)
         #         iteration_count += 1
         #         epoch_nll += loss
-        #
+        #         # Break
         #         if np.isnan(loss):
         #             print("minibatch nan-ed out!")
         #             break
         #         if np.isinf(loss):
         #             print("minibatch inf-ed out!")
         #             break
-        #         if iteration_count == iterations:
-        #             break
         #
-        #     times.append(time.time())
-        #     epoch_time = times[-1] - times[-2]
-        #     print("[training epoch %04d]  %.4f \t\t\t\t(dt = %.3f sec)" % (epoch, epoch_nll / 20, epoch_time))
-        #     if iteration_count == iterations:
-        #         break
-
-        # self._iterations_done += iteration_count
+        #     print("[training epoch %04d]  %.4f " % (epoch, epoch_nll/iteration_count))
 
         self._fitted = True
 
@@ -424,6 +394,9 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> CallResult[Outputs]:
         if self._net is None:
             raise Exception('Neural network not initialized. You need to set training data so that the network structure can be defined.')
+
+        if self._fitted is None:
+            raise Exception('Neural network not Fitted. Please fit the model first.')
 
         # Set model to eval
         self._net.eval()
@@ -461,6 +434,14 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
 
         return timings
 
+
+    def _reverse_sequences(self, mini_batch):
+        reversed_mini_batch = mini_batch.clone()
+        T = self._seq_length
+        for b in range(mini_batch.shape[0]):
+            reversed_mini_batch[b, 0:T, :] = mini_batch[b, (T - 1):, :]
+
+        return mini_batch, reversed_mini_batch
 
     @staticmethod
     def _ffill_missing_dates_particular_serie(serie, min_date, max_date, freq):
