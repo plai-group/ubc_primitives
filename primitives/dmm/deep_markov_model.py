@@ -398,8 +398,49 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
         if self._fitted is None:
             raise Exception('Neural network not Fitted. Please fit the model first.')
 
+        # Get testing data
+       inputs_copy = inputs.copy()
+        # if datetime columns are integers, parse as # of days
+        if self._integer_time:
+            inputs_copy[self._time_column] = pd.to_datetime(
+                inputs_copy[self._time_column] - 1, unit="D"
+            )
+        else:
+            inputs_copy[self._time_column] = pd.to_datetime(
+                inputs_copy[self._time_column], unit="s"
+            )
+
+        # find marked 'GroupingKey' or 'SuggestedGroupingKey'
+        grouping_keys = inputs_copy.metadata.get_columns_with_semantic_type(
+            "https://metadata.datadrivendiscovery.org/types/GroupingKey"
+        )
+        suggested_grouping_keys = inputs_copy.metadata.get_columns_with_semantic_type(
+            "https://metadata.datadrivendiscovery.org/types/SuggestedGroupingKey"
+        )
+        if len(grouping_keys) == 0:
+            grouping_keys = suggested_grouping_keys
+        else:
+            inputs_copy = inputs_copy.drop(columns=[list(inputs_copy)[i] for i in suggested_grouping_keys])
+
+        # check whether no grouping keys are labeled
+        if len(grouping_keys) == 0:
+            concat = pd.concat([inputs_copy[self._time_column]], axis=1)
+            concat.columns = ['ds']
+            concat['unique_id'] = 'series1'  # We have only one series
+        else:
+            # concatenate columns in `grouping_keys` to unique_id column
+            concat = inputs_copy.loc[:, self.filter_idxs].apply(lambda x: ' '.join([str(v) for v in x]), axis=1)
+            concat = pd.concat([concat, inputs_copy[self._time_column]], axis=1)
+            concat.columns = ['unique_id', 'ds']
+
+        # Final testing data
+        X_test = concat[['unique_id', 'ds']]
+
         # Set model to eval
         self._net.eval()
+
+        # Dataloader
+        testing_set = Dataset(config=self.hyperparams, X=X_train, y=y_train, min_series_length=self._seq_length)
 
         self._input = to_variable(inputs)
         while len(self._input.shape) < 3:
