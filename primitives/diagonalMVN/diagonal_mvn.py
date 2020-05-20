@@ -214,6 +214,10 @@ class DiagonalMVNPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, P
         else:
             _iterations = iterations
 
+        # Curate data
+        XTrain, _, _ = self._curate_data(training_inputs=self._training_inputs, training_outputs=None, get_labels=False)
+
+        self._training_outputs = to_variable(XTrain, requires_grad=True)
         # if its low dimensional and not much data
         if sum(self._training_outputs.shape) < 10000:
             nd = self._training_outputs.data.numpy()
@@ -270,7 +274,6 @@ class DiagonalMVNPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, P
             self._mean = refresh_node(self._mean)
             self._covariance = refresh_node(self._covariance)
 
-
         self._fitted = True
 
         return CallResult(None)
@@ -284,17 +287,27 @@ class DiagonalMVNPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, P
         if self._mean is None:
             raise ValueError("Missing parameter 'mean' - call 'fit' first")
 
+        # Curate data
+        XTest, _, _ = self._curate_data(training_inputs=inputs, training_outputs=None, get_labels=False)
+
         self._fitted = True
         self._iterations_done = None
-        p = np.array([self._produce_one() for _ in inputs])
+        predictions = np.array([self._produce_one() for _ in XTest])
+        # Convert from ndarray from DataFrame
+        predictions = container.DataFrame(predictions, generate_metadata=True)
 
-        return CallResult(p, has_finished=False, iterations_done=self._iterations_done)
+        # Update Metadata for each feature vector column
+        for col in range(predictions.shape[1]):
+            col_dict = dict(predictions.metadata.query((metadata_base.ALL_ELEMENTS, col)))
+            col_dict['structural_type'] = type(1.0)
+            col_dict['name']            = 'feature_'+str(col)
+            col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/Attribute",)
+            predictions.metadata        = predictions.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
 
-    def backward(self, *,
-                 gradient_outputs: Gradients[Outputs],
-                 fine_tune: bool = False,
-                 fine_tune_learning_rate: float = 0.00001,
-                 fine_tune_weight_decay: float = 0.00001) -> Tuple[Gradients[Inputs], Gradients[Params]]: # type: ignore
+        return CallResult(predictions, has_finished=False, iterations_done=self._iterations_done)
+
+
+    def backward(self, *, gradient_outputs: Gradients[Outputs], fine_tune: bool = False, fine_tune_learning_rate: float = 0.00001, fine_tune_weight_decay: float = 0.00001) -> Tuple[Gradients[Inputs], Gradients[Params]]: # type: ignore
         raise NotImplementedError('mvn does not support backward')
 
     def get_params(self) -> Params:
