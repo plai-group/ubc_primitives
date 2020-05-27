@@ -40,5 +40,6 @@ setup(name='ubc_primitives',
               'classification.simpleCnaps.UBC=primitives.simpleCNAPS:SimpleCNAPSClassifierPrimitive',
               'regression.LinearRegression.UBC=primitives.linearRegression:LinearRegressionPrimitive',
               'classification.LogisticRegression.UBC=primitives.logisticRegression:LogisticRegressionPrimitive',
+              'operator.DiagonalMVN.UBC=primitives.diagonal_mvn:DiagonalMVNPrimitive',
           ],
       })
