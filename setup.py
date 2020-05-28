@@ -15,7 +15,7 @@ setup(name='ubc_primitives',
       url='https://github.com/plai-group/ubc_primitives.git',
       maintainer_email='tonyjos@cs.ubc.ca',
       maintainer='Tony Joseph',
-      license='Apache-2.0',
+      license='MIT',
       packages=[
                 'primitives',
                 'primitives.smi',
