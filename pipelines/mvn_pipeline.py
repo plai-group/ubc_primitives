@@ -15,7 +15,6 @@ from common_primitives.extract_columns_semantic_types import ExtractColumnsBySem
 
 from primitives.vgg.vggnetcnn import VGG16CNN
 from primitives.pca.pca import PrincipalComponentAnalysisPrimitive
-from common_primitives.xgboost_regressor import XGBoostGBTreeRegressorPrimitive
 
 # Testing primitive
 from primitives.diagonalMVN.diagonal_mvn import DiagonalMVNPrimitive
