@@ -15,10 +15,10 @@ from common_primitives.extract_columns_semantic_types import ExtractColumnsBySem
 
 from primitives.vgg.vggnetcnn import VGG16CNN
 from primitives.pca.pca import PrincipalComponentAnalysisPrimitive
-from primitives.regCCFS.ccfsReg import CanonicalCorrelationForestsRegressionPrimitive
+from common_primitives.xgboost_regressor import XGBoostGBTreeRegressorPrimitive
 
 # Testing primitive
-from diagonal_mvn import DiagonalMVNPrimitive
+from primitives.diagonalMVN.diagonal_mvn import DiagonalMVNPrimitive
 
 
 def make_pipeline():
@@ -55,28 +55,36 @@ def make_pipeline():
     pipeline.add_step(step_3)
 
     # Step 4: MVN
-    step_4 = PrimitiveStep(primitive_description=DiagonalMVNPrimitive.metadata.query())
+    step_4 = PrimitiveStep(primitive=DiagonalMVNPrimitive)
+    step_4.add_hyperparameter(name='num_iterations', argument_type=ArgumentType.VALUE, data=1)
     step_4.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.3.produce')
     step_4.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_4.add_output('produce')
     pipeline.add_step(step_4)
 
-    # Step 5: CCFs
-    step_5 = PrimitiveStep(primitive=CanonicalCorrelationForestsRegressionPrimitive)
-    step_5.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.4.produce')
-    step_5.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    # Step 5: Extract Targets
+    step_5 = PrimitiveStep(primitive_description=ExtractColumnsBySemanticTypesPrimitive.metadata.query())
+    step_5.add_hyperparameter(name='semantic_types', argument_type=ArgumentType.VALUE, data=['https://metadata.datadrivendiscovery.org/types/SuggestedTarget'])
+    step_5.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_5.add_output('produce')
     pipeline.add_step(step_5)
 
-    # step 6: Construct output
-    step_6 = PrimitiveStep(primitive=index.get_primitive('d3m.primitives.data_transformation.construct_predictions.Common'))
-    step_6.add_argument(name='inputs',    argument_type=ArgumentType.CONTAINER, data_reference='steps.5.produce')
-    step_6.add_argument(name='reference', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    # Step 6:  XGB
+    step_6 = PrimitiveStep(primitive=XGBoostGBTreeRegressorPrimitive)
+    step_6.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.4.produce')
+    step_6.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.5.produce')
     step_6.add_output('produce')
     pipeline.add_step(step_6)
 
+    # step 7: Construct output
+    step_7 = PrimitiveStep(primitive=index.get_primitive('d3m.primitives.data_transformation.construct_predictions.Common'))
+    step_7.add_argument(name='inputs',    argument_type=ArgumentType.CONTAINER, data_reference='steps.6.produce')
+    step_7.add_argument(name='reference', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    step_7.add_output('produce')
+    pipeline.add_step(step_7)
+
     # Final Output
-    pipeline.add_output(name='output predictions', data_reference='steps.6.produce')
+    pipeline.add_output(name='output predictions', data_reference='steps.7.produce')
 
     # print(pipeline.to_json())
     with open('./mvn_pipeline.json', 'w') as write_file:

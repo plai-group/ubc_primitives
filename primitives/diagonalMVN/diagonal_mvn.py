@@ -203,7 +203,7 @@ class DiagonalMVNPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, P
             raise Exception('Cannot fit when no training data is present.')
 
         if self._fitted:
-            return base.CallResult(None)
+            return CallResult(None)
 
         if timeout is None:
             timeout = np.inf
