@@ -10,7 +10,7 @@ Project repository for TA-1 primitives for [D3M](https://www.darpa.mil/program/d
 
 1. Get docker image which contains all dependencies and requirements:
 ```
-docker pull registry.gitlab.com/datadrivendiscovery/images/primitives:ubuntu-bionic-python36-v2020.1.9
+docker pull registry.gitlab.com/datadrivendiscovery/images/primitives:ubuntu-bionic-python36-v2020.5.18
 ```
 Updated [docker images](https://docs.datadrivendiscovery.org/docker.html)
 
@@ -19,7 +19,7 @@ Updated [docker images](https://docs.datadrivendiscovery.org/docker.html)
 ```
 sudo docker run --rm\
     -v ./local/path/ubc_primitives:/ubc_primitives\
-    -i -t registry.gitlab.com/datadrivendiscovery/images/primitives:ubuntu-bionic-python36-v2020.1.9 /bin/bash
+    -i -t registry.gitlab.com/datadrivendiscovery/images/primitives:ubuntu-bionic-python36-v2020.5.18 /bin/bash
 ```
 
 
