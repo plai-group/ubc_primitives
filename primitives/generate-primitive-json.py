@@ -1,7 +1,7 @@
 import argparse
 import os.path
 import subprocess
-from primitives.config_files import config
+from .config_files import config
 
 parser = argparse.ArgumentParser(description='Generate primitive.json descriptions')
 parser.add_argument('--dirname', action='store', default = 'output', help='Top-level directory to store the json descriptions, i.e. primitives_repo directory')
