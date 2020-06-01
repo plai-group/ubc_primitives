@@ -20,8 +20,9 @@ import torch.optim as optim # type: ignore
 from torch.utils import data
 import torchvision.transforms as transforms
 from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
-from primitives.clfyMLP.dataset import Dataset_1
-from primitives.clfyMLP.dataset import Dataset_2
+
+from primitives_ubc.clfyMLP.dataset import Dataset_1
+from primitives_ubc.clfyMLP.dataset import Dataset_2
 
 
 __all__ = ('MultilayerPerceptronClassifierPrimitive',)

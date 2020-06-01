@@ -22,8 +22,8 @@ from collections  import OrderedDict
 from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
 
 # Import CCFs functions
-from primitives.clfyCCFS.src.generate_CCF import genCCF
-from primitives.clfyCCFS.src.predict_from_CCF import predictFromCCF
+from primitives_ubc.clfyCCFS.src.generate_CCF import genCCF
+from primitives_ubc.clfyCCFS.src.predict_from_CCF import predictFromCCF
 
 __all__ = ('CanonicalCorrelationForestsClassifierPrimitive',)
 logger  = logging.getLogger(__name__)

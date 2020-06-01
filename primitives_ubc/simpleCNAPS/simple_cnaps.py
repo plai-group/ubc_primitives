@@ -6,17 +6,17 @@ from d3m.metadata import base as metadata_base, hyperparams, params
 from d3m.primitive_interfaces.supervised_learning import SupervisedLearnerPrimitiveBase
 
 # Import config file
-from primitives.config_files import config
+from primitives_ubc.config_files import config
 
 import os
 import logging
 import numpy as np
 import torch
 from torch.utils import data
-from primitives.simpleCNAPS.dataset import Dataset
-from primitives.simpleCNAPS.src.model import SimpleCnaps
-from primitives.simpleCNAPS.src.utils import print_and_log, get_log_files
-from primitives.simpleCNAPS.src.utils import loss
+from primitives_ubc.simpleCNAPS.dataset import Dataset
+from primitives_ubc.simpleCNAPS.src.model import SimpleCnaps
+from primitives_ubc.simpleCNAPS.src.utils import print_and_log, get_log_files
+from primitives_ubc.simpleCNAPS.src.utils import loss
 from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
 
 __all__ = ('SimpleCNAPSClassifierPrimitive',)

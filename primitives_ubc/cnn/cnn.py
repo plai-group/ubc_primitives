@@ -22,13 +22,13 @@ import torch.optim as optim
 from torch.utils import data
 import torchvision.transforms as transforms
 from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
-from primitives.cnn.dataset import Dataset
 
+from primitives_ubc.cnn.dataset import Dataset
 # Import CNN models
-from primitives.cnn.cnn_models.vgg import VGG16
-from primitives.cnn.cnn_models.resnet import ResNeT
-from primitives.cnn.cnn_models.googlenet import GoogLeNet
-from primitives.cnn.cnn_models.mobilenet import MobileNet
+from primitives_ubc.cnn.cnn_models.vgg import VGG16
+from primitives_ubc.cnn.cnn_models.resnet import ResNeT
+from primitives_ubc.cnn.cnn_models.googlenet import GoogLeNet
+from primitives_ubc.cnn.cnn_models.mobilenet import MobileNet
 
 __all__ = ('ConvolutionalNeuralNetwork',)
 logger  = logging.getLogger(__name__)

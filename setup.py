@@ -1,9 +1,9 @@
 import subprocess
-from setuptools import setup
+from setuptools import setup, find_packages
 
 # Run
-subprocess.run(["apt", "update"])
-subprocess.run(["apt", "install", "python3.6-gdbm"])
+#subprocess.run(["apt", "update"])
+#subprocess.run(["apt", "install", "python3.6-gdbm"])
 
 # Get install requirements
 with open('requirements.txt', 'r') as f:
@@ -22,56 +22,31 @@ setup(name='ubc_primitives',
       maintainer_email='tonyjos@cs.ubc.ca',
       maintainer='Tony Joseph',
       license='Apache-2.0',
-      packages=[
-                'primitives',
-                'primitives.smi',
-                'primitives.smi.weights',
-                'primitives.boc',
-                'primitives.bow',
-                'primitives.cnn',
-                'primitives.cnn.cnn_models',
-                'primitives.googlenet',
-                'primitives.mobilenet',
-                'primitives.resnet',
-                'primitives.vgg',
-                'primitives.clfyCCFS',
-                'primitives.clfyCCFS.src',
-                'primitives.regCCFS',
-                'primitives.regCCFS.src',
-                'primitives.clfyMLP',
-                'primitives.regMLP',
-                'primitives.kmeans',
-                'primitives.pca',
-                'primitives.simpleCNAPS',
-                'primitives.simpleCNAPS.src',
-                'primitives.linearRegression',
-                'primitives.logisticRegression',
-                'primitives.diagonalMVN',
-               ],
+      packages=find_packages(exclude=['pipelines']),
       zip_safe=False,
       python_requires='>=3.6',
       install_requires=install_requires,
       keywords='d3m_primitive',
       entry_points={
           'd3m.primitives': [
-              'schema_discovery.profiler.UBC=primitives.smi:SemanticTypeInfer',
-              'feature_extraction.bag_of_characters.UBC=primitives.boc:BagOfCharacters',
-              'feature_extraction.bag_of_words.UBC=primitives.bow:BagOfWords',
-              'feature_extraction.cnn.UBC=primitives.cnn:ConvolutionalNeuralNetwork',
-              'feature_extraction.googlenet.UBC=primitives.googlenet:GoogleNetCNN',
-              'feature_extraction.mobilenet.UBC=primitives.mobilenet:MobileNetCNN',
-              'feature_extraction.resnet.UBC=primitives.resnet:ResNetCNN',
-              'feature_extraction.vggnet.UBC=primitives.vgg:VGG16CNN',
-              'classification.ccfs.UBC=primitives.clfyCCFS:CanonicalCorrelationForestsClassifierPrimitive',
-              'regression.ccfs.UBC=primitives.regCCFS:CanonicalCorrelationForestsRegressionPrimitive',
-              'classification.mlp.UBC=primitives.clfyMLP:MultilayerPerceptronClassifierPrimitive',
-              'regression.mlp.UBC=primitives.regMLP:MultilayerPerceptronRegressionPrimitive',
-              'clustering.kmeans.UBC=primitives.kmeans:KMeansClusteringPrimitive',
-              'dimensionality_reduction.pca.UBC=primitives.pca:PrincipalComponentAnalysisPrimitive',
-              'classification.simpleCnaps.UBC=primitives.simpleCNAPS:SimpleCNAPSClassifierPrimitive',
-              'regression.LinearRegression.UBC=primitives.linearRegression:LinearRegressionPrimitive',
-              'classification.LogisticRegression.UBC=primitives.logisticRegression:LogisticRegressionPrimitive',
-              'operator.DiagonalMVN.UBC=primitives.diagonalMVN:DiagonalMVNPrimitive',
+              'schema_discovery.profiler.UBC=primitives_ubc.smi:SemanticTypeInfer',
+              'feature_extraction.bag_of_characters.UBC=primitives_ubc.boc:BagOfCharacters',
+              'feature_extraction.bag_of_words.UBC=primitives_ubc.bow:BagOfWords',
+              'feature_extraction.cnn.UBC=primitives_ubc.cnn:ConvolutionalNeuralNetwork',
+              'feature_extraction.googlenet.UBC=primitives_ubc.googlenet:GoogleNetCNN',
+              'feature_extraction.mobilenet.UBC=primitives_ubc.mobilenet:MobileNetCNN',
+              'feature_extraction.resnet.UBC=primitives_ubc.resnet:ResNetCNN',
+              'feature_extraction.vggnet.UBC=primitives_ubc.vgg:VGG16CNN',
+              'classification.ccfs.UBC=primitives_ubc.clfyCCFS:CanonicalCorrelationForestsClassifierPrimitive',
+              'regression.ccfs.UBC=primitives_ubc.regCCFS:CanonicalCorrelationForestsRegressionPrimitive',
+              'classification.mlp.UBC=primitives_ubc.clfyMLP:MultilayerPerceptronClassifierPrimitive',
+              'regression.mlp.UBC=primitives_ubc.regMLP:MultilayerPerceptronRegressionPrimitive',
+              'clustering.kmeans.UBC=primitives_ubc.kmeans:KMeansClusteringPrimitive',
+              'dimensionality_reduction.pca.UBC=primitives_ubc.pca:PrincipalComponentAnalysisPrimitive',
+              'classification.simpleCnaps.UBC=primitives_ubc.simpleCNAPS:SimpleCNAPSClassifierPrimitive',
+              'regression.LinearRegression.UBC=primitives_ubc.linearRegression:LinearRegressionPrimitive',
+              'classification.LogisticRegression.UBC=primitives_ubc.logisticRegression:LogisticRegressionPrimitive',
+              'operator.DiagonalMVN.UBC=primitives_ubc.diagonalMVN:DiagonalMVNPrimitive',
           ],
       })
 

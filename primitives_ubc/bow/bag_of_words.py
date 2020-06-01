@@ -5,7 +5,7 @@ from d3m.metadata import base as metadata_base, hyperparams
 from d3m.base import utils as base_utils
 
 # Import config file
-from primitives.config_files import config
+from primitives_ubc.config_files import config
 
 # Import relevant libraries
 import os
@@ -18,10 +18,9 @@ import logging
 import importlib
 import numpy as np
 import pandas as pd
-from ast import literal_eval
 from collections import OrderedDict
 
-__all__ = ('BagOfCharacters',)
+__all__ = ('BagOfWords',)
 
 logger  = logging.getLogger(__name__)
 Inputs  = container.DataFrame
@@ -49,30 +48,38 @@ class Hyperparams(hyperparams.Hyperparams):
     """
     Hyper-parameters
     """
-    n_samples = hyperparams.Constant(
+    n_samples = hyperparams.Hyperparameter[int](
         default=1000,
         description="Max number of samples/words to select",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
 
 
-class BagOfCharacters(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperparams], ImportModules):
+class BagOfWords(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperparams], ImportModules):
     """
-    A primitive for extract features describing the distribution of characters in a column.
-    It computes the count of all 96 ASCII-printable characters (i.e., digits, letters,
-    and punctuation characters, but not whitespace) within each value of a column.
-    Then aggregate these counts with 10 statistical functions (i.e., any, all, mean,
-    variance, min, max, median, sum, kurtosis, skewness), resulting in 960 features
+    A primitive for extract features describing 27 global statistical features.
+    These features are:
+        - Number of values.
+        - Column entropy.
+        - Fraction of values with unique content.
+        - Fraction of values with numerical characters.
+        - Fraction of values with alphabetical characters.
+        - Mean and std. of the number of numerical characters in values.
+        - Mean and std. of the number of alphabetical characters in values.
+        - Mean and std. of the number special characters in values.
+        - Mean and std. of the number of words in values.
+        - Percentage, count, only/has-Boolean of the None values.
+        - Stats, sum, min, max, median, mode, kurtosis, skewness, any/all-Boolean length of values.
     Citation: https://arxiv.org/pdf/1905.10688.pdf
     """
 
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata = hyperparams.base.PrimitiveMetadata({
-        "id": "e924c239-d685-4bd2-8d2f-4613996d8c02",
+        "id": "7d3dee2f-326c-42a9-bafb-99abd7c4c251",
         "version": config.VERSION,
-        "name": "Bag of characters feature extraction",
-        "description": "A primitive for extract features describing the distribution of characters in a column",
-        "python_path": "d3m.primitives.feature_extraction.bag_of_characters.UBC",
+        "name": "Bag of Words feature extraction",
+        "description": "A primitive to extract features describing the global statistics of words in a column",
+        "python_path": "d3m.primitives.feature_extraction.bag_of_words.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.FEATURE_EXTRACTION,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.VECTORIZATION],
         "source": {
@@ -80,7 +87,7 @@ class BagOfCharacters(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hype
             "contact": config.D3M_CONTACT,
             "uris": [config.REPOSITORY]
         },
-        "keywords": ["bag of characters", "NLP", "character features"],
+        "keywords": ["bag of words", "NLP", "word features"],
         "installation": [config.INSTALLATION],
     })
 
@@ -88,7 +95,7 @@ class BagOfCharacters(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hype
         super().__init__(hyperparams=hyperparams, volumes=volumes)
         self.hyperparams = hyperparams
 
-        # Intialize LoadWeightsPrimitive
+        # Intialize ImportModules
         ImportModules.__init__(self)
 
         # Import other needed modules
@@ -98,12 +105,14 @@ class BagOfCharacters(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hype
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
         """
         Inputs: pandas DataFrame
-        Returns: Output pandas DataFrame with 960 features.
+        Returns: Output pandas DataFrame with 27 features.
         """
         # Get all Nested media files
-        text_columns = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
-        base_paths   = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t))['location_base_uris'][0].replace('file:///', '/') for t in text_columns] # Path + media
-        txt_paths    = [[os.path.join(base_path, filename) for filename in inputs.iloc[:,col]] for base_path, col in zip(base_paths, text_columns)]
+        text_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
+        if len(text_columns) == 0:
+            text_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute') # [1]
+        base_paths    = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t))['location_base_uris'][0].replace('file:///', '/') for t in text_columns] # Path + media
+        txt_paths     = [[os.path.join(base_path, filename) for filename in inputs.iloc[:,col]] for base_path, col in zip(base_paths, text_columns)]
         # Extract the data from media files
         all_txts = []
         for path_list in txt_paths:
@@ -134,6 +143,7 @@ class BagOfCharacters(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hype
         for name, raw_sample in all_txts.iterrows():
             if counter % 1000 == 0:
                 logging.info('Completion {}/{}'.format(counter, len(inputs)))
+                # print('Completion {}/{}'.format(counter, len(inputs)))
 
             n_values = len(raw_sample.values[0]) # Because inside a list
 
@@ -147,7 +157,7 @@ class BagOfCharacters(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hype
             raw_sample = pd.Series(random.choices(raw_sample, k=n_samples)).astype(str)
 
             # Extract Features
-            extract_features = self._extract_bag_of_characters_features(raw_sample)
+            extract_features = self._extract_bag_of_words_features(raw_sample)
             df_char = df_char.append(extract_features, ignore_index=True)
 
             # Increment the progress counter
@@ -174,31 +184,78 @@ class BagOfCharacters(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hype
         return base.CallResult(outputs)
 
 
-    def _extract_bag_of_characters_features(self, data:pd.DataFrame):
+    def _extract_bag_of_words_features(self, data:pd.DataFrame):
         """
         # Input Data: (pandas series) A single column.
-        # Output: Ordered dictionary holding bag of character features
+        # Output: Ordered dictionary holding bag of words features
         """
-        characters_to_check = [ '['+ c + ']' for c in string.printable if c not in ( '\n', '\\', '\v', '\r', '\t', '^')] + ['[\\\\]', '[\^]']
-
         f = OrderedDict()
+        data = data.dropna()
 
-        data_no_null = data.dropna()
+        n_val = data.size
+
+        if not n_val:
+            return
+
+        # Entropy of column
+        freq_dist = nltk.FreqDist(data)
+        probs = [freq_dist.freq(l) for l in freq_dist]
+        f['col_entropy'] = -sum(p * math.log(p,2) for p in probs)
+
+        # Fraction of cells with unique content
+        num_unique = data.nunique()
+        f['frac_unique'] = num_unique / n_val
+
+        # Fraction of cells with numeric content -> frac text cells doesn't add information
+        num_cells = np.sum(data.str.contains('[0-9]', regex=True))
+        text_cells = np.sum(data.str.contains('[a-z]|[A-Z]', regex=True))
+        f['frac_numcells']  = num_cells / n_val
+        f['frac_textcells'] = text_cells / n_val
+
+        # Average + std number of numeric tokens in cells
+        num_reg = '[0-9]'
+        f['avg_num_cells'] = np.mean(data.str.count(num_reg))
+        f['std_num_cells'] = np.std(data.str.count(num_reg))
+
+        # Average + std number of textual tokens in cells
+        text_reg = '[a-z]|[A-Z]'
+        f['avg_text_cells'] = np.mean(data.str.count(text_reg))
+        f['std_text_cells'] = np.std(data.str.count(text_reg))
+
+        # Average + std number of special characters in each cell
+        spec_reg = '[[!@#$%^&*(),.?":{}|<>]]'
+        f['avg_spec_cells'] = np.mean(data.str.count(spec_reg))
+        f['std_spec_cells'] = np.std(data.str.count(spec_reg))
+
+        # Average number of words in each cell
+        space_reg = '[" "]'
+        f['avg_word_cells'] = np.mean(data.str.count(space_reg) + 1)
+        f['std_word_cells'] = np.std(data.str.count(space_reg) + 1)
+
         all_value_features = OrderedDict()
 
-        for c in characters_to_check:
-            all_value_features['n_{}'.format(c)] = data_no_null.str.count(c)
+        data_no_null = data.dropna()
+
+        f['n_values'] = n_val
+
+        all_value_features['length'] = data_no_null.apply(len)
 
         for value_feature_name, value_features in all_value_features.items():
-            f['{}-agg-any'.format(value_feature_name)]      = any(value_features)
-            f['{}-agg-all'.format(value_feature_name)]      = all(value_features)
-            f['{}-agg-mean'.format(value_feature_name)]     = np.mean(value_features)
-            f['{}-agg-var'.format(value_feature_name)]      = np.var(value_features)
-            f['{}-agg-min'.format(value_feature_name)]      = np.min(value_features)
-            f['{}-agg-max'.format(value_feature_name)]      = np.max(value_features)
-            f['{}-agg-median'.format(value_feature_name)]   = np.median(value_features)
-            f['{}-agg-sum'.format(value_feature_name)]      = np.sum(value_features)
+            f['{}-agg-any'.format(value_feature_name)] = any(value_features)
+            f['{}-agg-all'.format(value_feature_name)] = all(value_features)
+            f['{}-agg-mean'.format(value_feature_name)] = np.mean(value_features)
+            f['{}-agg-var'.format(value_feature_name)] = np.var(value_features)
+            f['{}-agg-min'.format(value_feature_name)] = np.min(value_features)
+            f['{}-agg-max'.format(value_feature_name)] = np.max(value_features)
+            f['{}-agg-median'.format(value_feature_name)] = np.median(value_features)
+            f['{}-agg-sum'.format(value_feature_name)] = np.sum(value_features)
             f['{}-agg-kurtosis'.format(value_feature_name)] = sy_stats.kurtosis(value_features)
             f['{}-agg-skewness'.format(value_feature_name)] = sy_stats.skew(value_features)
+
+        n_none = data.size - data_no_null.size - len([ e for e in data if e == ''])
+        f['none-agg-has'] = n_none > 0
+        f['none-agg-percent'] = n_none / len(data)
+        f['none-agg-num'] = n_none
+        f['none-agg-all'] = (n_none == len(data))
 
         return f

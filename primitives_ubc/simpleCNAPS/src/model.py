@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 from collections import OrderedDict
-from primitives.simpleCNAPS.src.utils import split_first_dim_linear
-from primitives.simpleCNAPS.src.config_networks import ConfigureNetworks
-from primitives.simpleCNAPS.src.set_encoder import mean_pooling
+from primitives_ubc.simpleCNAPS.src.utils import split_first_dim_linear
+from primitives_ubc.simpleCNAPS.src.config_networks import ConfigureNetworks
+from primitives_ubc.simpleCNAPS.src.set_encoder import mean_pooling
 import torch.nn.functional as F
 import numpy as np
 import networkx as nx
