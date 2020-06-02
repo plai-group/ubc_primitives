@@ -1,4 +1,4 @@
-from .mlpReg import MultilayerPerceptronRegressionPrimitive
+from .mlpReg  import MultilayerPerceptronRegressionPrimitive
 from .dataset import Dataset_1
 from .dataset import Dataset_2
 

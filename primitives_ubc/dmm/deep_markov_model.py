@@ -28,12 +28,12 @@ from pyro.infer import SVI
 from pyro.optim import ClippedAdam
 import pyro.distributions as dist
 
-from primitives_ubc.dmm.utils import to_variable
-from primitives_ubc.dmm.dmm   import DMM, GaussianEmitter
-
 # Import config file
 from primitives_ubc.config_files import config
 
+
+from primitives_ubc.dmm.utils import to_variable
+from primitives_ubc.dmm.dmm   import DMM, GaussianEmitter
 from primitives_ubc.dmm.dataset import Dataset
 
 __all__ = ('DeepMarkovModelPrimitive',)
@@ -142,7 +142,7 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
     # Metadata
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata   =  metadata_base.PrimitiveMetadata({
-        "id": "f59200c3-f597-4c92-9793-c2664e6932f8", # change
+        "id": "05f2d8c5-1066-4e06-bab2-6b7849fc789e",
         "version": config.VERSION,
         "name": "Deep Markov Model Primitive",
         "description": "Deep Markov Model using Pytorch Framework",
@@ -366,25 +366,25 @@ class DeepMarkovModelPrimitive(GradientCompositionalityMixin[Inputs, Outputs, Pa
         # Set model to training
         self._net.train()
 
-        # for iters in _iterations:
-        #     epoch_nll = 0.0
-        #     iteration_count = 0
-        #     for local_batch, local_labels in training_generator:
-        #         _local_training_batch = torch.cat((local_batch, local_labels), axis=2)
-        #         mini_batch, mini_batch_reversed = self._reverse_sequences(mini_batch=_local_training_batch)
-        #         # Loss for minibatch and minibatch reversed
-        #         loss = self._optimizer.step(mini_batch, mini_batch_reversed)
-        #         iteration_count += 1
-        #         epoch_nll += loss
-        #         # Break
-        #         if np.isnan(loss):
-        #             print("minibatch nan-ed out!")
-        #             break
-        #         if np.isinf(loss):
-        #             print("minibatch inf-ed out!")
-        #             break
-        #
-        #     print("[training epoch %04d]  %.4f " % (epoch, epoch_nll/iteration_count))
+        for iters in _iterations:
+            epoch_nll = 0.0
+            iteration_count = 0
+            for local_batch, local_labels in training_generator:
+                _local_training_batch = torch.cat((local_batch, local_labels), axis=2)
+                mini_batch, mini_batch_reversed = self._reverse_sequences(mini_batch=_local_training_batch)
+                # Loss for minibatch and minibatch reversed
+                loss = self._optimizer.step(mini_batch, mini_batch_reversed)
+                iteration_count += 1
+                epoch_nll += loss
+                # Break
+                if np.isnan(loss):
+                    print("minibatch nan-ed out!")
+                    break
+                if np.isinf(loss):
+                    print("minibatch inf-ed out!")
+                    break
+
+            print("[training epoch %04d]  %.4f " % (epoch, epoch_nll/iteration_count))
 
         self._fitted = True
 
