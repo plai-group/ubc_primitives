@@ -111,6 +111,14 @@ convolutional layers or the fully connected layers by setting `include_top` Hype
   - This is a Bayesian treatment of linear regression.
   - Sample Usage: [Bayesian Linear-Regression](https://github.com/plai-group/ubc_primitives/blob/master/pipelines/linearReg_pipeline.py) pipeline.
 
+15. **Bayesian Logistic-Regression**
+  - This is a Bayesian treatment of Logistic regression.
+  - Sample Usage: [Bayesian Logistic-Regression](https://github.com/plai-group/ubc_primitives/blob/master/pipelines/logisticReg_pipeline.py) pipeline.
+
+15. **Diagonal Multivariate Normal**
+  - Primitive which allows fitting, and sampling from, a multivariate Gaussian (with diagonal covariance matrix).
+  - Sample Usage: [Diagonal Multivariate Normal](https://github.com/plai-group/ubc_primitives/blob/master/pipelines/mvn_pipeline.py) pipeline.
+
 16. **Semantic Type Inference**
   - A primitive for detecting the semantic type of inputed column data
   - Sample Usage: [SMI](https://github.com/plai-group/ubc_primitives/blob/master/pipelines/smi_pipeline.py) pipeline.
