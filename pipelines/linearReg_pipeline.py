@@ -13,9 +13,9 @@ from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
 
 # Testing Primitive
-from primitives.vgg.vggnetcnn import VGG16CNN
-from primitives.pca.pca import PrincipalComponentAnalysisPrimitive
-from primitives.linearRegression.linear_regression import LinearRegressionPrimitive
+from primitives_ubc.vgg.vggnetcnn import VGG16CNN
+from primitives_ubc.pca.pca import PrincipalComponentAnalysisPrimitive
+from primitives_ubc.linearRegression.linear_regression import LinearRegressionPrimitive
 
 def make_pipeline():
     pipeline = Pipeline()

@@ -12,11 +12,11 @@ from common_primitives.column_parser import ColumnParserPrimitive
 from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
 
-sys.path.insert(0, os.path.abspath('/ubc_primitives/primitives/bow/'))
+sys.path.insert(0, os.path.abspath('/ubc_primitives/primitives_ubc/bow/'))
 from bag_of_words import BagOfWords
 
 # Testing Primitive
-from primitives.clfyCCFS.ccfsClfy import CanonicalCorrelationForestsClassifierPrimitive
+from primitives_ubc.clfyCCFS.ccfsClfy import CanonicalCorrelationForestsClassifierPrimitive
 
 def make_pipeline():
     pipeline = Pipeline()

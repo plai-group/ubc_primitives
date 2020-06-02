@@ -12,11 +12,11 @@ from common_primitives.column_parser import ColumnParserPrimitive
 from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
 
-sys.path.insert(0, os.path.abspath('/ubc_primitives/primitives/resnet/'))
+sys.path.insert(0, os.path.abspath('/ubc_primitives/primitives_ubc/resnet/'))
 from resnetcnn import ResNetCNN
 
 # Testing Primitive
-from primitives.regCCFS.ccfsReg import CanonicalCorrelationForestsRegressionPrimitive
+from primitives_ubc.regCCFS.ccfsReg import CanonicalCorrelationForestsRegressionPrimitive
 
 def make_pipeline():
     pipeline = Pipeline()

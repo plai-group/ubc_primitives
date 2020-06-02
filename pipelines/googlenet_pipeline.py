@@ -14,7 +14,7 @@ from common_primitives.xgboost_regressor import XGBoostGBTreeRegressorPrimitive
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
 
 # Testing Primitive
-from primitives.googlenet.gnetcnn import GoogleNetCNN
+from primitives_ubc.googlenet.gnetcnn import GoogleNetCNN
 
 def make_pipeline_1():
     pipeline = Pipeline()

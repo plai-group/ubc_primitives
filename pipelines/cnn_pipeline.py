@@ -14,7 +14,7 @@ from common_primitives.xgboost_regressor import XGBoostGBTreeRegressorPrimitive
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
 
 # Testing Primitive
-from primitives.cnn.cnn import ConvolutionalNeuralNetwork
+from primitives_ubc.cnn.cnn import ConvolutionalNeuralNetwork
 
 def make_pipeline_1():
     pipeline = Pipeline()

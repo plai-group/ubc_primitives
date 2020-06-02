@@ -10,8 +10,8 @@ from common_primitives.column_parser import ColumnParserPrimitive
 from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive
 
 # Testing Primitive
-from primitives.bow.bag_of_words import BagOfWords
-from primitives.kmeans.kmeansClustering import KMeansClusteringPrimitive
+from primitives_ubc.bow.bag_of_words import BagOfWords
+from primitives_ubc.kmeans.kmeansClustering import KMeansClusteringPrimitive
 
 
 def make_pipeline():

@@ -10,7 +10,7 @@ from common_primitives.column_parser import ColumnParserPrimitive
 from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive
 
 # Testing Primitive
-from primitives.simpleCNAPS.simple_cnaps import SimpleCNAPSClassifierPrimitive
+from primitives_ubc.simpleCNAPS.simple_cnaps import SimpleCNAPSClassifierPrimitive
 
 def make_pipeline():
     pipeline = Pipeline()

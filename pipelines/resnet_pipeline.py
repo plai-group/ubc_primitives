@@ -14,7 +14,7 @@ from common_primitives.xgboost_regressor import XGBoostGBTreeRegressorPrimitive
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
 
 # Testing Primitive
-from primitives.resnet.resnetcnn import ResNetCNN
+from primitives_ubc.resnet.resnetcnn import ResNetCNN
 
 
 def make_pipeline_1():

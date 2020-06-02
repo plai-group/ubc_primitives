@@ -10,7 +10,7 @@ from common_primitives import construct_predictions
 from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive
 
 # Testing Primitive
-from primitives.logisticRegression.logistic_regression import LogisticRegressionPrimitive
+from primitives_ubc.logisticRegression.logistic_regression import LogisticRegressionPrimitive
 
 def make_pipeline():
     pipeline = Pipeline()

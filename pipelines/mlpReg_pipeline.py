@@ -14,7 +14,7 @@ from common_primitives.dataframe_image_reader import DataFrameImageReaderPrimiti
 from primitives.vgg.vggnetcnn import VGG16CNN
 
 # Testing Primitive
-from primitives.regMLP.mlpReg import MultilayerPerceptronRegressionPrimitive
+from primitives_ubc.regMLP.mlpReg import MultilayerPerceptronRegressionPrimitive
 
 
 def make_pipeline():

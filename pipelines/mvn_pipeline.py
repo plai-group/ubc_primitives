@@ -13,11 +13,11 @@ from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive
 from common_primitives.xgboost_regressor import XGBoostGBTreeRegressorPrimitive
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
 
-from primitives.vgg.vggnetcnn import VGG16CNN
-from primitives.pca.pca import PrincipalComponentAnalysisPrimitive
+from primitives_ubc.vgg.vggnetcnn import VGG16CNN
+from primitives_ubc.pca.pca import PrincipalComponentAnalysisPrimitive
 
 # Testing primitive
-from primitives.diagonalMVN.diagonal_mvn import DiagonalMVNPrimitive
+from primitives_ubc.diagonalMVN.diagonal_mvn import DiagonalMVNPrimitive
 
 
 def make_pipeline():

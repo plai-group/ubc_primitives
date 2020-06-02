@@ -13,7 +13,7 @@ from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive
 from common_primitives.dataframe_image_reader import DataFrameImageReaderPrimitive
 
 # Testing Primitive
-from primitives.clfyMLP.mlpClfy import MultilayerPerceptronClassifierPrimitive
+from primitives_ubc.clfyMLP.mlpClfy import MultilayerPerceptronClassifierPrimitive
 
 
 def make_pipeline():

@@ -14,7 +14,7 @@ from common_primitives.extract_columns_semantic_types import ExtractColumnsBySem
 import d3m.primitives.classification.random_forest as RF
 
 # Testing Primitive
-from primitives.boc.bag_of_characters import BagOfCharacters
+from primitives_ubc.boc.bag_of_characters import BagOfCharacters
 
 def make_pipeline():
     pipeline = Pipeline()
