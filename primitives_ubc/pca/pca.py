@@ -9,7 +9,7 @@ from d3m.base import utils as base_utils
 from d3m import utils as d3m_utils
 
 # Import config file
-from primitives.config_files import config
+from primitives_ubc.config_files import config
 
 # Import relevant libraries
 import os

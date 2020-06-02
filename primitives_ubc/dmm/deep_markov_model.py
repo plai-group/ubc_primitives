@@ -28,13 +28,13 @@ from pyro.infer import SVI
 from pyro.optim import ClippedAdam
 import pyro.distributions as dist
 
-from primitives.dmm.utils import to_variable
-from primitives.dmm.dmm   import DMM, GaussianEmitter
+from primitives_ubc.dmm.utils import to_variable
+from primitives_ubc.dmm.dmm   import DMM, GaussianEmitter
 
 # Import config file
-from primitives.config_files import config
+from primitives_ubc.config_files import config
 
-from primitives.dmm.dataset import Dataset
+from primitives_ubc.dmm.dataset import Dataset
 
 __all__ = ('DeepMarkovModelPrimitive',)
 

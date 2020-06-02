@@ -10,7 +10,7 @@ from common_primitives.ndarray_to_dataframe import NDArrayToDataFramePrimitive
 from d3m import utils as d3m_utils
 
 # Import config file
-from primitives.config_files import config
+from primitives_ubc.config_files import config
 
 # Import relevant libraries
 import os
@@ -21,8 +21,8 @@ from collections  import OrderedDict
 from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
 
 # Import CCFs functions
-from primitives.regCCFS.src.generate_CCF import genCCF
-from primitives.regCCFS.src.predict_from_CCF import predictFromCCF
+from primitives_ubc.regCCFS.src.generate_CCF import genCCF
+from primitives_ubc.regCCFS.src.predict_from_CCF import predictFromCCF
 
 __all__ = ('CanonicalCorrelationForestsRegressionPrimitive',)
 logger  = logging.getLogger(__name__)

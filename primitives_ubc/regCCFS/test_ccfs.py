@@ -12,7 +12,7 @@ from common_primitives.dataframe_to_ndarray import DataFrameToNDArrayPrimitive
 from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
 
-sys.path.insert(0, os.path.abspath('/ubc_primitives/primitives/resnet/'))
+sys.path.insert(0, os.path.abspath('/ubc_primitives/primitives_ubc/resnet/'))
 from resnetcnn import ResNetCNN
 
 # Testing primitive

@@ -7,7 +7,7 @@ from d3m.primitive_interfaces.supervised_learning import SupervisedLearnerPrimit
 from d3m import utils as d3m_utils
 
 # Import config file
-from primitives.config_files import config
+from primitives_ubc.config_files import config
 
 # Import relevant libraries
 import os
@@ -23,10 +23,10 @@ import torch.optim as optim
 from torch.utils import data
 import torchvision.transforms as transforms
 from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
-from primitives.googlenet.dataset import Dataset
+from primitives_ubc.googlenet.dataset import Dataset
 
 # Import CNN models
-from primitives.googlenet.googlenet import GoogLeNet
+from primitives_ubc.googlenet.googlenet import GoogLeNet
 
 __all__ = ('GoogleNetCNN',)
 logger  = logging.getLogger(__name__)

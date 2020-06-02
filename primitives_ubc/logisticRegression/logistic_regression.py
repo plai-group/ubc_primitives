@@ -10,7 +10,7 @@ from d3m.primitive_interfaces.base import Gradients
 from d3m.primitive_interfaces.base import CallResult
 
 # Import config file
-from primitives.config_files import config
+from primitives_ubc.config_files import config
 
 import os
 import time

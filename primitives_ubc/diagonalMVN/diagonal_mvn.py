@@ -21,8 +21,8 @@ from sklearn.metrics import mean_squared_error
 from typing import NamedTuple, Sequence, Any, List, Dict, Union, Tuple
 
 # Import config file
-from primitives.config_files import config
-from primitives.diagonalMVN.utils import to_variable, refresh_node, log_mvn_likelihood
+from primitives_ubc.config_files import config
+from primitives_ubc.diagonalMVN.utils import to_variable, refresh_node, log_mvn_likelihood
 
 __all__ = ('DiagonalMVNPrimitive',)
 

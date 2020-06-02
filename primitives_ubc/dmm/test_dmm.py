@@ -15,7 +15,7 @@ from common_primitives.construct_predictions import ConstructPredictionsPrimitiv
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
 
 # Testing primitive
-from primitives.dmm.deep_markov_model import DeepMarkovModelPrimitive
+from primitives_ubc.dmm.deep_markov_model import DeepMarkovModelPrimitive
 
 
 class TestDeepMarkovModelPrimitive(unittest.TestCase):

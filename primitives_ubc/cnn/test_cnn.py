@@ -11,7 +11,7 @@ from common_primitives.xgboost_regressor import XGBoostGBTreeRegressorPrimitive
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
 
 # Testing primitive
-from primitives.cnn import ConvolutionalNeuralNetwork
+from primitives_ubc.cnn import ConvolutionalNeuralNetwork
 
 
 class TestConvolutionalNeuralNetwork(unittest.TestCase):

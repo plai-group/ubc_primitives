@@ -9,7 +9,7 @@ from d3m.primitive_interfaces.unsupervised_learning import UnsupervisedLearnerPr
 from d3m import utils as d3m_utils
 
 # Import config file
-from primitives.config_files import config
+from primitives_ubc.config_files import config
 
 # Import relevant libraries
 import os

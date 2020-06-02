@@ -6,7 +6,7 @@ from d3m.base import utils as base_utils
 from d3m.primitive_interfaces.supervised_learning import SupervisedLearnerPrimitiveBase
 
 # Import config file
-from primitives.config_files import config
+from primitives_ubc.config_files import config
 
 # Import relevant libraries
 import os

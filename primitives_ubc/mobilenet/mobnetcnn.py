@@ -7,7 +7,7 @@ from d3m.primitive_interfaces.supervised_learning import SupervisedLearnerPrimit
 from d3m import utils as d3m_utils
 
 # Import config file
-from primitives.config_files import config
+from primitives_ubc.config_files import config
 
 # Import relevant libraries
 import os
@@ -23,10 +23,10 @@ import torch.optim as optim
 from torch.utils import data
 import torchvision.transforms as transforms
 from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
-from primitives.mobilenet.dataset import Dataset
+from primitives_ubc.mobilenet.dataset import Dataset
 
 # Import CNN models
-from primitives.mobilenet.mobilenet import MobileNet
+from primitives_ubc.mobilenet.mobilenet import MobileNet
 
 __all__ = ('MobileNetCNN',)
 logger  = logging.getLogger(__name__)

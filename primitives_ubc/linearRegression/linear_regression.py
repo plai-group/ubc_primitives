@@ -10,7 +10,7 @@ from d3m.primitive_interfaces.base import Gradients
 from d3m.primitive_interfaces.base import CallResult
 
 # Import config file
-from primitives.config_files import config
+from primitives_ubc.config_files import config
 
 import os
 import time
@@ -20,7 +20,7 @@ import random
 import numpy as np
 from sklearn.metrics import mean_squared_error
 from typing import NamedTuple, Sequence, Any, List, Dict, Union, Tuple
-from primitives.linearRegression.utils import to_variable, refresh_node, log_mvn_likelihood
+from primitives_ubc.linearRegression.utils import to_variable, refresh_node, log_mvn_likelihood
 
 
 __all__ = ('LinearRegressionPrimitive',)
