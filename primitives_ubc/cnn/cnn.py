@@ -25,8 +25,8 @@ from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
 
 from primitives_ubc.cnn.dataset import Dataset
 # Import CNN models
-from primitives_ubc.cnn.cnn_models.vgg import VGG16
-from primitives_ubc.cnn.cnn_models.resnet import ResNeT
+from primitives_ubc.cnn.cnn_models.vgg       import VGG16
+from primitives_ubc.cnn.cnn_models.resnet    import ResNeT
 from primitives_ubc.cnn.cnn_models.googlenet import GoogLeNet
 from primitives_ubc.cnn.cnn_models.mobilenet import MobileNet
 

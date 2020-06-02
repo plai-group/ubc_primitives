@@ -1,6 +1,6 @@
 import numpy as np
-from primitives.clfyCCFS.src.utils.commonUtils import is_numeric
-from primitives.clfyCCFS.src.utils.commonUtils import islogical
+from primitives_ubc.clfyCCFS.src.utils.commonUtils import is_numeric
+from primitives_ubc.clfyCCFS.src.utils.commonUtils import islogical
 
 def treeOutputsToForestPredicts(CCF, treeOutputs):
     """

@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
-from primitives.clfyCCFS.src.utils.commonUtils import sVT
-from primitives.clfyCCFS.src.utils.commonUtils import is_numeric
-from primitives.clfyCCFS.src.prediction_utils.replicate_input_process import replicateInputProcess
+from primitives_ubc.clfyCCFS.src.utils.commonUtils import sVT
+from primitives_ubc.clfyCCFS.src.utils.commonUtils import is_numeric
+from primitives_ubc.clfyCCFS.src.prediction_utils.replicate_input_process import replicateInputProcess
 
 def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False):
     """

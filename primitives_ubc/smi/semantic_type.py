@@ -5,7 +5,7 @@ from d3m.metadata import base as metadata_base, hyperparams
 from d3m.base import utils as base_utils
 
 # Import config file
-from primitives.config_files import config
+from primitives_ubc.config_files import config
 
 # Import relevant libraries
 import os
@@ -185,7 +185,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
     _weights_configs_2 = LoadWeightsPrimitive._get_weight_installation_tar(_weight_files_2)
 
     metadata = hyperparams.base.PrimitiveMetadata({
-        "id": "0ac92264-05a6-4630-8665-e555f0b95931",
+        "id": "3d1876f2-cfbd-40a8-a6ec-b6a21efaa28d",
         "version": config.VERSION,
         "name": "UBC semantic type",
         "description": "A primitive which detects semantic type of each column of data",

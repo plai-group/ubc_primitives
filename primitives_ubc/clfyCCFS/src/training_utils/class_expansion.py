@@ -1,7 +1,7 @@
 import numpy as np
-from primitives.clfyCCFS.src.utils.ccfUtils import mat_unique
-from primitives.clfyCCFS.src.utils.commonUtils import sVT
-from primitives.clfyCCFS.src.utils.commonUtils import islogical
+from primitives_ubc.clfyCCFS.src.utils.ccfUtils import mat_unique
+from primitives_ubc.clfyCCFS.src.utils.commonUtils import sVT
+from primitives_ubc.clfyCCFS.src.utils.commonUtils import islogical
 
 import logging
 logger  = logging.getLogger(__name__)

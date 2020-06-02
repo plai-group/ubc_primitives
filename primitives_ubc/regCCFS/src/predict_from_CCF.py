@@ -1,7 +1,7 @@
 import numpy as np
-from primitives.regCCFS.src.predict_from_CCT import predictFromCCT
-from primitives.regCCFS.src.prediction_utils.replicate_input_process import replicateInputProcess
-from primitives.regCCFS.src.prediction_utils.tree_output_forest_pred import treeOutputsToForestPredicts
+from primitives_ubc.regCCFS.src.predict_from_CCT import predictFromCCT
+from primitives_ubc.regCCFS.src.prediction_utils.replicate_input_process import replicateInputProcess
+from primitives_ubc.regCCFS.src.prediction_utils.tree_output_forest_pred import treeOutputsToForestPredicts
 
 def predictFromCCF(CCF, X):
     """

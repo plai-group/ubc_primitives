@@ -1,16 +1,16 @@
 import inspect
 import scipy.io
 import numpy as np
-from primitives.clfyCCFS.src.utils.commonUtils import sVT
-from primitives.clfyCCFS.src.utils.commonUtils import is_numeric
-from primitives.clfyCCFS.src.utils.commonUtils import fastUnique
-from primitives.clfyCCFS.src.utils.commonUtils import queryIfColumnsVary
-from primitives.clfyCCFS.src.utils.commonUtils import queryIfOnlyTwoUniqueRows
-from primitives.clfyCCFS.src.utils.ccfUtils import regCCA_alt
-from primitives.clfyCCFS.src.utils.ccfUtils import random_feature_expansion
-from primitives.clfyCCFS.src.utils.ccfUtils import genFeatureExpansionParameters
-from primitives.clfyCCFS.src.training_utils.component_analysis import componentAnalysis
-from primitives.clfyCCFS.src.training_utils.twopoint_max_marginsplit import twoPointMaxMarginSplit
+from primitives_ubc.clfyCCFS.src.utils.commonUtils import sVT
+from primitives_ubc.clfyCCFS.src.utils.commonUtils import is_numeric
+from primitives_ubc.clfyCCFS.src.utils.commonUtils import fastUnique
+from primitives_ubc.clfyCCFS.src.utils.commonUtils import queryIfColumnsVary
+from primitives_ubc.clfyCCFS.src.utils.commonUtils import queryIfOnlyTwoUniqueRows
+from primitives_ubc.clfyCCFS.src.utils.ccfUtils import regCCA_alt
+from primitives_ubc.clfyCCFS.src.utils.ccfUtils import random_feature_expansion
+from primitives_ubc.clfyCCFS.src.utils.ccfUtils import genFeatureExpansionParameters
+from primitives_ubc.clfyCCFS.src.training_utils.component_analysis import componentAnalysis
+from primitives_ubc.clfyCCFS.src.training_utils.twopoint_max_marginsplit import twoPointMaxMarginSplit
 import logging
 logger  = logging.getLogger(__name__)
 

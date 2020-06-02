@@ -1,6 +1,6 @@
-from primitives.regCCFS.src.utils.ccfUtils import random_missing_vals
-from primitives.regCCFS.src.prediction_utils.traverse_treePredict import traverse_tree_predict
-from primitives.regCCFS.src.prediction_utils.replicate_input_process import replicateInputProcess
+from primitives_ubc.regCCFS.src.utils.ccfUtils import random_missing_vals
+from primitives_ubc.regCCFS.src.prediction_utils.traverse_treePredict import traverse_tree_predict
+from primitives_ubc.regCCFS.src.prediction_utils.replicate_input_process import replicateInputProcess
 
 def predictFromCCT(tree, X):
     """

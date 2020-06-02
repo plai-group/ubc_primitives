@@ -2,16 +2,16 @@ import inspect
 import warnings
 import scipy.io
 import numpy as np
-from primitives.regCCFS.src.utils.commonUtils import sVT
-from primitives.regCCFS.src.utils.commonUtils import is_numeric
-from primitives.regCCFS.src.utils.commonUtils import fastUnique
-from primitives.regCCFS.src.utils.commonUtils import queryIfColumnsVary
-from primitives.regCCFS.src.utils.commonUtils import queryIfOnlyTwoUniqueRows
-from primitives.regCCFS.src.utils.ccfUtils import regCCA_alt
-from primitives.regCCFS.src.utils.ccfUtils import random_feature_expansion
-from primitives.regCCFS.src.utils.ccfUtils import genFeatureExpansionParameters
-from primitives.regCCFS.src.training_utils.component_analysis import componentAnalysis
-from primitives.regCCFS.src.training_utils.twopoint_max_marginsplit import twoPointMaxMarginSplit
+from primitives_ubc.regCCFS.src.utils.commonUtils import sVT
+from primitives_ubc.regCCFS.src.utils.commonUtils import is_numeric
+from primitives_ubc.regCCFS.src.utils.commonUtils import fastUnique
+from primitives_ubc.regCCFS.src.utils.commonUtils import queryIfColumnsVary
+from primitives_ubc.regCCFS.src.utils.commonUtils import queryIfOnlyTwoUniqueRows
+from primitives_ubc.regCCFS.src.utils.ccfUtils import regCCA_alt
+from primitives_ubc.regCCFS.src.utils.ccfUtils import random_feature_expansion
+from primitives_ubc.regCCFS.src.utils.ccfUtils import genFeatureExpansionParameters
+from primitives_ubc.regCCFS.src.training_utils.component_analysis import componentAnalysis
+from primitives_ubc.regCCFS.src.training_utils.twopoint_max_marginsplit import twoPointMaxMarginSplit
 warnings.filterwarnings('ignore')
 
 import logging

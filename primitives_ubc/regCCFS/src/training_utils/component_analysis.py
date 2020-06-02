@@ -1,10 +1,10 @@
 import numpy as np
 import scipy.linalg as la
-from primitives.regCCFS.src.utils.ccfUtils import randomRotation
-from primitives.regCCFS.src.utils.commonUtils import sVT
-from primitives.regCCFS.src.utils.commonUtils import amerge
-from primitives.regCCFS.src.utils.commonUtils import dict2array
-from primitives.regCCFS.src.utils.commonUtils import queryIfColumnsVary
+from primitives_ubc.regCCFS.src.utils.ccfUtils import randomRotation
+from primitives_ubc.regCCFS.src.utils.commonUtils import sVT
+from primitives_ubc.regCCFS.src.utils.commonUtils import amerge
+from primitives_ubc.regCCFS.src.utils.commonUtils import dict2array
+from primitives_ubc.regCCFS.src.utils.commonUtils import queryIfColumnsVary
 
 def isSquare(x):
     # Check if a numpy array is Square matrix, i.e. NxN

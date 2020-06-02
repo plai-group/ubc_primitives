@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from primitives.clfyCCFS.src.utils.commonUtils import is_numeric
-from primitives.clfyCCFS.src.utils.commonUtils import makeSureString
+from primitives_ubc.clfyCCFS.src.utils.commonUtils import is_numeric
+from primitives_ubc.clfyCCFS.src.utils.commonUtils import makeSureString
 
 def replicateInputProcess(Xraw, InputProcessDetails):
     """

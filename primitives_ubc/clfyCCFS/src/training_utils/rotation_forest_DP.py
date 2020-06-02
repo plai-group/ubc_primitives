@@ -1,7 +1,7 @@
 import numpy as np
-from primitives.clfyCCFS.src.utils.commonUtils import sVT
-from primitives.clfyCCFS.src.utils.ccfUtils import pcaLite
-from primitives.clfyCCFS.src.utils.ccfUtils import manyRandPerms
+from primitives_ubc.clfyCCFS.src.utils.commonUtils import sVT
+from primitives_ubc.clfyCCFS.src.utils.ccfUtils import pcaLite
+from primitives_ubc.clfyCCFS.src.utils.ccfUtils import manyRandPerms
 
 def localRotation(x, p):
     iB = np.random.choice((np.arange(0, x.shape[0])), round(x.shape[0] * p))

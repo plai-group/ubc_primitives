@@ -23,6 +23,8 @@ import torch.optim as optim
 from torch.utils import data
 import torchvision.transforms as transforms
 from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
+
+
 from primitives_ubc.googlenet.dataset import Dataset
 
 # Import CNN models
