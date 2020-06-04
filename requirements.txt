@@ -4,4 +4,5 @@ pandas>=0.20.1
 pyro-ppl==0.3.0
 pymc3
 pyprob
+Theano
 
