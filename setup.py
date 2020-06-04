@@ -29,7 +29,7 @@ setup(name='ubc_primitives',
       keywords='d3m_primitive',
       entry_points={
           'd3m.primitives': [
-              'schema_discovery.profiler.UBC=primitives_ubc.profiler:SemanticTypeInfer',
+              'schema_discovery.profiler.UBC=primitives_ubc.smi:SemanticTypeInfer',
               'feature_extraction.bag_of_characters.UBC=primitives_ubc.boc:BagOfCharacters',
               'feature_extraction.bag_of_words.UBC=primitives_ubc.bow:BagOfWords',
               'feature_extraction.cnn.UBC=primitives_ubc.cnn:ConvolutionalNeuralNetwork',
