@@ -75,10 +75,10 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
     # Metadata
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata   =  metadata_base.PrimitiveMetadata({
-        "id": "b9e7389d-a8e9-4fa0-a1a0-00791350cf40",
+        "id": "1c1d7f22-e49e-4e71-820f-e1ae46201730",
         "version": config.VERSION,
         "name": "Bayesian Logistic Regression",
-        "description": "A bayesian Logistic regression",
+        "description": "A bayesian approach to Logistic Regression",
         "python_path": "d3m.primitives.classification.LogisticRegression.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.CLASSIFICATION,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.LOGISTIC_REGRESSION,],
@@ -88,7 +88,7 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
             "uris": [config.REPOSITORY],
         },
         "keywords": ['bayesian', 'binary classification'],
-        "installation": [config.INSTALLATION],
+        "installation": [config.INSTALLATION]
     })
 
 
