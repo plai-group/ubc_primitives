@@ -88,7 +88,7 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
             "uris": [config.REPOSITORY],
         },
         "keywords": ['bayesian', 'binary classification'],
-        "installation": [config.INSTALLATION]
+        "installation": [config.INSTALLATION],
     })
 
 
