@@ -92,11 +92,11 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
     # Metadata
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata   =  metadata_base.PrimitiveMetadata({
-        "id": "491c1da2-18c4-45ea-b706-ada60ad2fe56",
+        "id": "8ddde4a3-5b50-4bae-8c1e-69d4a5cf4d38",
         "version": config.VERSION,
         "name": "KMeans Clustering",
         "description": "A unsupervised learning algorithm for clustering data.",
-        "python_path": "d3m.primitives.kmeans_clustering.kmeans.UBC",
+        "python_path": "d3m.primitives.clustering.kmeans_clustering.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.CLUSTERING,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.K_MEANS_CLUSTERING],
         "source": {
