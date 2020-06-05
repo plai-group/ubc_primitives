@@ -2,8 +2,8 @@ import subprocess
 from setuptools import setup, find_packages
 
 # Run
-#subprocess.run(["apt", "update"])
-#subprocess.run(["apt", "install", "python3.6-gdbm"])
+# subprocess.run(["apt", "update"])
+# subprocess.run(["apt", "install", "python3.6-gdbm"])
 
 # Get install requirements
 with open('requirements.txt', 'r') as f:
