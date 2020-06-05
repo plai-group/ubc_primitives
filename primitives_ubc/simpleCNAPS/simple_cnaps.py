@@ -13,7 +13,7 @@ import logging
 import numpy as np
 import torch
 from torch.utils import data
-from primitives_ubc.simpleCNAPS.dataset import Dataset
+from primitives_ubc.simpleCNAPS.dataset   import Dataset
 from primitives_ubc.simpleCNAPS.src.model import SimpleCnaps
 from primitives_ubc.simpleCNAPS.src.utils import print_and_log, get_log_files
 from primitives_ubc.simpleCNAPS.src.utils import loss
@@ -95,11 +95,11 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
                          'file_digest': '79c93169d567ccb50d4303fbd366560effc4d05dfd7e1a4fa7bca0b3dd0c8d6d'},
     ]
     metadata   =  metadata_base.PrimitiveMetadata({
-        "id": "97c01f04-83c5-459c-8df6-dbc50b3ced9b",
+        "id": "166ccbaf-3621-4654-9928-bf7ef17d5c2d",
         "version": config.VERSION,
         "name": "Simple CNAPS primitive",
         "description": "A primitive for few-shot learning classification",
-        "python_path": "d3m.primitives.classification.simpleCnaps.UBC",
+        "python_path": "d3m.primitives.classification.simple_cnaps.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.CLASSIFICATION,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.NEURAL_NETWORK_BACKPROPAGATION,
                             metadata_base.PrimitiveAlgorithmType.CONVOLUTIONAL_NEURAL_NETWORK],

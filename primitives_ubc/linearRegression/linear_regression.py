@@ -95,11 +95,11 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
     # Metadata
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata   =  metadata_base.PrimitiveMetadata({
-        "id": "f59200c3-f597-4c92-9793-c2664e6932f8",
+        "id": "7288e169-5c2b-434a-96f8-cb2144e7f9cc",
         "version": config.VERSION,
         "name": "Bayesian Linear Regression",
         "description": "A bayesian linear regression",
-        "python_path": "d3m.primitives.regression.LinearRegression.UBC",
+        "python_path": "d3m.primitives.regression.linear_regression.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.REGRESSION,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.LINEAR_REGRESSION,],
         "source": {

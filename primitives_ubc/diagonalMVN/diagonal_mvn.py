@@ -71,11 +71,11 @@ class DiagonalMVNPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, P
     # Metadata
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata   =  metadata_base.PrimitiveMetadata({
-        "id": "d211d6ca-4a31-4c69-a853-3be9c57fa36f",
+        "id": "be2ecea2-bae0-4a11-8493-005769b41d5f",
         "version": config.VERSION,
         "name": "Diagonal Multivariate Normal Distribution primitive",
         "description": "Diagonal multivariate normal distribution primitive, mainly for being used as a weight prior of another primitive.",
-        "python_path": "d3m.primitives.operator.DiagonalMVN.UBC",
+        "python_path": "d3m.primitives.operator.diagonal_mvn.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.OPERATOR,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.NORMAL_DISTRIBUTION,],
         "source": {

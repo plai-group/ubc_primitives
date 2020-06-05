@@ -60,11 +60,11 @@ class PrincipalComponentAnalysisPrimitive(PrimitiveBase[Inputs, Outputs, Params,
     # Metadata
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata   =  metadata_base.PrimitiveMetadata({
-        "id": "3153e9fc-bd0d-4765-ac4e-d11d6cc777b2",
+        "id": "f44b6fd4-fd56-48d9-8fdc-c38300c8d256",
         "version": config.VERSION,
         "name": "Principal Component Analysis",
         "description": "Projects data to a lower dimensional space.",
-        "python_path": "d3m.primitives.dimensionality_reduction.pca.UBC",
+        "python_path": "d3m.primitives.dimensionality_reduction.principal_component_analysis.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.DIMENSIONALITY_REDUCTION,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.PRINCIPAL_COMPONENT_ANALYSIS],
         "source": {
