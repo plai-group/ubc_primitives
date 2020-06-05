@@ -1,11 +1,11 @@
+ #!/usr/bin/env python -W ignore
 from d3m import container
 from d3m.container.numpy import ndarray
 from d3m.primitive_interfaces import base
 from d3m.metadata import base as metadata_base, hyperparams, params
-from d3m.primitive_interfaces.supervised_learning import SupervisedLearnerPrimitiveBase
 from d3m.primitive_interfaces.base import ProbabilisticCompositionalityMixin
-from d3m.primitive_interfaces.base import GradientCompositionalityMixin
 from d3m.primitive_interfaces.base import SamplingCompositionalityMixin
+from d3m.primitive_interfaces.supervised_learning import SupervisedLearnerPrimitiveBase
 from d3m.primitive_interfaces.base import Gradients
 from d3m.primitive_interfaces.base import CallResult
 
@@ -16,28 +16,50 @@ import os
 import time
 import math
 import random
-import theano # type: ignore
 import numpy  as np  # type: ignore
 import pandas as pd  # type: ignore
-import pymc3  as pm  # type: ignore
-from pymc3 import Model, Normal, Bernoulli, NUTS  # type: ignore
-from pymc3 import invlogit, sample, sample_ppc, find_MAP  # type: ignore
-from pymc3.backends.base import MultiTrace  # type: ignore
 from sklearn.impute import SimpleImputer # type: ignore
 from sklearn.preprocessing import OneHotEncoder # type: ignore
 from typing import NamedTuple, Sequence, Any, List, Dict, Union, Tuple
-
-import warnings
-warnings.filterwarnings('ignore')
 
 __all__ = ('LogisticRegressionPrimitive',)
 
 Inputs  = container.DataFrame
 Outputs = container.DataFrame
 
+class ImportModules:
+    """
+    Import heavy modules after calling the primitive as not to slow down d3m.index
+    """
+    _weight_files = []
+    def __init__(self):
+        self._initialized = False
+
+    def _import_lib(self):
+        if self._initialized:
+            return
+
+        global theano, pm, MultiTrace
+        global Model, Normal, Bernoulli, NUTS
+        global invlogit, sample, sample_ppc, find_MAP
+
+        theano     = importlib.import_module('theano')
+        pm         = importlib.import_module('pymc3')
+        Model      = importlib.import_module('pymc3', 'Model')
+        Normal     = importlib.import_module('pymc3', 'Normal')
+        Bernoulli  = importlib.import_module('pymc3', 'Bernoulli')
+        NUTS       = importlib.import_module('pymc3', 'NUTS')
+        invlogit   = importlib.import_module('pymc3', 'invlogit')
+        sample     = importlib.import_module('pymc3', 'sample')
+        sample_ppc = importlib.import_module('pymc3', 'sample_ppc')
+        find_MAP   = importlib.import_module('pymc3', 'find_MAP')
+        MultiTrace = importlib.import_module('pymc3.backends.base', 'MultiTrace')
+
+        self._initialized = True
+
 
 class Params(params.Params):
-    weights: MultiTrace
+    weights: ndarray
 
 
 class Hyperparams(hyperparams.Hyperparams):
@@ -65,7 +87,8 @@ class Hyperparams(hyperparams.Hyperparams):
 
 class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, Params, Hyperparams],
                                   SamplingCompositionalityMixin[Inputs, Outputs, Params, Hyperparams],
-                                  SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperparams]):
+                                  SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperparams],
+                                  ImportModules):
     """
     -------------
     Inputs:  DataFrame of features of shape: NxM, where N = samples and M = features.
@@ -100,6 +123,12 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
         self._training_inputs: Inputs   = None
         self._training_outputs: Outputs = None
 
+        # Intialize ImportModules
+        ImportModules.__init__(self)
+        # Import other needed modules
+        ImportModules._import_lib(self)
+
+        # Set parameters
         self._mu = self.hyperparams['mu']
         self._sd = self.hyperparams['sd']
         self._burnin = self.hyperparams['burnin']
@@ -358,7 +387,10 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
 
 
     def get_params(self) -> Params:
-        return Params(weights=self.trace)
+        w = self._trace['weights']
+        w = np.squeeze(w, axis=2)
+
+        return Params(weights=w)
 
 
     def set_params(self, *, params: Params) -> None:
