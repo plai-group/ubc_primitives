@@ -148,11 +148,11 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
     # Metadata
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     metadata   =  metadata_base.PrimitiveMetadata({
-        "id": "bee81534-9c96-4f42-aed5-8cf5389700a5",
+        "id": "73c21d0c-8364-4bd2-ab6b-06c53f251674",
         "version": config.VERSION,
         "name": "Neural Network Regressor",
         "description": "A feed-forward neural network primitive",
-        "python_path": "d3m.primitives.regression.mlp.UBC",
+        "python_path": "d3m.primitives.regression.multilayer_perceptron.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.REGRESSION,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.NEURAL_NETWORK_BACKPROPAGATION],
         "source": {

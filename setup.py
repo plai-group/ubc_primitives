@@ -37,14 +37,14 @@ setup(name='ubc_primitives',
               'feature_extraction.mobilenet_cnn.UBC=primitives_ubc.mobilenet:MobileNetCNN',
               'feature_extraction.resnet_cnn.UBC=primitives_ubc.resnet:ResNetCNN',
               'feature_extraction.vggnet_cnn.UBC=primitives_ubc.vgg:VGG16CNN',
+              'classification.canonical_correlation_forests.UBC=primitives_ubc.clfyCCFS:CanonicalCorrelationForestsClassifierPrimitive',
+              'regression.canonical_correlation_forests.UBC=primitives_ubc.regCCFS:CanonicalCorrelationForestsRegressionPrimitive',
+              'classification.multilayer_perceptron.UBC=primitives_ubc.clfyMLP:MultilayerPerceptronClassifierPrimitive',
+              'regression.multilayer_perceptron.UBC=primitives_ubc.regMLP:MultilayerPerceptronRegressionPrimitive',
           ],
       })
 
 
-# 'classification.canonical_correlation_forests.UBC=primitives_ubc.clfyCCFS:CanonicalCorrelationForestsClassifierPrimitive',
-# 'regression.canonical_correlation_forests.UBC=primitives_ubc.regCCFS:CanonicalCorrelationForestsRegressionPrimitive',
-# 'classification.multilayer_perceptron.UBC=primitives_ubc.clfyMLP:MultilayerPerceptronClassifierPrimitive',
-# 'regression.multilayer_perceptron.UBC=primitives_ubc.regMLP:MultilayerPerceptronRegressionPrimitive',
 # 'clustering.kmeans_clustering.UBC=primitives_ubc.kmeans:KMeansClusteringPrimitive',
 # 'dimensionality_reduction.principal_component_analysis.UBC=primitives_ubc.pca:PrincipalComponentAnalysisPrimitive',
 # 'classification.simple_cnaps.UBC=primitives_ubc.simpleCNAPS:SimpleCNAPSClassifierPrimitive',
