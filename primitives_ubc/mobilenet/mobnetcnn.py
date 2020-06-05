@@ -166,11 +166,11 @@ class MobileNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
                          'file_uri': 'https://download.pytorch.org/models/mobilenet_v2-b0353104.pth',
                          'file_digest': 'b03531047ffacf1e2488318dcd2aba1126cde36e3bfe1aa5cb07700aeeee9889'},]
     metadata = metadata_base.PrimitiveMetadata({
-        "id": "6bf5e790-8672-4cd2-bf88-c595e9c11f1d",
+        "id": "383688b9-963f-4b4d-8739-a481c31f7671",
         "version": config.VERSION,
         "name": "MobileNet Convolutional Neural Network",
         "description": "A primitive to extract features and to fit model for images",
-        "python_path": "d3m.primitives.feature_extraction.mobilenet.UBC",
+        "python_path": "d3m.primitives.feature_extraction.mobilenet_cnn.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.FEATURE_EXTRACTION,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.CONVOLUTIONAL_NEURAL_NETWORK],
         "source": {

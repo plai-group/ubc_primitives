@@ -201,11 +201,11 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
                           'file_digest': '333f7ec4c6338da2cbed37f1fc0445f9624f1355633fa1d7eab79a91084c6cef'},
     ]
     metadata = metadata_base.PrimitiveMetadata({
-        "id": "8f91951f-7c83-4dd4-ad00-16d12bb964eb",
+        "id": "5335758b-9977-4d53-a3d1-e33a352d214d",
         "version": config.VERSION,
         "name": "Convolutional Neural Network",
         "description": "A primitive to extract features and to fit model for images",
-        "python_path": "d3m.primitives.feature_extraction.cnn.UBC",
+        "python_path": "d3m.primitives.feature_extraction.convolutional_neural_network.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.FEATURE_EXTRACTION,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.CONVOLUTIONAL_NEURAL_NETWORK],
         "source": {

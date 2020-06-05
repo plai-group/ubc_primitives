@@ -166,11 +166,11 @@ class ResNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperpar
                          'file_uri': 'https://download.pytorch.org/models/resnet34-333f7ec4.pth',
                          'file_digest': '333f7ec4c6338da2cbed37f1fc0445f9624f1355633fa1d7eab79a91084c6cef'},]
     metadata = metadata_base.PrimitiveMetadata({
-        "id": "f6d596f9-4bfd-4a9c-abb5-16d45ff4cff8",
+        "id": "6e193006-9c92-4fbe-90be-3051daae7049",
         "version": config.VERSION,
         "name": "ResNet Convolutional Neural Network",
         "description": "A primitive to extract features and to fit model for image data",
-        "python_path": "d3m.primitives.feature_extraction.resnet.UBC",
+        "python_path": "d3m.primitives.feature_extraction.resnet_cnn.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.FEATURE_EXTRACTION,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.CONVOLUTIONAL_NEURAL_NETWORK],
         "source": {
