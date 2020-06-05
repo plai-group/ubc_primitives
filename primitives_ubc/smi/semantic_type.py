@@ -185,11 +185,11 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
     _weights_configs_2 = LoadWeightsPrimitive._get_weight_installation_tar(_weight_files_2)
 
     metadata = hyperparams.base.PrimitiveMetadata({
-        "id": "3d1876f2-cfbd-40a8-a6ec-b6a21efaa28d",
+        "id": "b88b7cdd-f07c-4d56-a383-d0c46e2c056b",
         "version": config.VERSION,
-        "name": "UBC semantic type",
+        "name": "Semantic Type Inference",
         "description": "A primitive which detects semantic type of each column of data",
-        "python_path": "d3m.primitives.schema_discovery.profiler.UBC",
+        "python_path": "d3m.primitives.schema_discovery.semantic_type.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.SCHEMA_DISCOVERY,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.DATA_CONVERSION],
         "source": {
