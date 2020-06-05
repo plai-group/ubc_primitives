@@ -357,10 +357,6 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
         return CallResult(np.array([self._log_likelihood(input=[input], output=[output]) for input, output in zip(inputs, outputs)]))
 
 
-    def gradient_params(self, *, outputs: Outputs, inputs: Inputs) -> Gradients[Params]:
-        raise NotImplementedError()
-
-
     def get_params(self) -> Params:
         return Params(weights=self.trace)
 
