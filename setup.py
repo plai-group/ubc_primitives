@@ -30,11 +30,11 @@ setup(name='ubc_primitives',
       entry_points={
           'd3m.primitives': [
               'schema_discovery.semantic_type.UBC=primitives_ubc.smi:SemanticTypeInfer',
+              'feature_extraction.boc.UBC=primitives_ubc.boc:BagOfCharacters',
+              'feature_extraction.bow.UBC=primitives_ubc.bow:BagOfWords',
           ],
       })
 
-# 'feature_extraction.boc.UBC=primitives_ubc.boc:BagOfCharacters',
-# 'feature_extraction.bow.UBC=primitives_ubc.bow:BagOfWords',
 # 'feature_extraction.convolutional_nn.UBC=primitives_ubc.cnn:ConvolutionalNeuralNetwork',
 # 'feature_extraction.googlenet_cnn.UBC=primitives_ubc.googlenet:GoogleNetCNN',
 # 'feature_extraction.mobilenet_cnn.UBC=primitives_ubc.mobilenet:MobileNetCNN',
