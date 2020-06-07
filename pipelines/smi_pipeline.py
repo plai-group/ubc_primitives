@@ -13,7 +13,7 @@ import d3m.primitives.data_cleaning.imputer as Imputer
 import d3m.primitives.classification.random_forest as RF
 
 # Testing primitive
-from primitives.smi.semantic_type import SemanticTypeInfer
+from primitives_ubc.smi.semantic_type import SemanticTypeInfer
 
 def make_pipeline():
     pipeline = Pipeline()
