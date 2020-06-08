@@ -3,6 +3,7 @@ from d3m.container import pandas # type: ignore
 from d3m.primitive_interfaces import base
 from d3m.metadata import base as metadata_base, hyperparams, params
 from d3m.base import utils as base_utils
+from d3m.exceptions import PrimitiveNotFittedError
 from d3m.primitive_interfaces.supervised_learning import SupervisedLearnerPrimitiveBase
 from common_primitives.dataframe_to_ndarray import DataFrameToNDArrayPrimitive
 from common_primitives.ndarray_to_dataframe import NDArrayToDataFramePrimitive
@@ -18,7 +19,7 @@ import time
 import logging
 import numpy as np
 from collections  import OrderedDict
-from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
+from typing import Any, cast, Dict, List, Union, Sequence, Optional, Tuple
 
 # Import CCFs functions
 from primitives_ubc.regCCFS.src.generate_CCF import genCCF
@@ -32,7 +33,8 @@ Outputs = container.DataFrame
 
 
 class Params(params.Params):
-    None
+    CCF_: Optional[Dict]
+    target_names_: Optional[List[str]]
 
 
 class Hyperparams(hyperparams.Hyperparams):
@@ -249,10 +251,11 @@ class CanonicalCorrelationForestsRegressionPrimitive(SupervisedLearnerPrimitiveB
     def __init__(self, *, hyperparams: Hyperparams, random_seed: int = 0, _verbose: int = 0) -> None:
         super().__init__(hyperparams=hyperparams, random_seed=random_seed)
         self.hyperparams   = hyperparams
-        self._random_state = np.random.RandomState(self.random_seed)
+        self._random_state = random_seed
         self._verbose      = _verbose
         self._training_inputs: Inputs = None
         self._training_outputs: Outputs = None
+        self._label_name_columns = None
         # Is the model fit on the training data
         self._fitted = False
 
@@ -347,7 +350,7 @@ class CanonicalCorrelationForestsRegressionPrimitive(SupervisedLearnerPrimitiveB
         for lbl_c in label_columns:
             label_name_columns.append(label_name_columns_[lbl_c])
 
-        self.label_name_columns = label_name_columns
+        self._label_name_columns = label_name_columns
 
         return XTrain, YTrain
 
@@ -375,7 +378,7 @@ class CanonicalCorrelationForestsRegressionPrimitive(SupervisedLearnerPrimitiveB
         """
         # Inference
         if not self._fitted:
-            raise Exception('Please fit the model before calling produce!')
+            raise PrimitiveNotFittedError("Primitive not fitted.")
 
         # Get testing data
         feature_columns = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute')
@@ -410,11 +413,11 @@ class CanonicalCorrelationForestsRegressionPrimitive(SupervisedLearnerPrimitiveB
         for col in range(YpredCCF_output.shape[1]):
             col_dict = dict(YpredCCF_output.metadata.query((metadata_base.ALL_ELEMENTS, col)))
             col_dict['structural_type'] = type(1.0)
-            col_dict['name']            = self.label_name_columns[col]
+            col_dict['name']            = self._label_name_columns[col]
             col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/PredictedTarget",)
             YpredCCF_output.metadata    = YpredCCF_output.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
         # Rename Columns to match label columns
-        YpredCCF_output.columns = self.label_name_columns
+        YpredCCF_output.columns = self._label_name_columns
 
         # Append to outputs
         outputs = outputs.append_columns(YpredCCF_output)
@@ -423,7 +426,13 @@ class CanonicalCorrelationForestsRegressionPrimitive(SupervisedLearnerPrimitiveB
 
 
     def get_params(self) -> Params:
-        return None
+        if not self._fitted:
+            return Params(CCF_=self._CCF, target_names_=self._label_name_columns)
+
+        return Params(CCF_=self._CCF, target_names_=self._label_name_columns)
+
 
     def set_params(self, *, params: Params) -> None:
-        return None
+        self._CCF = params['CCF_']
+        self._label_name_columns = params['target_names_']
+        self._fitted = True

@@ -16,7 +16,7 @@ import d3m.primitives.classification.random_forest as RF
 # Testing Primitive
 from primitives_ubc.bow.bag_of_words import BagOfWords
 
-def pipeline_1():
+def make_pipeline():
     pipeline = Pipeline()
     pipeline.add_input(name='inputs')
 

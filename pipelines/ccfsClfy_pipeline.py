@@ -45,6 +45,7 @@ def make_pipeline():
     step_3 = PrimitiveStep(primitive_description=CanonicalCorrelationForestsClassifierPrimitive.metadata.query())
     step_3.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.2.produce')
     step_3.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    step_3.add_hyperparameter(name='nTrees', argument_type=ArgumentType.VALUE, data=2)
     step_3.add_output('produce')
     pipeline.add_step(step_3)
 
