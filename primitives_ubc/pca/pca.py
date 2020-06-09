@@ -46,7 +46,7 @@ class Hyperparams(hyperparams.Hyperparams):
     )
 
 
-class PrincipalComponentAnalysisPrimitive(transformer.TransformerPrimitiveBase[Inputs, Outputs, Params, Hyperparams]):
+class PrincipalComponentAnalysisPrimitive(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hyperparams]):
     """
     PCA primitive convert a set of observations of possibly correlated variables into a set
     of values of linearly uncorrelated variables called principal components.
@@ -203,15 +203,13 @@ class PrincipalComponentAnalysisPrimitive(transformer.TransformerPrimitiveBase[I
 
         self._fitted = True
 
+
     def produce(self, *, inputs: Inputs, iterations: int = None, timeout: float = None) -> base.CallResult[Outputs]:
         """
         Inputs:  DataFrame of features
         Returns: Pandas DataFrame of the latent matrix
         """
         self._transform(training_inputs=inputs)
-
-        if not self._fitted:
-            raise ValueError('Please fit the model before calling produce!')
 
         # Curate data
         XTest, feature_columns = self._curate_data(training_inputs=inputs)
@@ -240,27 +238,3 @@ class PrincipalComponentAnalysisPrimitive(transformer.TransformerPrimitiveBase[I
         outputs = outputs.append_columns(pca_out)
 
         return base.CallResult(outputs)
-
-
-    def get_params(self) -> Params:
-        return Params(transformation=ndarray(self._transformation.numpy()),
-                      n_components=self._n_components)
-
-
-    def set_params(self, *, params: Params) -> None:
-        self._transformation = torch.from_numpy(params["transformation"]).type(torch.DoubleTensor)
-        self._fitted = True
-
-
-    def __getstate__(self) -> dict:
-        state = super().__getstate__()
-
-        state['random_state'] = self._random_state
-
-        return state
-
-
-    def __setstate__(self, state: dict) -> None:
-        super().__setstate__(state)
-
-        self._random_state = state['random_state']

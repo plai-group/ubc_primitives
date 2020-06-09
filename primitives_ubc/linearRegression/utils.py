@@ -3,6 +3,7 @@ import torch  # type: ignore
 import numpy as np  # type: ignore
 from typing import *
 from torch.autograd import Variable  # type: ignore
+from d3m.container.numpy import ndarray
 
 def to_variable(value: Any, requires_grad: bool = False) -> Variable:
     """

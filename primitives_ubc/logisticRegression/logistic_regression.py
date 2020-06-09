@@ -16,6 +16,7 @@ import os
 import time
 import math
 import random
+import importlib
 import numpy  as np  # type: ignore
 import pandas as pd  # type: ignore
 from sklearn.impute import SimpleImputer # type: ignore
@@ -306,14 +307,14 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
 
         # As the model depends on number of features it has to be here
         # and not in __init__
-        with Model() as model:
-            weights = Normal('weights', mu=self._mu, sd=self._sd, shape=(n_features, 1))
-            p = invlogit(pm.math.dot(self._training_inputs, weights))
-            Bernoulli('y', p, observed=self._training_outputs)
-            trace = sample(_iterations,
-                           random_seed=self.random_seed,
-                           trace=self._trace,
-                           tune=self._burnin, progressbar=False)
+        with Model.Model() as model:
+            weights = Normal.Normal('weights', mu=self._mu, sd=self._sd, shape=(n_features, 1))
+            p = invlogit.invlogit(pm.math.dot(self._training_inputs, weights))
+            Bernoulli.Bernoulli('y', p, observed=self._training_outputs)
+            trace = sample.sample(_iterations,
+                                  random_seed=self.random_seed,
+                                  trace=self._trace,
+                                  tune=self._burnin, progressbar=False)
         self._trace  = trace
         self._model  = model
         self._fitted = True
@@ -327,9 +328,9 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
         self._training_outputs.set_value(np.random.binomial(1, 0.5, inputs.shape[0]))
 
         with self._model:
-            post_pred = sample_ppc(self._trace,
-                                   samples=num_samples,
-                                   progressbar=False)
+            post_pred = sample_ppc.sample_ppc(self._trace,
+                                              samples=num_samples,
+                                              progressbar=False)
 
         return CallResult(post_pred['y'].astype(int))
 

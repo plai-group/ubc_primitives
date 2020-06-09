@@ -19,7 +19,7 @@ import torch
 import random
 import numpy as np
 from sklearn.metrics import mean_squared_error
-from typing import NamedTuple, Sequence, Any, List, Dict, Union, Tuple
+from typing import Any, cast, Dict, List, Union, Sequence, Optional, Tuple
 from primitives_ubc.linearRegression.utils import to_variable, refresh_node, log_mvn_likelihood
 
 
@@ -34,6 +34,7 @@ class Params(params.Params):
     weights_variance: ndarray
     offset: float
     noise_variance: float
+    target_names_: Optional[List[str]]
 
 
 class Hyperparams(hyperparams.Hyperparams):
@@ -120,6 +121,7 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         self._verbose      = _verbose
         self._training_inputs: Inputs   = None
         self._training_outputs: Outputs = None
+        self.label_name_columns = None
 
         self._batch_size             = hyperparams['minibatch_size']
         self._use_gradient_fit       = hyperparams['use_gradient_fit']
@@ -584,7 +586,8 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
                     weights=ndarray(self._weights[:-1].data.numpy()),
                     offset=float(self._weights[-1].data.numpy()),
                     noise_variance=float(self._noise_variance.data.numpy()[0]),
-                    weights_variance=ndarray(self._weights_variance.data.numpy())
+                    weights_variance=ndarray(self._weights_variance.data.numpy()),
+                    target_names_=self.label_name_columns
                )
 
     def set_params(self, *, params: Params) -> None:
@@ -593,6 +596,7 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         self._weights.retain_grad()
         self._weights_variance = to_variable(params['weights_variance'], requires_grad=True)
         self._noise_variance   = to_variable(params['noise_variance'], requires_grad=True)
+        self.label_name_columns = params['target_names_']
         self._fitted = True
 
 

@@ -14,7 +14,6 @@ from common_primitives.extract_columns_semantic_types import ExtractColumnsBySem
 
 # Testing Primitive
 from primitives_ubc.vgg.vggnetcnn import VGG16CNN
-from primitives_ubc.pca.pca import PrincipalComponentAnalysisPrimitive
 from primitives_ubc.linearRegression.linear_regression import LinearRegressionPrimitive
 
 def make_pipeline():
