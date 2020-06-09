@@ -47,7 +47,7 @@ def make_pipeline():
     step_3.add_hyperparameter(name='use_batch_norm',  argument_type=ArgumentType.VALUE, data=True)
     step_3.add_hyperparameter(name='activation_type', argument_type=ArgumentType.VALUE, data='leaky_relu')
     step_3.add_hyperparameter(name='dataset_type',    argument_type=ArgumentType.VALUE, data='dataset_1')
-    step_3.add_hyperparameter(name='num_iterations',  argument_type=ArgumentType.VALUE, data=500)
+    step_3.add_hyperparameter(name='num_iterations',  argument_type=ArgumentType.VALUE, data=1)
     step_3.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.2.produce')
     step_3.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_3.add_output('produce')

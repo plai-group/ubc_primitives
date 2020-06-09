@@ -19,7 +19,7 @@ import torch.nn as nn  # type: ignore
 import torch.optim as optim # type: ignore
 from torch.utils import data
 import torchvision.transforms as transforms
-from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
+from typing import Any, cast, Dict, List, Union, Sequence, Optional, Tuple
 
 from primitives_ubc.clfyMLP.dataset import Dataset_1
 from primitives_ubc.clfyMLP.dataset import Dataset_2
@@ -34,7 +34,9 @@ Outputs = container.DataFrame
 DEBUG = False  # type: ignore
 
 class Params(params.Params):
-    None
+    nn_model: Optional[Any]
+    target_names_: Optional[List[str]]
+    add_class_index_: Optional[Any]
 
 
 class Hyperparams(hyperparams.Hyperparams):
@@ -172,10 +174,12 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
     def __init__(self, *, hyperparams: Hyperparams, random_seed: int = 0, _verbose: int = 0) -> None:
         super().__init__(hyperparams=hyperparams, random_seed=random_seed)
         self.hyperparams   = hyperparams
-        self._random_state = np.random.RandomState(self.random_seed)
+        self._random_state = random_seed
         self._verbose      = _verbose
         self._training_inputs: Inputs   = None
         self._training_outputs: Outputs = None
+        self.label_name_columns = None
+        self.add_class_index    = None
         # Use GPU if available
         use_cuda    = torch.cuda.is_available()
         self.device = torch.device("cuda:0" if use_cuda else "cpu")
@@ -640,8 +644,28 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
 
 
     def get_params(self) -> Params:
-        return None
+        if not self._fitted:
+            return Params(nn_model=self._net, target_names_=self.label_name_columns, add_class_index_=self.add_class_index)
+
+        return Params(nn_model=self._net, target_names_=self.label_name_columns, add_class_index_=self.add_class_index)
 
 
     def set_params(self, *, params: Params) -> None:
-        return None
+        self._net = params['nn_model']
+        self.label_name_columns = params['target_names_']
+        self.add_class_index = params['add_class_index_']
+        self._fitted = True
+
+
+    def __getstate__(self) -> dict:
+        state = super().__getstate__()
+
+        state['random_state'] = self._random_state
+
+        return state
+
+
+    def __setstate__(self, state: dict) -> None:
+        super().__setstate__(state)
+
+        self._random_state = state['random_state']
