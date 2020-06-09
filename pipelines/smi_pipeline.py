@@ -79,7 +79,7 @@ def make_pipeline():
 
     # print(pipeline.to_json())
 
-    with open('./profiler_pipeline.json', 'w') as write_file:
+    with open('./smi_pipeline.json', 'w') as write_file:
         write_file.write(pipeline.to_json(indent=4, sort_keys=False, ensure_ascii=False))
 
     print('Generated pipeline!')

@@ -18,7 +18,7 @@ import torch  # type: ignore
 import numpy as np  # type: ignore
 import pandas as pd  # type: ignore
 from sklearn.metrics import mean_squared_error
-from typing import NamedTuple, Sequence, Any, List, Dict, Union, Tuple
+from typing import Any, cast, Dict, List, Union, Sequence, Optional, Tuple
 
 # Import config file
 from primitives_ubc.config_files import config
@@ -304,7 +304,7 @@ class DiagonalMVNPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, P
             col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/Attribute",)
             predictions.metadata        = predictions.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
 
-        return CallResult(predictions, has_finished=False, iterations_done=self._iterations_done)
+        return CallResult(predictions)
 
 
     def backward(self, *, gradient_outputs: Gradients[Outputs], fine_tune: bool = False, fine_tune_learning_rate: float = 0.00001, fine_tune_weight_decay: float = 0.00001) -> Tuple[Gradients[Inputs], Gradients[Params]]: # type: ignore
@@ -318,6 +318,7 @@ class DiagonalMVNPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, P
     def set_params(self, *, params: Params) -> None:
         self._mean = to_variable(params['mean'], requires_grad=True)
         self._covariance = to_variable(params['covariance'], requires_grad=True)
+        self._fitted = True
 
 
     def _sample_once(self, *, inputs: Inputs) -> Outputs:
@@ -331,7 +332,7 @@ class DiagonalMVNPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, P
         # sample just returns a number of samples from the current mvn
         s = np.array([self._sample_once(inputs=inputs) for _ in range(num_samples)])
 
-        return CallResult(s, has_finished=False, iterations_done=self._iterations_done)
+        return CallResult(s)
 
 
     def _log_likelihood(self, *, output:  torch.autograd.Variable) -> torch.autograd.Variable:
@@ -368,7 +369,7 @@ class DiagonalMVNPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, P
     def log_likelihoods(self, *, outputs: Outputs, inputs: Inputs, timeout: float = None, iterations: int = None) -> CallResult[ndarray]:
         result = np.array([self._log_likelihood(output=output).data.numpy() for output in outputs])
 
-        return CallResult(result, has_finished=False, iterations_done=self._iterations_done)
+        return CallResult(result)
 
     def log_likelihood(self, *, outputs: Outputs, inputs: Inputs, timeout: float = None, iterations: int = None) -> CallResult[float]:
         """
@@ -376,7 +377,7 @@ class DiagonalMVNPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, P
         """
         result = self.log_likelihoods(outputs=outputs, inputs=inputs, timeout=timeout, iterations=iterations)
 
-        return CallResult(sum(result.value), has_finished=result.has_finished, iterations_done=result.iterations_done)
+        return CallResult(sum(result.value))
 
 
     def gradient_output(self, *, outputs: Outputs, inputs: Inputs) -> Gradients[Outputs]:  # type: ignore
@@ -408,7 +409,3 @@ class DiagonalMVNPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, P
 
     def set_fit_term_temperature(self, *, temperature: float = 0) -> None:
         self._fit_term_temperature = temperature
-
-
-    def get_call_metadata(self) -> CallResult:
-        return CallResult(None, has_finished=False, iterations_done=self._iterations_done)
