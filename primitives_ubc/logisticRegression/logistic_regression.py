@@ -61,6 +61,8 @@ class ImportModules:
 
 class Params(params.Params):
     weights: Optional[Any]
+    _categories: Optional[Any]
+    target_names_: Optional[List[str]]
 
 
 class Hyperparams(hyperparams.Hyperparams):
@@ -390,12 +392,17 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
     def get_params(self) -> Params:
         w = self._trace['weights']
 
-        return Params(weights=w)
+        return Params(weights=w,\
+                      _categories=self._categories,\
+                      target_names_=self.label_name_columns)
 
 
     def set_params(self, *, params: Params) -> None:
         self._trace = {}
-        self._trace['weights'] = params["weights"]
+        self._trace['weights']  = params["weights"]
+        self._categories        = params["_categories"]
+        self.label_name_columns = params["target_names_"]
+        self._fitted = True
 
 
     def __getstate__(self) -> dict:
