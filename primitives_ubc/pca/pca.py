@@ -2,7 +2,6 @@ from d3m import container
 from d3m.container import pandas # type: ignore
 from d3m.container import ndarray
 from d3m.primitive_interfaces import base, transformer
-from d3m.primitive_interfaces.base import PrimitiveBase
 from d3m.metadata import base as metadata_base, hyperparams, params
 from d3m.base import utils as base_utils
 
@@ -47,7 +46,7 @@ class Hyperparams(hyperparams.Hyperparams):
     )
 
 
-class PrincipalComponentAnalysisPrimitive(PrimitiveBase[Inputs, Outputs, Params, Hyperparams]):
+class PrincipalComponentAnalysisPrimitive(transformer.TransformerPrimitiveBase[Inputs, Outputs, Params, Hyperparams]):
     """
     PCA primitive convert a set of observations of possibly correlated variables into a set
     of values of linearly uncorrelated variables called principal components.
@@ -80,7 +79,7 @@ class PrincipalComponentAnalysisPrimitive(PrimitiveBase[Inputs, Outputs, Params,
     def __init__(self, *, hyperparams: Hyperparams, random_seed: int = 0, _verbose: int = 0) -> None:
         super().__init__(hyperparams=hyperparams, random_seed=random_seed)
         self.hyperparams   = hyperparams
-        self._random_state = np.random.RandomState(self.random_seed)
+        self._random_state = random_seed
         self._verbose      = _verbose
         self._training_inputs:  Inputs  = None
         self._training_outputs: Outputs = None
@@ -90,15 +89,6 @@ class PrincipalComponentAnalysisPrimitive(PrimitiveBase[Inputs, Outputs, Params,
         self._n_components   = None
         self._transformation = None
         self._mean           = None
-        # Is the model fit on the training data
-        self._fitted = False
-
-
-    def set_training_data(self, *, inputs: Inputs, outputs: Outputs) -> None:
-        self._training_inputs   = inputs
-        self._training_outputs  = outputs
-        self._new_training_data = True
-
 
     def _curate_data(self, training_inputs):
         # if self._training_inputs is None or self._training_outputs is None:
@@ -174,16 +164,13 @@ class PrincipalComponentAnalysisPrimitive(PrimitiveBase[Inputs, Outputs, Params,
         return mean, zero_mean_data
 
 
-    def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
+    def _transform(self, training_inputs):
         # If already fitted with current training data, this call is a noop.
-        if self._fitted:
-            return CallResult(None)
-
-        if self._training_inputs is None:
+        if training_inputs is None:
             raise ValueError("Missing training data.")
 
         # Curate and get data from inputs
-        XTrain, _ = self._curate_data(training_inputs=self._training_inputs)
+        XTrain, _ = self._curate_data(training_inputs=training_inputs)
 
         # Convert data from numpy array to torch tensor
         XTrain = torch.from_numpy(XTrain).type(torch.DoubleTensor)
@@ -216,14 +203,13 @@ class PrincipalComponentAnalysisPrimitive(PrimitiveBase[Inputs, Outputs, Params,
 
         self._fitted = True
 
-        return base.CallResult(None)
-
-
     def produce(self, *, inputs: Inputs, iterations: int = None, timeout: float = None) -> base.CallResult[Outputs]:
         """
         Inputs:  DataFrame of features
         Returns: Pandas DataFrame of the latent matrix
         """
+        self._transform(training_inputs=inputs)
+
         if not self._fitted:
             raise ValueError('Please fit the model before calling produce!')
 
@@ -260,5 +246,21 @@ class PrincipalComponentAnalysisPrimitive(PrimitiveBase[Inputs, Outputs, Params,
         return Params(transformation=ndarray(self._transformation.numpy()),
                       n_components=self._n_components)
 
+
     def set_params(self, *, params: Params) -> None:
-        self._transformation = torch.from_numpy(params.transformation).type(torch.DoubleTensor)
+        self._transformation = torch.from_numpy(params["transformation"]).type(torch.DoubleTensor)
+        self._fitted = True
+
+
+    def __getstate__(self) -> dict:
+        state = super().__getstate__()
+
+        state['random_state'] = self._random_state
+
+        return state
+
+
+    def __setstate__(self, state: dict) -> None:
+        super().__setstate__(state)
+
+        self._random_state = state['random_state']

@@ -319,7 +319,7 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
 
         self._fitted = True
 
-        return CallResult(None, has_finished=self._has_finished, iterations_done=self._iterations_done)
+        return CallResult(None)
 
 
     def _analytic_fit(self, *, iterations):
@@ -370,7 +370,6 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         iter_count = 0
         has_converged = False
         while iter_count < iterations and has_converged == False:
-            print(iter_count)
             iter_count += 1
             batch_no = iter_count%num_batches
 
