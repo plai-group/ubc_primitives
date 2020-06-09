@@ -246,6 +246,9 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
         inputs: (num_inputs,  D) numpy array
         outputs : numpy array of dimension (num_inputs)
         """
+        if not self._fitted:
+            raise Exception('Please fit the model before calling produce!')
+
         # Curate data
         XTest, feature_columns = self._curate_data(training_inputs=inputs, training_outputs=None, get_labels=False)
 
@@ -402,7 +405,7 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
         self._trace['weights']  = params["weights"]
         self._categories        = params["_categories"]
         self.label_name_columns = params["target_names_"]
-        self._fitted = True
+        self._fitted            = True
 
 
     def __getstate__(self) -> dict:
