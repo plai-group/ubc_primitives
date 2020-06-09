@@ -4,6 +4,7 @@ from d3m.primitive_interfaces import base
 from d3m.metadata import base as metadata_base, hyperparams, params
 from d3m.base import utils as base_utils
 from d3m.exceptions import PrimitiveNotFittedError
+from d3m.primitive_interfaces.base import CallResult
 from d3m.primitive_interfaces.supervised_learning import SupervisedLearnerPrimitiveBase
 from common_primitives.dataframe_to_ndarray import DataFrameToNDArrayPrimitive
 from common_primitives.ndarray_to_dataframe import NDArrayToDataFramePrimitive
@@ -18,7 +19,7 @@ import os
 import time
 import logging
 import numpy as np
-from collections  import OrderedDict
+from collections import OrderedDict
 from typing import Any, cast, Dict, List, Union, Sequence, Optional, Tuple
 
 # Import CCFs functions
@@ -255,6 +256,7 @@ class CanonicalCorrelationForestsRegressionPrimitive(SupervisedLearnerPrimitiveB
         self._verbose      = _verbose
         self._training_inputs: Inputs = None
         self._training_outputs: Outputs = None
+        self._CCF = {}
         self._label_name_columns = None
         # Is the model fit on the training data
         self._fitted = False
@@ -365,10 +367,10 @@ class CanonicalCorrelationForestsRegressionPrimitive(SupervisedLearnerPrimitiveB
         # Fit data
         CCF = genCCF(XTrain, YTrain, nTrees=self.optionsClassCCF['nTrees'], bReg=True, optionsFor=self.optionsClassCCF, do_parallel=self.optionsClassCCF['parallelprocessing'])
 
-        self.CCF = CCF
+        self._CCF    = CCF
         self._fitted = True
 
-        return base.CallResult(None)
+        return CallResult(None)
 
 
     def produce(self, *, inputs: Inputs, iterations: int = None, timeout: float = None) -> base.CallResult[Outputs]:
@@ -404,7 +406,7 @@ class CanonicalCorrelationForestsRegressionPrimitive(SupervisedLearnerPrimitiveB
         outputs = inputs.remove_columns(feature_columns)
 
         # Prediction
-        YpredCCF, _, _  = predictFromCCF(self.CCF, XTest)
+        YpredCCF, _, _  = predictFromCCF(self._CCF, XTest)
 
         # Convert from ndarray from DataFrame
         YpredCCF_output = container.DataFrame(YpredCCF, generate_metadata=True)
@@ -436,3 +438,17 @@ class CanonicalCorrelationForestsRegressionPrimitive(SupervisedLearnerPrimitiveB
         self._CCF = params['CCF_']
         self._label_name_columns = params['target_names_']
         self._fitted = True
+
+
+    def __getstate__(self) -> dict:
+        state = super().__getstate__()
+
+        state['random_state'] = self._random_state
+
+        return state
+
+
+    def __setstate__(self, state: dict) -> None:
+        super().__setstate__(state)
+
+        self._random_state = state['random_state']

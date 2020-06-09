@@ -2,6 +2,7 @@ from d3m import container
 from d3m.container import pandas
 from d3m.container.numpy import ndarray
 from d3m.primitive_interfaces import base
+from d3m.exceptions import PrimitiveNotFittedError
 from d3m.metadata import base as metadata_base, hyperparams, params
 from d3m.base import utils as base_utils
 from d3m.primitive_interfaces.unsupervised_learning import UnsupervisedLearnerPrimitiveBase
@@ -251,7 +252,7 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
         """
         # Inference
         if not self._fitted:
-            raise ValueError('Please fit the model before calling produce!')
+            raise PrimitiveNotFittedError("Primitive not fitted.")
 
         # Curate data
         XTest, YTest, feature_columns, label_name_columns = self._curate_data(training_inputs=inputs, get_labels=True)
@@ -299,9 +300,25 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
         return base.CallResult(outputs)
 
 
+
     def get_params(self) -> Params:
         return Params(cluster_centers=self._kmeans.cluster_centers)
 
 
     def set_params(self, *, params: Params) -> None:
-        return None
+        self._kmeans.cluster_centers = Params["cluster_centers"]
+        self._fitted = True
+
+
+    def __getstate__(self) -> dict:
+        state = super().__getstate__()
+
+        state['random_state'] = self._random_state
+
+        return state
+
+
+    def __setstate__(self, state: dict) -> None:
+        super().__setstate__(state)
+
+        self._random_state = state['random_state']

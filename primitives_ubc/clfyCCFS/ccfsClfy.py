@@ -20,8 +20,8 @@ import time
 import logging
 import numpy as np
 import pandas as pd
-from collections  import OrderedDict
-from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
+from collections import OrderedDict
+from typing import Any, cast, Dict, List, Union, Sequence, Optional, Tuple
 
 # Import CCFs functions
 from primitives_ubc.clfyCCFS.src.generate_CCF import genCCF
