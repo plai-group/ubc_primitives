@@ -28,10 +28,6 @@ Outputs = container.DataFrame
 
 DEBUG = False  # type: ignore
 
-class Params(params.Params):
-    transformation: ndarray
-    n_components: int
-
 
 class Hyperparams(hyperparams.Hyperparams):
     max_components = hyperparams.Hyperparameter[int](
@@ -89,6 +85,7 @@ class PrincipalComponentAnalysisPrimitive(transformer.TransformerPrimitiveBase[I
         self._n_components   = None
         self._transformation = None
         self._mean           = None
+
 
     def _curate_data(self, training_inputs):
         # if self._training_inputs is None or self._training_outputs is None:
@@ -165,7 +162,6 @@ class PrincipalComponentAnalysisPrimitive(transformer.TransformerPrimitiveBase[I
 
 
     def _transform(self, training_inputs):
-        # If already fitted with current training data, this call is a noop.
         if training_inputs is None:
             raise ValueError("Missing training data.")
 
