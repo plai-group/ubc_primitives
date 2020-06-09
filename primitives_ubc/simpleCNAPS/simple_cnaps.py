@@ -17,7 +17,7 @@ from primitives_ubc.simpleCNAPS.dataset   import Dataset
 from primitives_ubc.simpleCNAPS.src.model import SimpleCnaps
 from primitives_ubc.simpleCNAPS.src.utils import print_and_log, get_log_files
 from primitives_ubc.simpleCNAPS.src.utils import loss
-from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
+from typing import Any, cast, Dict, List, Union, Sequence, Optional, Tuple
 
 __all__ = ('SimpleCNAPSClassifierPrimitive',)
 logger  = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ Outputs = container.DataFrame
 DEBUG = False  # type: ignore
 
 class Params(params.Params):
-    None
+    cnaps_model: Optional[Any]
 
 class Hyperparams(hyperparams.Hyperparams):
     """
@@ -117,7 +117,7 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
     def __init__(self, *, hyperparams: Hyperparams, volumes: Union[Dict[str, str], None]=None, random_seed: int = 0, _verbose: int = 0) -> None:
         super().__init__(hyperparams=hyperparams,  volumes=volumes, random_seed=random_seed)
         self.hyperparams   = hyperparams
-        self._random_state = np.random.RandomState(self.random_seed)
+        self._random_state = random_seed
         self._verbose      = _verbose
         self._training_inputs: Inputs   = None
         self._training_outputs: Outputs = None
@@ -310,8 +310,28 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
 
         return _weight_file_path
 
+
     def get_params(self) -> Params:
-        return None
+        if not self._fitted:
+            return Params(cnaps_model=None)
+
+        return Params(cnaps_model=self.model)
+
 
     def set_params(self, *, params: Params) -> None:
-        return None
+        self.model = params['cnaps_model']
+        self._fitted = True
+
+
+    def __getstate__(self) -> dict:
+        state = super().__getstate__()
+
+        state['random_state'] = self._random_state
+
+        return state
+
+
+    def __setstate__(self, state: dict) -> None:
+        super().__setstate__(state)
+
+        self._random_state = state['random_state']
