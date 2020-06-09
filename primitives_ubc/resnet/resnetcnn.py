@@ -22,7 +22,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils import data
 import torchvision.transforms as transforms
-from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
+from typing import Any, cast, Dict, List, Union, Sequence, Optional, Tuple
+
 from primitives_ubc.resnet.dataset import Dataset
 
 # Import CNN models
@@ -54,7 +55,7 @@ class WeightsDirPrimitive:
 
 
 class Params(params.Params):
-    None
+    cnn_model: Optional[Any]
 
 
 class Hyperparams(hyperparams.Hyperparams):
@@ -184,11 +185,12 @@ class ResNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperpar
     })
 
 
-    def __init__(self, *, hyperparams: Hyperparams, volumes: Union[Dict[str, str], None]=None):
+    def __init__(self, *, hyperparams: Hyperparams, random_seed: int = 0, volumes: Union[Dict[str, str], None]=None):
         super().__init__(hyperparams=hyperparams, volumes=volumes)
         self.hyperparams = hyperparams
         self._training_inputs: Inputs = None
         self._training_outputs: Outputs = None
+        self._random_state = random_seed
         # Use GPU if available
         use_cuda    = torch.cuda.is_available()
         self.device = torch.device("cuda:0" if use_cuda else "cpu")
@@ -564,8 +566,28 @@ class ResNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperpar
 
         return _weight_file_path
 
+
     def get_params(self) -> Params:
-        return None
+        if not self._fitted:
+            return Params(cnn_model=None)
+
+        return Params(cnn_model=self.model)
+
 
     def set_params(self, *, params: Params) -> None:
-        return None
+        self.model = params['cnn_model']
+        self._fitted = True
+
+
+    def __getstate__(self) -> dict:
+        state = super().__getstate__()
+
+        state['random_state'] = self._random_state
+
+        return state
+
+
+    def __setstate__(self, state: dict) -> None:
+        super().__setstate__(state)
+
+        self._random_state = state['random_state']

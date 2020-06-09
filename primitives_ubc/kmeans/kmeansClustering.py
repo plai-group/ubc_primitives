@@ -19,7 +19,7 @@ import logging
 import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans as KMeans_  # type: ignore
-from typing import cast, Dict, List, Union, Sequence, Optional, Tuple
+from typing import Any, cast, Dict, List, Union, Sequence, Optional, Tuple
 
 __all__ = ('KMeansClusteringPrimitive',)
 logger  = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ Outputs = container.DataFrame
 DEBUG = False  # type: ignore
 
 class Params(params.Params):
-    cluster_centers: ndarray  # Coordinates of cluster centers.
+    cluster_centers: Optional[Any]
 
 
 class Hyperparams(hyperparams.Hyperparams):
@@ -239,8 +239,8 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
         # Curate data
         XTrain, _ = self._curate_data(training_inputs=self._training_inputs, get_labels=False)
 
-        self._kmeans_ = self._kmeans.fit(XTrain)
-        self._fitted  = True
+        self._kmeans = self._kmeans.fit(XTrain)
+        self._fitted = True
 
         return base.CallResult(None)
 
@@ -269,7 +269,7 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
         outputs = inputs.remove_columns(feature_columns)
 
         # Predictions
-        predictions = self._kmeans_.predict(XTest)
+        predictions = self._kmeans.predict(XTest)
         if add_class_index:
             predictions = np.add(predictions, 1)
 
@@ -300,13 +300,12 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
         return base.CallResult(outputs)
 
 
-
     def get_params(self) -> Params:
-        return Params(cluster_centers=self._kmeans.cluster_centers)
+        return Params(cluster_centers=self._kmeans.cluster_centers_)
 
 
     def set_params(self, *, params: Params) -> None:
-        self._kmeans.cluster_centers = Params["cluster_centers"]
+        self._kmeans.cluster_centers_ = params["cluster_centers"]
         self._fitted = True
 
 

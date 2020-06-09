@@ -116,7 +116,7 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
     def __init__(self, *, hyperparams: Hyperparams, random_seed: int = 0, _verbose: int = 0) -> None:
         super().__init__(hyperparams=hyperparams, random_seed=random_seed)
         self.hyperparams   = hyperparams
-        self._random_state = np.random.RandomState(self.random_seed)
+        self._random_state = random_seed
         self._verbose      = _verbose
         self._training_inputs: Inputs   = None
         self._training_outputs: Outputs = None
@@ -481,7 +481,6 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
         log normal_density(self.weights * self.input - output, identity * self.noise_variance)
         for a single input/output pair.
         """
-
         outputs_vars = [to_variable(output, requires_grad=True) for output in outputs]
         inputs_vars  = [to_variable(input) for input in inputs]
 
@@ -569,14 +568,17 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
     def set_fit_term_temperature(self, *, temperature: float = 0) -> None:
         self._fit_term_temperature = temperature
 
+
     def _offset_input(self, *, inputs: Inputs) -> Inputs:
         if inputs.shape[1] == self._weights.shape[0]:
             return inputs
         else:
             return np.insert(inputs, inputs.shape[1], 1, axis=1)
 
+
     def get_call_metadata(self) -> CallResult:
         return CallResult(None, has_finished=self._has_finished, iterations_done=self._iterations_done)
+
 
     def get_params(self) -> Params:
         return Params(
@@ -587,9 +589,23 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
                )
 
     def set_params(self, *, params: Params) -> None:
-        full_weights = np.append(params['weights'], params['offset'])
+        full_weights  = np.append(params['weights'], params['offset'])
         self._weights = to_variable(full_weights, requires_grad=True)
         self._weights.retain_grad()
-
         self._weights_variance = to_variable(params['weights_variance'], requires_grad=True)
-        self._noise_variance = to_variable(params['noise_variance'], requires_grad=True)
+        self._noise_variance   = to_variable(params['noise_variance'], requires_grad=True)
+        self._fitted = True
+
+
+    def __getstate__(self) -> dict:
+        state = super().__getstate__()
+
+        state['random_state'] = self._random_state
+
+        return state
+
+
+    def __setstate__(self, state: dict) -> None:
+        super().__setstate__(state)
+
+        self._random_state = state['random_state']

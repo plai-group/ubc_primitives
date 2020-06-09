@@ -118,7 +118,7 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
     def __init__(self, *, hyperparams: Hyperparams, random_seed: int = 0, _verbose: int = 0) -> None:
         super().__init__(hyperparams=hyperparams, random_seed=random_seed)
         self.hyperparams   = hyperparams
-        self._random_state = np.random.RandomState(self.random_seed)
+        self._random_state = random_seed
         self._verbose      = _verbose
         self._training_inputs: Inputs   = None
         self._training_outputs: Outputs = None
@@ -394,4 +394,19 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
 
 
     def set_params(self, *, params: Params) -> None:
-        self._trace = params.weights
+        self._trace = {}
+        self._trace['weights'] = params["weights"]
+
+
+    def __getstate__(self) -> dict:
+        state = super().__getstate__()
+
+        state['random_state'] = self._random_state
+
+        return state
+
+
+    def __setstate__(self, state: dict) -> None:
+        super().__setstate__(state)
+
+        self._random_state = state['random_state']
