@@ -21,7 +21,7 @@ import numpy  as np  # type: ignore
 import pandas as pd  # type: ignore
 from sklearn.impute import SimpleImputer # type: ignore
 from sklearn.preprocessing import OneHotEncoder # type: ignore
-from typing import NamedTuple, Sequence, Any, List, Dict, Union, Tuple
+from typing import Any, cast, Dict, List, Union, Sequence, Optional, Tuple
 
 __all__ = ('LogisticRegressionPrimitive',)
 
@@ -60,7 +60,7 @@ class ImportModules:
 
 
 class Params(params.Params):
-    weights: ndarray
+    weights: Optional[Any]
 
 
 class Hyperparams(hyperparams.Hyperparams):
@@ -389,7 +389,6 @@ class LogisticRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Out
 
     def get_params(self) -> Params:
         w = self._trace['weights']
-        w = np.squeeze(w, axis=2)
 
         return Params(weights=w)
 

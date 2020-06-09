@@ -24,6 +24,8 @@ def make_pipeline():
 
     # Step 2: Logistic Regression
     step_1 = PrimitiveStep(primitive_description=LogisticRegressionPrimitive.metadata.query())
+    step_1.add_hyperparameter(name='burnin', argument_type=ArgumentType.VALUE, data=10)
+    step_1.add_hyperparameter(name='num_iterations', argument_type=ArgumentType.VALUE, data=5)
     step_1.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.0.produce')
     step_1.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.0.produce')
     step_1.add_output('produce')

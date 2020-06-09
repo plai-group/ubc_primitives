@@ -310,12 +310,15 @@ class DiagonalMVNPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, P
     def backward(self, *, gradient_outputs: Gradients[Outputs], fine_tune: bool = False, fine_tune_learning_rate: float = 0.00001, fine_tune_weight_decay: float = 0.00001) -> Tuple[Gradients[Inputs], Gradients[Params]]: # type: ignore
         raise NotImplementedError('mvn does not support backward')
 
+
     def get_params(self) -> Params:
         return Params(mean=ndarray(self._mean.data.numpy()), covariance=ndarray(self._covariance.data.numpy()))
+
 
     def set_params(self, *, params: Params) -> None:
         self._mean = to_variable(params['mean'], requires_grad=True)
         self._covariance = to_variable(params['covariance'], requires_grad=True)
+
 
     def _sample_once(self, *, inputs: Inputs) -> Outputs:
         mean = self._mean.data.numpy()
@@ -323,11 +326,13 @@ class DiagonalMVNPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, P
 
         return np.array([np.random.multivariate_normal(mean, covariance) for _ in inputs])
 
+
     def sample(self, *, inputs: Inputs, num_samples: int = 1, timeout: float = None, iterations: int = None) -> Sequence[Outputs]:
         # sample just returns a number of samples from the current mvn
         s = np.array([self._sample_once(inputs=inputs) for _ in range(num_samples)])
 
         return CallResult(s, has_finished=False, iterations_done=self._iterations_done)
+
 
     def _log_likelihood(self, *, output:  torch.autograd.Variable) -> torch.autograd.Variable:
         """
@@ -336,6 +341,7 @@ class DiagonalMVNPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, P
         output = to_variable(output)
 
         return log_mvn_likelihood(self._mean, self._covariance, output)
+
 
     def _gradient_output_log_likelihood(self, *, output:  torch.autograd.Variable) -> torch.autograd.Variable:
         """
@@ -346,6 +352,7 @@ class DiagonalMVNPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, P
         log_likelihood.backward()
 
         return output.grad
+
 
     def _gradient_params_log_likelihood(self, *, output:  torch.autograd.Variable) -> Tuple[torch.autograd.Variable, torch.autograd.Variable]:
         """
@@ -371,6 +378,7 @@ class DiagonalMVNPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, P
 
         return CallResult(sum(result.value), has_finished=result.has_finished, iterations_done=result.iterations_done)
 
+
     def gradient_output(self, *, outputs: Outputs, inputs: Inputs) -> Gradients[Outputs]:  # type: ignore
         """
         Calculates gradient of log(normal_density(self._mean, self._covariance)) * fit_term_temperature with respect to output.
@@ -382,6 +390,7 @@ class DiagonalMVNPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, P
                    for output in outputs_vars)
 
         return grad.data.numpy()
+
 
     def gradient_params(self, *, outputs: Outputs, inputs: Inputs) -> Gradients[Params]:  # type: ignore
         """
@@ -396,8 +405,10 @@ class DiagonalMVNPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outputs, P
 
         return Params(mean=ndarray(grad_mean.data.numpy()), covariance=ndarray(grad_covariance.data.numpy()))
 
+
     def set_fit_term_temperature(self, *, temperature: float = 0) -> None:
         self._fit_term_temperature = temperature
+
 
     def get_call_metadata(self) -> CallResult:
         return CallResult(None, has_finished=False, iterations_done=self._iterations_done)
