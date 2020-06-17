@@ -1,9 +1,9 @@
-# UBC PLAI-lab TA-1 primitives
+# UBC PLAI-Group TA-1 primitives
 
 ![version](https://img.shields.io/badge/version-0.1.0-green.svg)
 ![docker](https://img.shields.io/badge/Docker-v2020.5.18-blue)
 
-Project repository for TA-1 primitives for [D3M](https://www.darpa.mil/program/data-driven-discovery-of-models) program.
+Project repository for TA-1 primitives contributed by the UBC PLAI Group to the [DARPA Data Driven Discovery Models (D3M) Program](https://www.darpa.mil/program/data-driven-discovery-of-models) program.
 
 
 ## Install
@@ -124,6 +124,7 @@ convolutional layers or the fully connected layers by setting `include_top` Hype
   - Sample Usage: [SMI](https://github.com/plai-group/ubc_primitives/blob/master/pipelines/smi_pipeline.py) pipeline.
 
 
-## Affiliations
+## Acknowledgement
+This material is based upon work supported by the United States Air Force Research Laboratory (AFRL) under the Defense Advanced Research Projects Agency (DARPA) Data Driven Discovery Models (D3M) program (Contract No. FA8750-19-2-0222). 
 | ![alt-text-2](./logo/ubc.png "UBC") | ![alt-text-1](./logo/plai.jpeg "PLAI-LAB") | ![alt-text-2](./logo/darpa.png "DARPA-D3M") |
 |:---:|:---:|:---:|
