@@ -3,7 +3,7 @@
 ![version](https://img.shields.io/badge/version-0.1.0-green.svg)
 ![docker](https://img.shields.io/badge/Docker-v2020.5.18-blue)
 
-Project repository for TA-1 primitives contributed by the UBC PLAI Group to the [DARPA Data Driven Discovery Models (D3M) Program](https://www.darpa.mil/program/data-driven-discovery-of-models) program.
+Project repository for TA-1 primitives contributed by the [UBC PLAI Group](https://plai.cs.ubc.ca) to the [DARPA Data Driven Discovery Models (D3M) Program](https://www.darpa.mil/program/data-driven-discovery-of-models).
 
 
 ## Install
