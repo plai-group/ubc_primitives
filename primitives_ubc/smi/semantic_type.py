@@ -23,6 +23,7 @@ from ast import literal_eval
 from collections import OrderedDict
 from sklearn.metrics import f1_score
 from sklearn.preprocessing import LabelEncoder
+from gensim.models.doc2vec import Doc2Vec
 
 __all__ = ('SemanticTypeInfer',)
 
@@ -48,7 +49,7 @@ class LoadWeightsPrimitive:
 
         tf       = importlib.import_module('tensorflow')
         nltk     = importlib.import_module('nltk')
-        doc2vec  = importlib.import_module('gensim.models.doc2vec')
+        doc2vec  = importlib.import_module('gensim.models', 'doc2vec')
         sy_stats = importlib.import_module('scipy.stats')
         self._initialized = True
 
@@ -244,7 +245,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         # Load pretrained paragraph vector model -- Hard coded for now --assuiming loading from static file
         # par_vec_path = LoadWeightsPrimitive._find_weights_dir(key_filename='par_vec_trained_400', volumes=self.volumes)
         par_vec_path = os.path.join(self._weights_path, '8e7dc7f5876d764761a3093f6ddd315f295a3a6c8578efa078ad27baf08b2569/par_vec_trained_400/par_vec_trained_400.pkl')
-        model = doc2vec.Doc2Vec.load(par_vec_path)
+        model = Doc2Vec.load(par_vec_path)
         logging.info('Pre-trained paragraph vector loaded from: {}'.format(par_vec_path))
 
         # Mapping dir of semantic types to D3M structural type dtypes of [int, str]

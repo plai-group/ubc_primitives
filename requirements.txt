@@ -7,5 +7,5 @@ matplotlib
 pymc3
 pyprob
 Theano
-gensim==3.8.0
+
 
