@@ -27,6 +27,7 @@ __all__ = ('LogisticRegressionPrimitive',)
 Inputs  = container.DataFrame
 Outputs = container.DataFrame
 
+
 class ImportModules:
     """
     Import heavy modules after calling the primitive as not to slow down d3m.index
