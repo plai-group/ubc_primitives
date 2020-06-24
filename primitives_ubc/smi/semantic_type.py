@@ -37,14 +37,11 @@ class LoadWeightsPrimitive:
     _weight_files = []
     def __init__(self):
         self._initialized = False
-        # TODO: Change in future versions
-        # Pre-trained requires gensim==3.8.0
-        subprocess.run(["apt", "update"])
-        subprocess.run(["pip3", "install", "gensim==3.8.0"])
 
     def _import_lib(self):
         if self._initialized:
             return
+
         # Import modules after calling the primitive,
         # as not to slow down d3m.index
         global tf, nltk, doc2vec, sy_stats
