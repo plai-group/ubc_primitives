@@ -1,4 +1,3 @@
- #!/usr/bin/env python -W ignore
 from d3m import container
 from d3m.container.numpy import ndarray
 from d3m.primitive_interfaces import base

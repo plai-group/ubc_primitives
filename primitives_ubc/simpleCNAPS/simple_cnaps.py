@@ -291,8 +291,8 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
                     _weight_file_path = os.path.join('/static', weights_configs['file_digest'])
             # Check other directories
             if not os.path.exists(_weight_file_path):
-                home = expanduser("/")
-                root = expanduser("~")
+                home = os.path.expanduser("/")
+                root = os.path.expanduser("~")
                 _weight_file_path = os.path.join(home, weights_configs['file_digest'])
                 if not os.path.exists(_weight_file_path):
                     _weight_file_path = os.path.join(home, weights_configs['file_digest'], key_filename)
@@ -302,6 +302,9 @@ class SimpleCNAPSClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outp
                     _weight_file_path = os.path.join(root, weights_configs['file_digest'], key_filename)
                 if not os.path.exists(_weight_file_path):
                     _weight_file_path = os.path.join(weights_configs['file_digest'], key_filename)
+                else:
+                    static_dir = os.getenv('D3MSTATICDIR', '/static')
+                    _weight_file_path = os.path.join(static_dir, key_filename)
 
         if os.path.isfile(_weight_file_path):
             return _weight_file_path

@@ -158,7 +158,7 @@ class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
     Citation: https://arxiv.org/pdf/1409.4842.pdf
     """
     # Check if the weights directory exist, else create one. Default: /static
-    WeightsDirPrimitive._weights_data_dir(dir_name="/ubc_primitives/static")
+    # WeightsDirPrimitive._weights_data_dir(dir_name="/ubc_primitives/static")
     # Metadata
     __author__ = 'UBC DARPA D3M Team, Tony Joseph <tonyjos@cs.ubc.ca>'
     global _weights_configs
@@ -548,8 +548,8 @@ class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
                     _weight_file_path = os.path.join('/static', weights_configs['file_digest'])
             # Check other directories
             if not os.path.exists(_weight_file_path):
-                home = expanduser("/")
-                root = expanduser("~")
+                home = os.path.expanduser("/")
+                root = os.path.expanduser("~")
                 _weight_file_path = os.path.join(home, weights_configs['file_digest'])
                 if not os.path.exists(_weight_file_path):
                     _weight_file_path = os.path.join(home, weights_configs['file_digest'], key_filename)
@@ -559,6 +559,9 @@ class GoogleNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
                     _weight_file_path = os.path.join(root, weights_configs['file_digest'], key_filename)
                 if not os.path.exists(_weight_file_path):
                     _weight_file_path = os.path.join(weights_configs['file_digest'], key_filename)
+                else:
+                    static_dir = os.getenv('D3MSTATICDIR', '/static')
+                    _weight_file_path = os.path.join(static_dir, key_filename)
 
         if os.path.isfile(_weight_file_path):
             return _weight_file_path

@@ -15,7 +15,7 @@ import pyprob
 from torch.utils import data
 from typing import Any, cast, Dict, List, Union, Sequence, Optional, Tuple
 
-from infcomp import PhoneParser
+from primitives_ubc.phoneParser.infcomp import PhoneParser
 
 __all__ = ('PhoneNumberParserPrimitive',)
 logger  = logging.getLogger(__name__)
@@ -80,8 +80,8 @@ class PhoneNumberParserPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         "id": "166ccbaf-3621-4654-9928-bf7ef17d5c2d",
         "version": config.VERSION,
         "name": "Phone parser primitive",
-        "description": "A primitive to parser international phone numbers",
-        "python_path": "d3m.primitives.classification.phone_number.UBC",
+        "description": "A primitive to parser international phone numbers.",
+        "python_path": "d3m.primitives.classification.phone_number_parser.UBC",
         "primitive_family": metadata_base.PrimitiveFamily.CLASSIFICATION,
         "algorithm_types": [metadata_base.PrimitiveAlgorithmType.NEURAL_NETWORK_BACKPROPAGATION],
         "source": {
@@ -119,6 +119,7 @@ class PhoneNumberParserPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
 
         # Arguments
         self.model = PhoneParser()
+
 
     def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
         """

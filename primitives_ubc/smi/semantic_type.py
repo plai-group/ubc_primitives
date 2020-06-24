@@ -56,16 +56,13 @@ class LoadWeightsPrimitive:
         self._initialized = True
 
     @staticmethod
-    def _get_weights_data_dir():
+    def _get_weights_data_dir(file_path):
         """
-        Return cache directory
+        Return static directory path
         """
-        datadir = '/static'
+        static_dir = '/'.join(a.split('/')[0:-1])
 
-        if not os.access(datadir, os.W_OK):
-            datadir = '.'
-
-        return datadir
+        return static_dir
 
     @staticmethod
     def _get_weight_installation(weight_files: typing.List['WeightFile']):
@@ -179,6 +176,9 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
     ]
 
     _weight_files_2 = [
+        WeightFile('sherlock_weights',
+                   ('https://dl.dropboxusercontent.com/s/4byt3muredceftm/sherlock_nn.tar.gz?dl=1'),
+                   '1281e208ec884236991df9a49e3c9810edc866fbb0b24fc117f45033c63ec427'),
         WeightFile('par_vec_trained_400',
                    ('https://dl.dropboxusercontent.com/s/yn7n6eso6382ey9/par_vec_trained_400.tar.gz?dl=1'),
                    '8e7dc7f5876d764761a3093f6ddd315f295a3a6c8578efa078ad27baf08b2569'),
@@ -217,7 +217,6 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         # Import other needed modules
         LoadWeightsPrimitive._import_lib(self)
 
-        self._weights_path = LoadWeightsPrimitive._get_weights_data_dir()
 
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
         """
@@ -237,6 +236,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         smi_cls_pth = LoadWeightsPrimitive._find_weights_dir(key_filename='classes_{}.npy'.format(nn_id), volumes=self.volumes)
         smi_classes = np.load(smi_cls_pth, allow_pickle=True)
         logging.info('Semantic Types loaded from: {}'.format(smi_cls_pth))
+        self._weights_path = LoadWeightsPrimitive._get_weights_data_dir(smi_cls_pth)
 
         # Load pretrained paragraph vector model -- Hard coded for now --assuiming loading from static file
         # par_vec_path = LoadWeightsPrimitive._find_weights_dir(key_filename='par_vec_trained_400', volumes=self.volumes)
@@ -304,7 +304,6 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
                 counter += 1
 
         else:
-
             for name, raw_sample in inputs.iteritems():
                 #print(raw_sample)
                 if counter % 1000 == 0:
@@ -344,6 +343,8 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         logging.info('----------Feature Extraction Complete!-------------')
 
         ### Load Sherlock model ###
+        sherlock_path = os.path.join(self._weights_path, '1281e208ec884236991df9a49e3c9810edc866fbb0b24fc117f45033c63ec427/nn_weights/sherlock_model.json')
+
         sherlock_path = LoadWeightsPrimitive._find_weights_dir(key_filename='{}_model.json'.format(nn_id), volumes=self.volumes)
         file = open(sherlock_path, 'r')
         sherlock_file = file.read()
@@ -351,7 +352,7 @@ class SemanticTypeInfer(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hy
         file.close()
 
         # Load weights into new model
-        sherlock_weights_path = LoadWeightsPrimitive._find_weights_dir(key_filename='{}_weights.h5'.format(nn_id), volumes=self.volumes)
+        sherlock_weights_path = os.path.join(self._weights_path, '1281e208ec884236991df9a49e3c9810edc866fbb0b24fc117f45033c63ec427/nn_weights/sherlock_weights.h5')
         sherlock.load_weights(sherlock_weights_path)
 
         # Compile model
