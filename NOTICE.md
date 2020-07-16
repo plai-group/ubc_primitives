@@ -1,4 +1,4 @@
-Copyright 2019 University of British Columbia
+Copyright 2019-2020 University of British Columbia
 
 This software library was developed at
 
