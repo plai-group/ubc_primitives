@@ -59,8 +59,8 @@ def make_pipeline():
     attributes = 'steps.4.produce'
     targets    = 'steps.5.produce'
 
-    # Step 6: RF
-    step_6 = PrimitiveStep(primitive=index.get_primitive('d3m.primitives.classification.random_forest.Common'))
+    # Step 6: SVC
+    step_6 = PrimitiveStep(primitive=index.get_primitive('d3m.primitives.classification.decision_tree.SKlearn'))
     step_6.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference=attributes)
     step_6.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference=targets)
     step_6.add_output('produce')
