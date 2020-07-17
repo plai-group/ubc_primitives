@@ -7,11 +7,9 @@ from d3m.metadata.pipeline import Pipeline, PrimitiveStep
 from common_primitives import construct_predictions
 from common_primitives.denormalize import DenormalizePrimitive
 from common_primitives.column_parser import ColumnParserPrimitive
+from common_primitives.simple_profiler import SimpleProfilerPrimitive
 from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
-
-# Classification Primitive
-import d3m.primitives.classification.random_forest as RF
 
 # Testing Primitive
 from primitives_ubc.bow.bag_of_words import BagOfWords
@@ -32,19 +30,19 @@ def make_pipeline():
     step_1.add_output('produce')
     pipeline.add_step(step_1)
 
-    # Step 2: Feature Extraction Primitive
-    step_2 = PrimitiveStep(primitive=BagOfWords)
-    step_2.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    # Step 2: Profiler
+    step_2 = PrimitiveStep(primitive_description=SimpleProfilerPrimitive.metadata.query())
+    step_2.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_2.add_output('produce')
     pipeline.add_step(step_2)
 
-    # Step 3: Column Parser
-    step_3 = PrimitiveStep(primitive_description=ColumnParserPrimitive.metadata.query())
-    step_3.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.2.produce')
+    # Step 3: Feature Extraction Primitive
+    step_3 = PrimitiveStep(primitive=BagOfWords)
+    step_3.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.2.produce')
     step_3.add_output('produce')
     pipeline.add_step(step_3)
 
-    # Step 4: Extract Attributes
+    # Step 3: Extract Attributes
     step_4 = PrimitiveStep(primitive_description=ExtractColumnsBySemanticTypesPrimitive.metadata.query())
     step_4.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.3.produce')
     step_4.add_hyperparameter(name='semantic_types', argument_type=ArgumentType.VALUE, data=['https://metadata.datadrivendiscovery.org/types/Attribute'] )
@@ -61,8 +59,8 @@ def make_pipeline():
     attributes = 'steps.4.produce'
     targets    = 'steps.5.produce'
 
-    # Step 6: SVC
-    step_6 = PrimitiveStep(primitive=index.get_primitive('d3m.primitives.classification.decision_tree.SKlearn'))
+    # Step 6: RF
+    step_6 = PrimitiveStep(primitive=index.get_primitive('d3m.primitives.classification.random_forest.Common'))
     step_6.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference=attributes)
     step_6.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference=targets)
     step_6.add_output('produce')

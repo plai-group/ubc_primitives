@@ -95,43 +95,90 @@ class BagOfCharacters(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hype
         ImportModules._import_lib(self)
 
 
+    def _curate_data(self, inputs):
+        """
+        Process DataFrame
+        """
+        if inputs is None:
+            raise exceptions.InvalidStateError("Missing data.")
+
+        in_text_file=False;
+        for col in range(inputs.shape[1]):
+            col_dict = dict(inputs.metadata.query((metadata_base.ALL_ELEMENTS, col)))
+            if ('https://metadata.datadrivendiscovery.org/types/FileName' in col_dict['semantic_types']) and ('text/plain' in col_dict['media_types']):
+                in_text_file = True
+
+        if in_text_file:
+            # Get all Nested media files
+            text_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
+            if len(text_columns) == 0:
+                text_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute') # [1]
+            base_paths    = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t))['location_base_uris'][0].replace('file:///', '/') for t in text_columns] # Path + media
+            txt_paths     = [[os.path.join(base_path, filename) for filename in inputs.iloc[:,col]] for base_path, col in zip(base_paths, text_columns)]
+            # Extract the data from media files
+            all_txts_ = []
+            for path_list in txt_paths:
+                interm_path = []
+                for path in path_list:
+                    open_file    = open(path, "r")
+                    path_content = open_file.read().replace('\n', '')
+                    open_file.close() # Close file to save Memory resource
+                    interm_path.append(path_content)
+                all_txts_.append(interm_path)
+            # Final Input data
+            all_txts_ = pd.DataFrame(all_txts_)
+            all_txts  = all_txts_.T
+
+            # Concatenate with text columns that aren't stored in nested files
+            local_text_columns = inputs.metadata.get_columns_with_semantic_type('http://schema.org/Text')
+            local_text_columns = [col for col in local_text_columns if col not in text_columns]
+
+            all_txts = pd.concat((all_txts, inputs[local_text_columns]), axis=1)
+
+            return all_txts, text_columns
+
+        else:
+            # Get training data and labels data
+            attribute_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute')
+            # Get labels data if present in training input
+            try:
+                label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
+            except:
+                label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
+            # If no error but no label-columns found, force try SuggestedTarget
+            if len(label_columns) == 0 or label_columns == None:
+                label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
+            # Remove columns if outputs present in inputs
+            if len(label_columns) >= 1:
+                for lbl_c in label_columns:
+                    try:
+                        attribute_columns.remove(lbl_c)
+                    except ValueError:
+                        pass
+
+            # Training Set
+            attribute_columns = [int(ac) for ac in attribute_columns]
+            attributes = inputs.iloc[:, attribute_columns]
+
+            return attributes, attribute_columns
+
+
     def produce(self, *, inputs: Inputs, timeout: float = None, iterations: int = None) -> base.CallResult[Outputs]:
         """
         Inputs: pandas DataFrame
         Returns: Output pandas DataFrame with 960 features.
         """
-        # Get all Nested media files
-        text_columns = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/FileName') # [1]
-        base_paths   = [inputs.metadata.query((metadata_base.ALL_ELEMENTS, t))['location_base_uris'][0].replace('file:///', '/') for t in text_columns] # Path + media
-        txt_paths    = [[os.path.join(base_path, filename) for filename in inputs.iloc[:,col]] for base_path, col in zip(base_paths, text_columns)]
-        # Extract the data from media files
-        all_txts = []
-        for path_list in txt_paths:
-            interm_path = []
-            for path in path_list:
-                open_file    = open(path, "r")
-                path_content = open_file.read().replace('\n', '')
-                open_file.close() # Close file to save Memory resource
-                interm_path.append(path_content)
-            all_txts.append(interm_path)
-        # Final Input data
-        all_txts = pd.DataFrame(np.array(all_txts).T)
-
-        # Concatenate with text columns that aren't stored in nested files
-        local_text_columns = inputs.metadata.get_columns_with_semantic_type('http://schema.org/Text')
-        local_text_columns = [col for col in local_text_columns if col not in text_columns]
-
-        all_txts = pd.concat((all_txts, inputs[local_text_columns]), axis=1)
+        attributes, attribute_columns = self._curate_data(inputs=inputs)
 
         # Delete columns with path names of nested media files
-        outputs = inputs.remove_columns(text_columns)
+        outputs = inputs.remove_columns(attribute_columns)
 
         ### Build Features ###
         logging.info('Building Features in progress......')
         df_char = pd.DataFrame()
         counter = 0
 
-        for name, raw_sample in all_txts.iterrows():
+        for name, raw_sample in attributes.iterrows():
             if counter % 1000 == 0:
                 logging.info('Completion {}/{}'.format(counter, len(inputs)))
 
@@ -164,7 +211,7 @@ class BagOfCharacters(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hype
         for col in range(feature_vectors.shape[1]):
             col_dict = dict(feature_vectors.metadata.query((metadata_base.ALL_ELEMENTS, col)))
             col_dict['structural_type'] = type(1.0)
-            col_dict['name']            = "vector_" + str(col)
+            col_dict['name']            = "feature_vector_" + str(col)
             col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/Attribute",)
             feature_vectors.metadata    = feature_vectors.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
 
