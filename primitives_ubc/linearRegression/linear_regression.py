@@ -207,14 +207,6 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
             if training_outputs is None:
                 raise ValueError("Missing data.")
 
-            # Get label column names
-            label_name_columns  = []
-            label_name_columns_ = list(training_outputs.columns)
-            for lbl_c in label_columns:
-                label_name_columns.append(label_name_columns_[lbl_c])
-
-            self.label_name_columns = label_name_columns
-
             # Get labelled dataset
             try:
                 label_columns  = training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
@@ -224,6 +216,13 @@ class LinearRegressionPrimitive(ProbabilisticCompositionalityMixin[Inputs, Outpu
             if len(label_columns) == 0 or label_columns == None:
                 label_columns  = training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
             YTrain = ((training_outputs.iloc[:, label_columns]).to_numpy()).astype(np.float)
+
+            # Get label column names
+            label_name_columns  = []
+            label_name_columns_ = list(training_outputs.columns)
+            for lbl_c in label_columns:
+                label_name_columns.append(label_name_columns_[lbl_c])
+            self.label_name_columns = label_name_columns
 
             return new_XTrain, YTrain, feature_columns_1
 
