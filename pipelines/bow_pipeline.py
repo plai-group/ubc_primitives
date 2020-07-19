@@ -36,7 +36,7 @@ def make_pipeline():
     step_2.add_output('produce')
     pipeline.add_step(step_2)
 
-    # Step 3: Feature Extraction Primitive
+    # Step 4: Feature Extraction Primitive
     step_3 = PrimitiveStep(primitive=BagOfWords)
     step_3.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.2.produce')
     step_3.add_output('produce')

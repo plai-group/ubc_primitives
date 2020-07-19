@@ -326,8 +326,9 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
 
     def _dataset_type(self, inputs):
         """
-        Type of dataset loader to use. dataset_1 when using DataFrame dataset whose Attributes can be converted to NumPy array.
-        dataset_2 when using to read image based dataset
+        Type of dataset loader to use.
+        dataset_1 when using DataFrame dataset whose Attributes can be converted to NumPy array.
+        dataset_2 when using to read text/image based dataset
         """
         dataset_type='dataset_1'
 
@@ -505,6 +506,10 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
 
             # Data Generators
             training_generator = data.DataLoader(training_set, **train_params)
+
+            # Get label column names
+            label_name_columns_ = list(self._training_outputs.columns)
+            self.label_name_columns = [label_name_columns_[col] for col in label_columns]
             #-------------------------------------------------------------------
 
         # Check to add back to class
@@ -571,8 +576,7 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
 
             # Dataset Parameters
             test_params = {'batch_size': 1,
-                            'shuffle': False,
-                            'num_workers': 4}
+                           'shuffle': False}
 
             # DataLoader
             testing_set = Dataset_1(all_data_X=XTest, all_data_Y=None, use_labels=False)
@@ -605,12 +609,11 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
                 raise ValueError('Cannot fit when no training data is present.')
 
             # DataLoader
-            testing_set = Dataset(all_data_X=all_test_data, use_labels=False)
+            testing_set = Dataset_2(all_data_X=all_test_data, use_labels=False)
 
             # Dataset Parameters
             test_params = {'batch_size': 1,
-                            'shuffle': False,
-                            'num_workers': 4}
+                            'shuffle': False}
 
             # Data Generators
             testing_generator = data.DataLoader(testing_set, **test_params)

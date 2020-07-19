@@ -223,6 +223,8 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
                 except:
                     # Maybe no labels or missing labels
                     YTrain = (training_inputs.iloc[:, label_columns].to_numpy())
+                else:
+                    YTrain = np.array([])
 
             return new_XTrain, YTrain, feature_columns_1, label_name_columns
 
@@ -255,23 +257,13 @@ class KMeansClusteringPrimitive(UnsupervisedLearnerPrimitiveBase[Inputs, Outputs
             raise PrimitiveNotFittedError("Primitive not fitted.")
 
         # Curate data
-        XTest, YTest, feature_columns, label_name_columns = self._curate_data(training_inputs=inputs, get_labels=True)
-
-        add_class_index = False
-        if YTest.size > 0:
-            # Check if class index is from 0 to C-1 or 1 to C
-            if (0.0 in YTest[:, 0]) or (0 in YTest[:, 0]):
-              add_class_index = False
-            else:
-              add_class_index = True
+        XTest, _, feature_columns, label_name_columns = self._curate_data(training_inputs=inputs, get_labels=True)
 
         # Delete columns with inputs
         outputs = inputs.remove_columns(feature_columns)
 
         # Predictions
         predictions = self._kmeans.predict(XTest)
-        if add_class_index:
-            predictions = np.add(predictions, 1)
 
         # Convert from ndarray from DataFrame
         predictions = container.DataFrame(predictions, generate_metadata=True)

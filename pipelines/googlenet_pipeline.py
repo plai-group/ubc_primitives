@@ -8,7 +8,7 @@ from d3m.metadata.pipeline import Pipeline, PrimitiveStep
 # Common Primitives
 from common_primitives import construct_predictions
 from common_primitives.denormalize import DenormalizePrimitive
-from common_primitives.column_parser import ColumnParserPrimitive
+from common_primitives.simple_profiler import SimpleProfilerPrimitive
 from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive
 from common_primitives.xgboost_regressor import XGBoostGBTreeRegressorPrimitive
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
@@ -32,18 +32,18 @@ def make_pipeline_1():
     step_1.add_output('produce')
     pipeline.add_step(step_1)
 
-    # Step 2: Feature Extraction Primitive
-    step_2 = PrimitiveStep(primitive=GoogleNetCNN)
-    step_2.add_hyperparameter(name='feature_extract_only', argument_type=ArgumentType.VALUE, data=True)
-    step_2.add_hyperparameter(name='include_top', argument_type=ArgumentType.VALUE, data=False)
-    step_2.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
-    step_2.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    # Step 2: Profiler
+    step_2 = PrimitiveStep(primitive_description=SimpleProfilerPrimitive.metadata.query())
+    step_2.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_2.add_output('produce')
     pipeline.add_step(step_2)
 
-    # Step 3: Column Parser
-    step_3 = PrimitiveStep(primitive_description=ColumnParserPrimitive.metadata.query())
-    step_3.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.2.produce')
+    # Step 3: Feature Extraction Primitive
+    step_3 = PrimitiveStep(primitive=GoogleNetCNN)
+    step_3.add_hyperparameter(name='feature_extract_only', argument_type=ArgumentType.VALUE, data=True)
+    step_3.add_hyperparameter(name='include_top', argument_type=ArgumentType.VALUE, data=False)
+    step_3.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.2.produce')
+    step_3.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_3.add_output('produce')
     pipeline.add_step(step_3)
 
@@ -56,7 +56,7 @@ def make_pipeline_1():
 
     # Step 5: Extract Targets
     step_5 = PrimitiveStep(primitive_description=ExtractColumnsBySemanticTypesPrimitive.metadata.query())
-    step_5.add_hyperparameter(name='semantic_types', argument_type=ArgumentType.VALUE, data=['https://metadata.datadrivendiscovery.org/types/SuggestedTarget'])
+    step_5.add_hyperparameter(name='semantic_types', argument_type=ArgumentType.VALUE, data=['https://metadata.datadrivendiscovery.org/types/TrueTarget'])
     step_5.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_5.add_output('produce')
     pipeline.add_step(step_5)

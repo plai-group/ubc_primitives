@@ -8,7 +8,7 @@ from d3m.metadata.pipeline import Pipeline, PrimitiveStep
 # Common Primitives
 from common_primitives import construct_predictions
 from common_primitives.denormalize import DenormalizePrimitive
-from common_primitives.column_parser import ColumnParserPrimitive
+from common_primitives.simple_profiler import SimpleProfilerPrimitive
 from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive
 from common_primitives.xgboost_regressor import XGBoostGBTreeRegressorPrimitive
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
@@ -36,53 +36,62 @@ def make_pipeline():
     step_1.add_output('produce')
     pipeline.add_step(step_1)
 
-    # Step 2: Feature Extraction Primitive
-    step_2 = PrimitiveStep(primitive=VGG16CNN)
-    step_2.add_hyperparameter(name='feature_extract_only', argument_type=ArgumentType.VALUE, data=True)
-    step_2.add_hyperparameter(name='include_top', argument_type=ArgumentType.VALUE, data=True)
-    step_2.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
-    step_2.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    # Step 2: Profiler
+    step_2 = PrimitiveStep(primitive_description=SimpleProfilerPrimitive.metadata.query())
+    step_2.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_2.add_output('produce')
     pipeline.add_step(step_2)
 
-    # Step 3: PCA
-    step_3 = PrimitiveStep(primitive_description=PrincipalComponentAnalysisPrimitive.metadata.query())
-    step_3.add_hyperparameter(name='max_components', argument_type=ArgumentType.VALUE, data=128)
+    # Step 3: Feature Extraction Primitive
+    step_3 = PrimitiveStep(primitive=VGG16CNN)
+    step_3.add_hyperparameter(name='feature_extract_only', argument_type=ArgumentType.VALUE, data=True)
+    step_3.add_hyperparameter(name='include_top', argument_type=ArgumentType.VALUE, data=True)
     step_3.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.2.produce')
+    step_3.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_3.add_output('produce')
     pipeline.add_step(step_3)
 
-    # Step 4: MVN
-    step_4 = PrimitiveStep(primitive=DiagonalMVNPrimitive)
-    step_4.add_hyperparameter(name='num_iterations', argument_type=ArgumentType.VALUE, data=1)
+    # Step 4: PCA
+    step_4 = PrimitiveStep(primitive_description=PrincipalComponentAnalysisPrimitive.metadata.query())
+    step_4.add_hyperparameter(name='max_components', argument_type=ArgumentType.VALUE, data=128)
     step_4.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.3.produce')
-    step_4.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_4.add_output('produce')
     pipeline.add_step(step_4)
 
-    # Step 5: Extract Targets
-    step_5 = PrimitiveStep(primitive_description=ExtractColumnsBySemanticTypesPrimitive.metadata.query())
-    step_5.add_hyperparameter(name='semantic_types', argument_type=ArgumentType.VALUE, data=['https://metadata.datadrivendiscovery.org/types/SuggestedTarget'])
-    step_5.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    # Step 5: MVN
+    step_5 = PrimitiveStep(primitive=DiagonalMVNPrimitive)
+    step_5.add_hyperparameter(name='num_iterations', argument_type=ArgumentType.VALUE, data=1)
+    step_5.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.4.produce')
+    step_5.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_5.add_output('produce')
     pipeline.add_step(step_5)
 
-    # Step 6:  XGB
-    step_6 = PrimitiveStep(primitive=XGBoostGBTreeRegressorPrimitive)
-    step_6.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.4.produce')
-    step_6.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.5.produce')
+    # Step 6: Extract Targets
+    step_6 = PrimitiveStep(primitive_description=ExtractColumnsBySemanticTypesPrimitive.metadata.query())
+    step_6.add_hyperparameter(name='semantic_types', argument_type=ArgumentType.VALUE, data=['https://metadata.datadrivendiscovery.org/types/TrueTarget'])
+    step_6.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_6.add_output('produce')
     pipeline.add_step(step_6)
 
-    # step 7: Construct output
-    step_7 = PrimitiveStep(primitive=index.get_primitive('d3m.primitives.data_transformation.construct_predictions.Common'))
-    step_7.add_argument(name='inputs',    argument_type=ArgumentType.CONTAINER, data_reference='steps.6.produce')
-    step_7.add_argument(name='reference', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    attributes = 'steps.5.produce'
+    targets    = 'steps.6.produce'
+
+    # Step 7:  XGB
+    step_7 = PrimitiveStep(primitive=XGBoostGBTreeRegressorPrimitive)
+    step_7.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference=attributes)
+    step_7.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference=targets)
     step_7.add_output('produce')
     pipeline.add_step(step_7)
 
+    # step 8: Construct output
+    step_8 = PrimitiveStep(primitive=index.get_primitive('d3m.primitives.data_transformation.construct_predictions.Common'))
+    step_8.add_argument(name='inputs',    argument_type=ArgumentType.CONTAINER, data_reference='steps.7.produce')
+    step_8.add_argument(name='reference', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    step_8.add_output('produce')
+    pipeline.add_step(step_8)
+
     # Final Output
-    pipeline.add_output(name='output predictions', data_reference='steps.7.produce')
+    pipeline.add_output(name='output predictions', data_reference='steps.8.produce')
 
     # print(pipeline.to_json())
     with open('./mvn_pipeline.json', 'w') as write_file:

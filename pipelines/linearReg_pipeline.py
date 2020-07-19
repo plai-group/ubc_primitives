@@ -9,6 +9,7 @@ from d3m.metadata.pipeline import Pipeline, PrimitiveStep
 from common_primitives import construct_predictions
 from common_primitives.denormalize import DenormalizePrimitive
 from common_primitives.column_parser import ColumnParserPrimitive
+from common_primitives.simple_profiler import SimpleProfilerPrimitive
 from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
 
@@ -32,32 +33,38 @@ def make_pipeline():
     step_1.add_output('produce')
     pipeline.add_step(step_1)
 
-    # Step 2: Feature Extraction Primitive
-    step_2 = PrimitiveStep(primitive=VGG16CNN)
-    step_2.add_hyperparameter(name='feature_extract_only', argument_type=ArgumentType.VALUE, data=True)
-    step_2.add_hyperparameter(name='include_top', argument_type=ArgumentType.VALUE, data=True)
-    step_2.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
-    step_2.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    # Step 2: Profiler
+    step_2 = PrimitiveStep(primitive_description=SimpleProfilerPrimitive.metadata.query())
+    step_2.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_2.add_output('produce')
     pipeline.add_step(step_2)
 
-    # Step 3: Linear Regression
-    step_3 = PrimitiveStep(primitive_description=LinearRegressionPrimitive.metadata.query())
-    step_3.add_hyperparameter(name='learning_rate',    argument_type=ArgumentType.VALUE, data=0.001)
-    step_3.add_hyperparameter(name='use_gradient_fit', argument_type=ArgumentType.VALUE, data=True)
-    step_3.add_hyperparameter(name='minibatch_size',   argument_type=ArgumentType.VALUE, data=10)
-    step_3.add_hyperparameter(name='num_iterations',   argument_type=ArgumentType.VALUE, data=1000)
+    # Step 3: Feature Extraction Primitive
+    step_3 = PrimitiveStep(primitive=VGG16CNN)
+    step_3.add_hyperparameter(name='feature_extract_only', argument_type=ArgumentType.VALUE, data=True)
+    step_3.add_hyperparameter(name='include_top', argument_type=ArgumentType.VALUE, data=True)
     step_3.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.2.produce')
-    step_3.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.2.produce')
+    step_3.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_3.add_output('produce')
     pipeline.add_step(step_3)
 
-    # step 4: Construct Output
-    step_4 = PrimitiveStep(primitive=index.get_primitive('d3m.primitives.data_transformation.construct_predictions.Common'))
-    step_4.add_argument(name='inputs',    argument_type=ArgumentType.CONTAINER, data_reference='steps.3.produce')
-    step_4.add_argument(name='reference', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    # Step 4: Linear Regression
+    step_4 = PrimitiveStep(primitive_description=LinearRegressionPrimitive.metadata.query())
+    step_4.add_hyperparameter(name='learning_rate',    argument_type=ArgumentType.VALUE, data=0.001)
+    step_4.add_hyperparameter(name='use_gradient_fit', argument_type=ArgumentType.VALUE, data=True)
+    step_4.add_hyperparameter(name='minibatch_size',   argument_type=ArgumentType.VALUE, data=10)
+    step_4.add_hyperparameter(name='num_iterations',   argument_type=ArgumentType.VALUE, data=1000)
+    step_4.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.2.produce')
+    step_4.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_4.add_output('produce')
     pipeline.add_step(step_4)
+
+    # step 5: Construct Output
+    step_5 = PrimitiveStep(primitive=index.get_primitive('d3m.primitives.data_transformation.construct_predictions.Common'))
+    step_5.add_argument(name='inputs',    argument_type=ArgumentType.CONTAINER, data_reference='steps.3.produce')
+    step_5.add_argument(name='reference', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    step_5.add_output('produce')
+    pipeline.add_step(step_5)
 
     # Final Output
     pipeline.add_output(name='output predictions', data_reference='steps.4.produce')

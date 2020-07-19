@@ -9,11 +9,11 @@ from d3m.metadata.pipeline import Pipeline, PrimitiveStep
 from common_primitives import construct_predictions
 from common_primitives.denormalize import DenormalizePrimitive
 from common_primitives.column_parser import ColumnParserPrimitive
+from common_primitives.simple_profiler import SimpleProfilerPrimitive
 from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
 
-sys.path.insert(0, os.path.abspath('/ubc_primitives/primitives_ubc/resnet/'))
-from resnetcnn import ResNetCNN
+from primitives_ubc.vgg.vggnetcnn import VGG16CNN
 
 # Testing Primitive
 from primitives_ubc.regCCFS.ccfsReg import CanonicalCorrelationForestsRegressionPrimitive
@@ -34,32 +34,38 @@ def make_pipeline():
     step_1.add_output('produce')
     pipeline.add_step(step_1)
 
-    # Step 2: Feature Extraction Primitive
-    step_2 = PrimitiveStep(primitive_description=ResNetCNN.metadata.query())
-    step_2.add_hyperparameter(name='include_top', argument_type=ArgumentType.VALUE, data=True)
-    step_2.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
-    step_2.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    # Step 2: Profiler
+    step_2 = PrimitiveStep(primitive_description=SimpleProfilerPrimitive.metadata.query())
+    step_2.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_2.add_output('produce')
     pipeline.add_step(step_2)
 
-    # Step 3: CCFs
-    step_3 = PrimitiveStep(primitive_description=CanonicalCorrelationForestsRegressionPrimitive.metadata.query())
-    step_3.add_hyperparameter(name='nTrees', argument_type=ArgumentType.VALUE, data=150)
-    step_3.add_hyperparameter(name='parallelprocessing', argument_type=ArgumentType.VALUE, data=True)
+    # Step 3: Feature Extraction Primitive
+    step_3 = PrimitiveStep(primitive_description=VGG16CNN.metadata.query())
+    step_3.add_hyperparameter(name='include_top', argument_type=ArgumentType.VALUE, data=True)
     step_3.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.2.produce')
     step_3.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_3.add_output('produce')
     pipeline.add_step(step_3)
 
-    # step 4: Construct Output
-    step_4 = PrimitiveStep(primitive=index.get_primitive('d3m.primitives.data_transformation.construct_predictions.Common'))
-    step_4.add_argument(name='inputs',    argument_type=ArgumentType.CONTAINER, data_reference='steps.3.produce')
-    step_4.add_argument(name='reference', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    # Step 4: CCFs
+    step_4 = PrimitiveStep(primitive_description=CanonicalCorrelationForestsRegressionPrimitive.metadata.query())
+    step_4.add_hyperparameter(name='nTrees', argument_type=ArgumentType.VALUE, data=150)
+    step_4.add_hyperparameter(name='parallelprocessing', argument_type=ArgumentType.VALUE, data=True)
+    step_4.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.3.produce')
+    step_4.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
     step_4.add_output('produce')
     pipeline.add_step(step_4)
 
+    # step 5: Construct Output
+    step_5 = PrimitiveStep(primitive=index.get_primitive('d3m.primitives.data_transformation.construct_predictions.Common'))
+    step_5.add_argument(name='inputs',    argument_type=ArgumentType.CONTAINER, data_reference='steps.4.produce')
+    step_5.add_argument(name='reference', argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    step_5.add_output('produce')
+    pipeline.add_step(step_5)
+
     # Final Output
-    pipeline.add_output(name='output predictions', data_reference='steps.4.produce')
+    pipeline.add_output(name='output predictions', data_reference='steps.5.produce')
 
     # print(pipeline.to_json())
 

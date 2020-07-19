@@ -7,6 +7,7 @@ from d3m.metadata.pipeline import Pipeline, PrimitiveStep
 
 # Common Primitives
 from common_primitives import construct_predictions
+from common_primitives.simple_profiler import SimpleProfilerPrimitive
 from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive
 
 # Testing Primitive
@@ -22,24 +23,30 @@ def make_pipeline():
     step_0.add_output('produce')
     pipeline.add_step(step_0)
 
-    # Step 2: Logistic Regression
-    step_1 = PrimitiveStep(primitive_description=LogisticRegressionPrimitive.metadata.query())
-    step_1.add_hyperparameter(name='burnin', argument_type=ArgumentType.VALUE, data=10)
-    step_1.add_hyperparameter(name='num_iterations', argument_type=ArgumentType.VALUE, data=5)
-    step_1.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.0.produce')
-    step_1.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.0.produce')
+    # Step 2: Profiler
+    step_1 = PrimitiveStep(primitive_description=SimpleProfilerPrimitive.metadata.query())
+    step_1.add_argument(name='inputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.0.produce')
     step_1.add_output('produce')
     pipeline.add_step(step_1)
 
-    # step 3: Construct Output
-    step_2 = PrimitiveStep(primitive=index.get_primitive('d3m.primitives.data_transformation.construct_predictions.Common'))
-    step_2.add_argument(name='inputs',    argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
-    step_2.add_argument(name='reference', argument_type=ArgumentType.CONTAINER, data_reference='steps.0.produce')
+    # Step 2: Logistic Regression
+    step_2 = PrimitiveStep(primitive_description=LogisticRegressionPrimitive.metadata.query())
+    step_2.add_hyperparameter(name='burnin', argument_type=ArgumentType.VALUE, data=10)
+    step_2.add_hyperparameter(name='num_iterations', argument_type=ArgumentType.VALUE, data=10)
+    step_2.add_argument(name='inputs',  argument_type=ArgumentType.CONTAINER, data_reference='steps.1.produce')
+    step_2.add_argument(name='outputs', argument_type=ArgumentType.CONTAINER, data_reference='steps.0.produce')
     step_2.add_output('produce')
     pipeline.add_step(step_2)
 
+    # step 3: Construct Output
+    step_3 = PrimitiveStep(primitive=index.get_primitive('d3m.primitives.data_transformation.construct_predictions.Common'))
+    step_3.add_argument(name='inputs',    argument_type=ArgumentType.CONTAINER, data_reference='steps.2.produce')
+    step_3.add_argument(name='reference', argument_type=ArgumentType.CONTAINER, data_reference='steps.0.produce')
+    step_3.add_output('produce')
+    pipeline.add_step(step_3)
+
     # Final Output
-    pipeline.add_output(name='output predictions', data_reference='steps.2.produce')
+    pipeline.add_output(name='output predictions', data_reference='steps.3.produce')
 
     # print(pipeline.to_json())
 

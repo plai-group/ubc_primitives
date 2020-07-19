@@ -6,6 +6,7 @@ from d3m.metadata.pipeline import Pipeline, PrimitiveStep
 # Common Primitive
 from common_primitives import construct_predictions
 from common_primitives.column_parser import ColumnParserPrimitive
+from common_primitives.simple_profiler import SimpleProfilerPrimitive
 from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive
 from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive
 

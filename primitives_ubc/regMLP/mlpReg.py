@@ -38,8 +38,7 @@ DEBUG = True  # type: ignore
 class Params(params.Params):
     nn_model: Optional[Any]
     target_names_: Optional[List[str]]
-    add_class_index_: Optional[Any]
-
+    dataset_type_: Optional[Any]
 
 
 class Hyperparams(hyperparams.Hyperparams):
@@ -129,13 +128,6 @@ class Hyperparams(hyperparams.Hyperparams):
         description="Number of iterations to train the model.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
     )
-    # Dataset types
-    dataset_type = hyperparams.Enumeration[str](
-        values=['dataset_1', 'dataset_2'],
-        default='dataset_1',
-        description='Type of dataset loader to use. dataset_1 when using DataFrame dataset whose Attributes can be converted to NumPy array. dataset_2 when using to read image based dataset',
-        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
-    )
 
 
 class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperparams]):
@@ -178,7 +170,7 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
         self._training_inputs: Inputs   = None
         self._training_outputs: Outputs = None
         self.label_name_columns = None
-        self.add_class_index    = None
+        self.dataset_type       = None
         # Use GPU if available
         use_cuda    = torch.cuda.is_available()
         self.device = torch.device("cuda:0" if use_cuda else "cpu")
@@ -230,6 +222,7 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
         self._training_inputs   = inputs
         self._training_outputs  = outputs
         self._new_training_data = True
+        self.dataset_type       = self._dataset_type(inputs=self._training_inputs)
 
 
     def _setup_mlp(self, input_dim, output_dim, depth, width, activation_type, batch_norm, use_dropout):
@@ -309,6 +302,24 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
         #----------------------------------------------------------------------#
         self._net = _Net(input_dim, output_dim, depth, width, activation_type, batch_norm, use_dropout)
 
+    def _dataset_type(self, inputs):
+        """
+        Type of dataset loader to use.
+        dataset_1 when using DataFrame dataset whose Attributes can be converted to NumPy array.
+        dataset_2 when using to read text/image based dataset
+        """
+        dataset_type='dataset_1'
+
+        for col in range(inputs.shape[1]):
+            col_dict = dict(inputs.metadata.query((metadata_base.ALL_ELEMENTS, col)))
+            if ('https://metadata.datadrivendiscovery.org/types/FileName' in col_dict['semantic_types']):
+                media_types = col_dict['media_types'][0]
+                media_types = media_types.split('/')
+                if (('text' in media_types) or ('image' in col_dict['media_types'])):
+                    dataset_type = 'dataset_2'
+
+        return dataset_type
+
 
     def _curate_data(self, training_inputs, training_outputs, get_labels):
         # if self._training_inputs is None or self._training_outputs is None:
@@ -364,13 +375,19 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
                 new_XTrain.append(XTrain_Flatten)
             new_XTrain = np.array(new_XTrain)
 
-        # Get label column names
-        label_name_columns  = []
-        label_name_columns_ = list(training_inputs.columns)
-        for lbl_c in label_columns:
-            label_name_columns.append(label_name_columns_[lbl_c])
 
         if get_labels:
+            if training_outputs is None:
+                raise ValueError("Missing data.")
+
+            # Get label column names
+            label_name_columns  = []
+            label_name_columns_ = list(training_inputs.columns)
+            for lbl_c in label_columns:
+                label_name_columns.append(label_name_columns_[lbl_c])
+
+            self.label_name_columns = label_name_columns
+
             # Training labels
             YTrain = np.array([])
 
@@ -391,11 +408,11 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
 
             return new_XTrain, YTrain, feature_columns_1, label_name_columns
 
-        return new_XTrain, feature_columns_1, label_name_columns
+        return new_XTrain, feature_columns_1
 
 
     def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
-        if self.hyperparams['dataset_type'] == 'dataset_1':
+        if self.dataset_type == 'dataset_1':
             # Curate data
             XTrain, YTrain, _, label_columns = self._curate_data(training_inputs=self._training_inputs, training_outputs=self._training_outputs, get_labels=True)
 
@@ -469,9 +486,11 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
 
             # Data Generators
             training_generator = data.DataLoader(training_set, **train_params)
-            #-------------------------------------------------------------------
 
-        self.label_name_columns = label_columns
+            # Get label column names
+            label_name_columns_ = list(self._training_outputs.columns)
+            self.label_name_columns = [label_name_columns_[col] for col in label_columns]
+            #-------------------------------------------------------------------
 
         # Loss function
         if self.hyperparams['loss_type'] == 'mse':
@@ -530,14 +549,13 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
         if not self._fitted:
             raise ValueError('Please fit the model before calling produce!')
 
-        if self.hyperparams['dataset_type'] == 'dataset_1':
+        if self.dataset_type == 'dataset_1':
             # Curate data
-            XTest, feature_columns, _ = self._curate_data(training_inputs=inputs, training_outputs=None, get_labels=False)
+            XTest, feature_columns  = self._curate_data(training_inputs=inputs, training_outputs=None, get_labels=False)
 
             # Dataset Parameters
             test_params = {'batch_size': 1,
-                            'shuffle': False,
-                            'num_workers': 4}
+                           'shuffle': False}
 
             # DataLoader
             testing_set = Dataset_1(all_data_X=XTest, all_data_Y=None, use_labels=False)
@@ -621,15 +639,15 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
 
     def get_params(self) -> Params:
         if not self._fitted:
-            return Params(nn_model=self._net, target_names_=self.label_name_columns, add_class_index_=self.add_class_index)
+            return Params(nn_model=self._net, target_names_=self.label_name_columns, dataset_type_=self.dataset_type)
 
-        return Params(nn_model=self._net, target_names_=self.label_name_columns, add_class_index_=self.add_class_index)
+        return Params(nn_model=self._net, target_names_=self.label_name_columns, dataset_type_=self.dataset_type)
 
 
     def set_params(self, *, params: Params) -> None:
-        self._net = params['nn_model']
+        self._net               = params['nn_model']
         self.label_name_columns = params['target_names_']
-        self.add_class_index = params['add_class_index_']
+        self.dataset_type       = params['dataset_type_']
         self._fitted = True
 
 
