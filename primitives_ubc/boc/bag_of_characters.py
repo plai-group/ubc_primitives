@@ -139,22 +139,22 @@ class BagOfCharacters(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hype
 
         else:
             # Get training data and labels data
-            attribute_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute')
-            # Get labels data if present in training input
-            try:
-                label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
-            except:
-                label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-            # If no error but no label-columns found, force try SuggestedTarget
-            if len(label_columns) == 0 or label_columns == None:
-                label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-            # Remove columns if outputs present in inputs
-            if len(label_columns) >= 1:
-                for lbl_c in label_columns:
-                    try:
-                        attribute_columns.remove(lbl_c)
-                    except ValueError:
-                        pass
+            attribute_columns = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute')
+            # # Get labels data if present in training input
+            # try:
+            #     label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
+            # except:
+            #     label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
+            # # If no error but no label-columns found, force try SuggestedTarget
+            # if len(label_columns) == 0 or label_columns == None:
+            #     label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
+            # # Remove columns if outputs present in inputs
+            # if len(label_columns) >= 1:
+            #     for lbl_c in label_columns:
+            #         try:
+            #             attribute_columns.remove(lbl_c)
+            #         except ValueError:
+            #             pass
 
             # Training Set
             attribute_columns = [int(ac) for ac in attribute_columns]
