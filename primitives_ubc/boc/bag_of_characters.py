@@ -170,8 +170,15 @@ class BagOfCharacters(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hype
         """
         attributes, attribute_columns = self._curate_data(inputs=inputs)
 
-        # Delete columns with path names of nested media files
-        outputs = inputs.remove_columns(attribute_columns)
+        col_names = list(inputs.columns)
+        if "d3mIndex" in col_names:
+            col_names.remove('d3mIndex')
+
+        use_input_df = False
+        if (len(col_names) > 1) and (len(col_names) != len(attribute_columns)):
+            # Delete columns with path names of nested media files
+            outputs = inputs.remove_columns(attribute_columns)
+            use_input_df = True
 
         ### Build Features ###
         logging.info('Building Features in progress......')
@@ -215,8 +222,12 @@ class BagOfCharacters(transformer.TransformerPrimitiveBase[Inputs, Outputs, Hype
             col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/Attribute",)
             feature_vectors.metadata    = feature_vectors.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
 
-        # Add the features to the input labels with data removed
-        outputs = outputs.append_columns(feature_vectors)
+        if use_input_df:
+            # Add the features to the input labels with data removed
+            outputs = outputs.append_columns(feature_vectors)
+        else:
+            outputs = feature_vectors
+
 
         return base.CallResult(outputs)
 
