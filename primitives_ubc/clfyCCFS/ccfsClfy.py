@@ -50,10 +50,14 @@ class Hyperparams(hyperparams.Hyperparams):
     default_projdict = OrderedDict()
     default_projdict['CCA'] =  True
 
-    nTrees = hyperparams.Hyperparameter[int](
+    nTrees = hyperparams.UniformInt(
+        lower=1,
+        upper=10000,
         default=100,
         description="Number of trees to create.",
-        semantic_types=['https://metadata.datadrivendiscovery.org/types/TuningParameter']
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/TuningParameter',
+                        'https://metadata.datadrivendiscovery.org/types/ResourcesUseParameter',
+        ],
     )
     parallelprocessing = hyperparams.UniformBool(
         default=True,
@@ -257,7 +261,7 @@ class CanonicalCorrelationForestsClassifierPrimitive(SupervisedLearnerPrimitiveB
     Citation: https://arxiv.org/abs/1507.05444
     -------------
     Inputs:  DataFrame of features of shape: NxM, where N = samples and M = features.
-    Outputs: DataFrame containing the target column of shape Nx1 or denormalized dataset.
+    Outputs: DataFrame containing the target column of shape Nx1
     -------------
     """
     # Metadata
