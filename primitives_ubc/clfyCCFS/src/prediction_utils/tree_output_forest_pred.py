@@ -49,9 +49,8 @@ def treeOutputsToForestPredicts(CCF, treeOutputs):
         else:
             forestPredicts = CCF["classNames"][forestPredicts]
 
-    # Fix needed -- Support for DataFrame
-    elif isinstance(CCF["classNames"], pd.DataFrame):
-        assert (CCF["classNames"].size == forestPredicts.shape[1]), 'Number of predicts does not match the number of outputs in classNames'
+    elif isinstance(CCF["classNames"], type(np.array([]))):
+        forestPredicts = CCF["classNames"][forestPredicts]
 
     elif islogical(CCF["classNames"]) and CCF["classNames"].size:
         forestPredicts = (forestPredicts == 2)

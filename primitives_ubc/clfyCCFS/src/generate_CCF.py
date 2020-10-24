@@ -1,4 +1,5 @@
 import numpy as np
+import multiprocessing as mp
 from collections import OrderedDict
 from .utils.commonUtils import fastUnique
 from .utils.commonUtils import is_numeric
@@ -101,7 +102,60 @@ def genTree(XTrain, YTrain, optionsFor, iFeatureNum, Ntrain):
     return tree
 
 
-def genCCF(XTrain, YTrain, nTrees=500, optionsFor={}, XTest=None, bKeepTrees=True, iFeatureNum=None, bOrdinal=None):
+def genTree_parallel(XTrain, YTrain, optionsFor, iFeatureNum, Ntrain, pos):
+    """
+    A sub-function is used so that it can be shared between the for and
+    parfor loops.  Does required preprocessing such as randomly setting
+    missing values, then calls the tree training function
+    """
+    if optionsFor["missingValuesMethod"] == 'random':
+        # Randomly set the missing values.  This will be different for each tree
+        XTrain = random_missing_vals(XTrain)
+
+    N = XTrain.shape[0]
+
+    # Bag if required
+    if optionsFor["bBagTrees"] or (Ntrain != N):
+        all_samples = np.arange(N)
+        iTrainThis  = np.random.choice(all_samples, Ntrain, replace=optionsFor["bBagTrees"])
+        iOob        = np.setdiff1d(all_samples, iTrainThis).T
+        XTrainOrig  = XTrain
+        XTrain      = XTrain[iTrainThis, :]
+        YTrain      = YTrain[iTrainThis, :]
+
+    # Apply pre rotations if any requested.  Note that these all include a
+    # subtracting a the mean prior to the projection (because this is a natural
+    # part of pca) and this is therefore replicated at test time
+    if optionsFor["treeRotation"] == 'rotationForest':
+        # This allows functionality to use the Rotation Forest algorithm as a
+        # meta method for individual CCTs
+        prop_classes_eliminate = optionsFor["RotForpClassLeaveOut"]
+        R, muX, XTrain = rotationForestDataProcess(XTrain, YTrain, optionsFor["RotForM"], optionsFor["RotForpS"], prop_classes_eliminate)
+
+    elif optionsFor["treeRotation"] == 'random':
+        muX = np.nanmean(XTrain, axis=0)
+        R   = randomRotation(N=XTrain.shape[1])
+        XTrain = np.dot(np.subtract(XTrain, muX), R)
+
+    elif optionsFor["treeRotation"] == 'pca':
+        R, muX, XTrain = pcaLite(XTrain, False, False)
+
+    # Train the tree
+    tree = growCCT(XTrain, YTrain, optionsFor, iFeatureNum, 0)
+
+    # Calculate out of bag error if relevant
+    if optionsFor["bBagTrees"]:
+        tree["iOutOfBag"] = iOob
+        tree["predictsOutOfBag"], _ = predictFromCCT(tree, XTrainOrig[iOob, :])
+
+    # Store rotation deatils if necessary
+    if not (optionsFor["treeRotation"] == 'none'):
+        tree["rotDetails"] = {'R': R, 'muX': muX}
+
+    return (pos, tree)
+
+
+def genCCF(XTrain, YTrain, nTrees=500, optionsFor={}, do_parallel=False, XTest=None, bKeepTrees=True, iFeatureNum=None, bOrdinal=None):
     """
     Creates a canonical correlation forest (CCF) comprising of nTrees
     canonical correlation trees (CCT) containing splits based on the a CCA
@@ -113,6 +167,8 @@ def genCCF(XTrain, YTrain, nTrees=500, optionsFor={}, XTest=None, bKeepTrees=Tru
     nTrees: Int
             Number of trees to create.
     XTrain: pandas DataFrame/Numpy array
+            Numpy array => For Numeric only
+            Pandas DataFrame => For Numeric/String/Categorical
             Array giving training features.  Each row should be a
             seperate data point and each column a seperate feature.
             Must be numerical array with missing values marked as
@@ -235,9 +291,9 @@ def genCCF(XTrain, YTrain, nTrees=500, optionsFor={}, XTest=None, bKeepTrees=Tru
         XTest.fill(np.nan)
 
     forest = OrderedDict()
+
     treeOutputTest = np.empty((XTest.shape[0], nTrees, YTrain.shape[1]))
     treeOutputTest.fill(np.nan)
-
     n_nodes_trees = np.empty((nTrees, 1))
     n_nodes_trees.fill(np.nan)
     tree_train_times = np.empty((nTrees, 1))
@@ -248,20 +304,33 @@ def genCCF(XTrain, YTrain, nTrees=500, optionsFor={}, XTest=None, bKeepTrees=Tru
     Ntrain = int(N * optionsFor["propTrain"])
 
     # Train the trees
-    for nT in range(nTrees):
-        # Generate tree
-        tree = genTree(XTrain, YTrain, optionsFor, iFeatureNum, Ntrain)
+    if do_parallel:
+        pool = mp.Pool(processes=mp.cpu_count())
+        processes = [pool.apply_async(genTree_parallel, args=(XTrain, YTrain, optionsFor, iFeatureNum, Ntrain, n_i)) for n_i in range(nTrees)]
 
-        if bKeepTrees:
-            forest[nT] = tree
+        # Get process results
+        all_trees = [p.get() for p in processes]
+        all_trees.sort() # Sort the results by pos
 
-        if nT%25 == 0:
-            # print('Progress: {}/{}'.format(nT, nTrees))
-            logger.info('Progress: {}/{}'.format(nT, nTrees))
+        # Collect
+        for nT in range(nTrees):
+            if bKeepTrees:
+                forest[nT] = all_trees[nT][1]
+    else:
+        for nT in range(nTrees):
+            # Generate tree
+            tree = genTree(XTrain, YTrain, optionsFor, iFeatureNum, Ntrain)
 
-    # print('Completed')
+            if bKeepTrees:
+                forest[nT] = tree
+
+            if nT%25 == 0:
+                # print('Progress: {}/{}'.format(nT, nTrees))
+                logger.info('Progress: {}/{}'.format(nT, nTrees))
+
     logger.info('Progress: {}/{}'.format(nT, nTrees))
-    # print('..................................................................')
+    logger.info('Completed!')
+    logger.info('.............................................................')
 
     # Setup outputs
     CCF = {}

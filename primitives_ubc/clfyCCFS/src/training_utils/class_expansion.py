@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from primitives_ubc.clfyCCFS.src.utils.ccfUtils import mat_unique
 from primitives_ubc.clfyCCFS.src.utils.commonUtils import sVT
 from primitives_ubc.clfyCCFS.src.utils.commonUtils import islogical
@@ -33,7 +34,21 @@ def classExpansion(Y, N, optionsFor):
         Updated forest options, e.g. because bSepPred has been
         switched on because non-mutually exclusive classes.
     """
-    if Y.shape[0] == N and Y.shape[1] == 1:
+    if isinstance(Y, pd.DataFrame):
+        assert (Y.shape[1]==1), 'If Y is a DataFrame it should either be Nx1 for a single output'
+        assert (not optionsFor["bSepPred"]), 'Seperate in-out prediction is only valid when Y is a logical array'
+
+        classes = np.unique(Y.iloc[:, 0])
+        nCats   = len(classes)
+        Y_expanded = np.zeros((Y.shape[0], classes.size))
+
+        for c in range(nCats):
+            Y_expanded[Y.iloc[:, 0] == classes[c], c] = 1;
+
+        Y = Y_expanded
+        optionsFor["task_ids"] = np.array([0])
+
+    elif Y.shape[0] == N and Y.shape[1] == 1:
         assert (not optionsFor["bSepPred"]), 'Seperate in-out prediction is only valid when Y is a logical array'
         classes, _, Yindexes = mat_unique(Y)
         Y  = np.empty((Yindexes.shape[0], classes.size))
@@ -57,7 +72,6 @@ def classExpansion(Y, N, optionsFor):
             classes = np.matlib.repmat([False, True], 1, Y.shape[1])
 
     else:
-        # TODO: Dataframe support
         assert (not optionsFor["bSepPred"]),'Seperate in-out prediction is only valid when Y is a logical array!'
         classes = {}
         Ycell   = {}
