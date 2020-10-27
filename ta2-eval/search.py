@@ -33,7 +33,7 @@ def main(dataset_dir, dataset_name, ta2_id, timeout):
                         dataset=dataset, dataset_dir=dataset_dir, ta2_id=ta2_id)
 
         # Start docker
-        automl.start_ta2()
+        automl.start_ta2(timeout=timeout)
 
         # Run pipeline search
         automl.search_pipelines(save_pipeline, save_file, dataset, dataset_doc_path, problem_doc_path, time_bound=timeout)

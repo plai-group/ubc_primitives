@@ -38,6 +38,9 @@ def main(dataset_dir, dataset_name, ta2_id, timeout):
         automl = AutoML(output_folder=ta2_id, local_dir=base_dir, base_dir=container_dir,\
                         dataset=dataset, dataset_dir=dataset_dir, ta2_id=ta2_id)
 
+        # Start docker
+        automl.start_ta2(timeout=timeout)
+
         max_use = 0
         all_outputs = []
         for idx in range(results_csv.shape[0]):

@@ -206,7 +206,7 @@ class AutoML:
         raise Exception()
 
 
-    def start_ta2(self, port=45042):
+    def start_ta2(self, timeout, port=45042):
         logger.info('Initializing %s TA2...', self.ta2_id)
         # Stop any running containers
         process = subprocess.Popen(['docker', 'stop', 'ta2_container'])
@@ -217,8 +217,8 @@ class AutoML:
                                                       '-p', '{port}:{port}'.format(port=port),
                                                       '-e', 'D3MRUN=ta2ta3',
                                                       '-e', 'D3MINPUTDIR=/ta2-eval/datasets',
-                                                      '-e', 'D3MOUTPUTDIR=/ta2-eval/{ta2_id}/{dataset}/runs'.format(ta2_id=self.ta2_id, dataset=self.dataset),
-                                                      '-e', 'D3MSTATICDIR=/ta2-eval/{ta2_id}/{dataset}/static'.format(ta2_id=self.ta2_id, dataset=self.dataset),
+                                                      '-e', 'D3MOUTPUTDIR=/ta2-eval/{ta2_id}/{dataset}/{timeout}/runs'.format(ta2_id=self.ta2_id, dataset=self.dataset, timeout=timeout),
+                                                      '-e', 'D3MSTATICDIR=/ta2-eval/{ta2_id}/{dataset}/{timeout}/static'.format(ta2_id=self.ta2_id, dataset=self.dataset, timeout=timeout),
                                                       '-v', '{base_dir}:/ta2-eval'.format(base_dir=self.local_dir),
                                                       '-v', '{dataset_dir}:/ta2-eval/datasets'.format(dataset_dir=self.dataset_dir),
                                                        TA2_DOCKER_IMAGES[self.ta2_id]])
