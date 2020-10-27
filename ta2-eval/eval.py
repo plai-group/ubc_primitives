@@ -78,7 +78,7 @@ def main(dataset_dir, dataset_name, ta2_id, timeout):
 
 #---------------------------------MAIN-----------------------------------------#
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='D3M AutoML run')
+    parser = argparse.ArgumentParser(description='D3M AutoML produce run')
     parser.add_argument('-d', '--dataset_dir',   type=str)
     parser.add_argument('-n', '--dataset_name',  type=str)
     parser.add_argument('-a', '--ta2_id',        type=str)
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
 
-     main(dataset_dir=args.dataset_dir, dataset_name=args.dataset_name,\
+    main(dataset_dir=args.dataset_dir, dataset_name=args.dataset_name,\
           ta2_id=args.ta2_id, timeout=args.timeout)
 
      print('Done')
