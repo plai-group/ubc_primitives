@@ -1,7 +1,4 @@
 import os
-import pandas
-import unittest
-import subprocess
 # Test Automl
 from d3m_ta2s_eval.automl_eval import AutoML
 
@@ -10,10 +7,10 @@ def main(dataset_dir, dataset_name, ta2_id, timeout):
         base_dir      = os.getcwd()
         container_dir = '/ta2-eval'
         dataset       = dataset_name
-        save_dir      = os.path.join(base_dir, 'CMU', dataset)
-        save_file     = os.path.join(base_dir, 'CMU', dataset, 'cmu_result.csv')
-        save_pipeline = os.path.join(base_dir, 'CMU', dataset, 'pipelines')
-        output_dir    = os.path.join(base_dir, 'CMU', dataset)
+        save_dir      = os.path.join(base_dir, ta2_id, dataset)
+        save_file     = os.path.join(base_dir, ta2_id, dataset, '{ta2_id}_result.csv'.format(ta2_id=ta2_id))
+        save_pipeline = os.path.join(base_dir, ta2_id, dataset, 'pipelines')
+        output_dir    = os.path.join(base_dir, ta2_id, dataset)
 
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -32,14 +29,14 @@ def main(dataset_dir, dataset_name, ta2_id, timeout):
                                         'TRAIN/problem_TRAIN/problemDoc.json')
 
         # AutoML
-        automl = AutoML(output_folder='CMU', local_dir=base_dir, base_dir=container_dir,\
-                        dataset=dataset, dataset_dir=dataset_dir, ta2_id='CMU')
+        automl = AutoML(output_folder=ta2_id, local_dir=base_dir, base_dir=container_dir,\
+                        dataset=dataset, dataset_dir=dataset_dir, ta2_id=ta2_id)
 
         # Start docker
         automl.start_ta2()
 
         # Run pipeline search
-        automl.search_pipelines(save_pipeline, save_file, dataset, dataset_doc_path, problem_doc_path, time_bound=30)
+        automl.search_pipelines(save_pipeline, save_file, dataset, dataset_doc_path, problem_doc_path, time_bound=timeout)
 
         # End docker
         automl.end_session()
