@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.matlib
 import pandas as pd
 from primitives_ubc.clfyCCFS.src.utils.ccfUtils import mat_unique
 from primitives_ubc.clfyCCFS.src.utils.commonUtils import sVT
@@ -13,11 +14,12 @@ def classExpansion(Y, N, optionsFor):
 
     Parameters
     ----------
-    Y : Numpy array
+    Y : pandas DataFrame/Numpy array
+        Numpy array => For Numeric only
+        Pandas DataFrame => For Numeric/String/Categorical
         Class information, can be a binary expansion, a numerical
         vector of labels or a cell array of numerical or string
-        labels.  For multiple inputs, should instead be a 1xV cell
-        array where each cell is of a type required for single input.
+        labels.
     N : Float
         Number of datapoints.
     optionsFor: dict
@@ -61,8 +63,8 @@ def classExpansion(Y, N, optionsFor):
     elif islogical(Y) or (np.max(Y.flatten(order='F')) == 1 and np.min(Y.flatten(order='F')) == 0):
         N_c_present = np.cumsum(Y, axis=1)
         if np.all(N_c_present[:, -1] == 1) and (not optionsFor["bSepPred"]):
-            optionsFor["task_ids"] = 1
-            classes = sVT(np.arange(0, Y.shape[1]))
+            optionsFor["task_ids"] = np.array([0])
+            classes = np.arange(0, Y.shape[1])
         else:
             if (not optionsFor["bSepPred"]):
                 optionsFor["bSepPred"] = True

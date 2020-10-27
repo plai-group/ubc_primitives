@@ -39,6 +39,7 @@ def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False):
                   category is also included.
     """
     D = XTrainRC.shape[1]
+    XCat_exist = False
 
     if isinstance(XTrainRC, pd.DataFrame):
         featureNamesOrig = np.array(list(XTrainRC.columns.values))
@@ -46,7 +47,7 @@ def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False):
         new_col_names = [idx for idx in range(len(featureNamesOrig))]
         XTrainRC.columns = new_col_names
     else:
-        featureNamesOrig = [f'Var_{idx}' for idx in range(XTrainRC.shape[1])]
+        featureNamesOrig = np.array([f'Var_{idx}' for idx in range(XTrainRC.shape[1])])
 
 
     if bOrdinal == None:
@@ -55,22 +56,26 @@ def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False):
             # ordinal
             bOrdinal = np.array([True] * D)
         else:
-            # Numeric features treated as ordinal
             bNumeric = is_numeric(XTrainRC, compress=False)
-            # Features with more than one unique string taken as non-ordinal
-            iContainsString = (np.sum(~bNumeric, axis=0) > 0).ravel().nonzero()[0]
-            nStr = np.zeros((XTrainRC.shape[1]), dtype=int)
-            for n in iContainsString.flatten(order='F'):
-                x_unique = np.unique(XTrainRC.loc[~bNumeric[:, n], n])
-                nStr[n]  = len(x_unique)
-            bOrdinal = nStr < 2
-            # Features with only a single unqiue string and otherwise
-            # numeric treated also treated as ordinal with the string
-            # taken to give a missing value
-            iSingleStr = (nStr == 1).ravel().nonzero()[0]
-            for n in iSingleStr:
-                XTrainRC.loc[~bNumeric[:, n], n] = np.nan
-
+            if np.all(bNumeric):
+                # Numeric features treated as ordinal
+                bOrdinal = np.array([True] * D)
+                XCat_exist = False
+            else:
+                # Features with more than one unique string taken as non-ordinal
+                iContainsString = (np.sum(~bNumeric, axis=0) > 0).ravel().nonzero()[0]
+                nStr = np.zeros((XTrainRC.shape[1]), dtype=int)
+                for n in iContainsString.flatten(order='F'):
+                    x_unique = np.unique(XTrainRC.loc[~bNumeric[:, n], n])
+                    nStr[n]  = len(x_unique)
+                bOrdinal = nStr < 2
+                # Features with only a single unqiue string and otherwise
+                # numeric treated also treated as ordinal with the string
+                # taken to give a missing value
+                iSingleStr = (nStr == 1).ravel().nonzero()[0]
+                for n in iSingleStr:
+                    XTrainRC.loc[~bNumeric[:, n], n] = np.nan
+                XCat_exist = True
 
     elif len(bOrdinal) != XTrainRC.shape[1]:
         assert (True), 'bOrdinal must match size of XTrainRC!'
@@ -88,7 +93,7 @@ def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False):
         XTrain = XTrainRC[:, bOrdinal]
 
     # Categorical Features
-    if isinstance(XTrainRC, pd.DataFrame):
+    if isinstance(XTrainRC, pd.DataFrame) and XCat_exist:
         XCat = XTrainRC.loc[:, ~bOrdinal]
         XCat = makeSureString(XCat, nSigFigTol=10)
         # Previous properties
@@ -119,7 +124,7 @@ def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False):
             for c in range(nCats):
                 XTrain[XCat.iloc[:, n] == cats_unique[c], (sizeSoFar+c)] = 1;
 
-        # Remove single dimension
+        # Remove single dimension if any
         iFeatureNum = np.squeeze(iFeatureNum)
 
     else:
@@ -141,6 +146,7 @@ def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False):
     # calculate conversion for any test data provided.
     inputProcessDetails = {}
     inputProcessDetails["Cats"]       = Cats # {0: array(['False', 'True'], dtype=object), 1: array(['f', 't'], dtype=object)}
+    inputProcessDetails['XCat_exist'] = XCat_exist
     inputProcessDetails['bOrdinal']   = bOrdinal
     inputProcessDetails['mu_XTrain']  = mu_XTrain
     inputProcessDetails['std_XTrain'] = std_XTrain
