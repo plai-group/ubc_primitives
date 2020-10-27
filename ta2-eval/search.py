@@ -7,10 +7,10 @@ def main(dataset_dir, dataset_name, ta2_id, timeout):
         base_dir      = os.getcwd()
         container_dir = '/ta2-eval'
         dataset       = dataset_name
-        save_dir      = os.path.join(base_dir, ta2_id, dataset)
-        save_file     = os.path.join(base_dir, ta2_id, dataset, '{ta2_id}_result.csv'.format(ta2_id=ta2_id))
-        save_pipeline = os.path.join(base_dir, ta2_id, dataset, 'pipelines')
-        output_dir    = os.path.join(base_dir, ta2_id, dataset)
+        save_dir      = os.path.join(base_dir, ta2_id, dataset, str(timeout))
+        save_file     = os.path.join(base_dir, ta2_id, dataset, str(timeout), '{ta2_id}_result.csv'.format(ta2_id=ta2_id))
+        save_pipeline = os.path.join(base_dir, ta2_id, dataset, str(timeout), 'pipelines')
+        output_dir    = os.path.join(base_dir, ta2_id, dataset, str(timeout))
 
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -41,17 +41,14 @@ def main(dataset_dir, dataset_name, ta2_id, timeout):
         # End docker
         automl.end_session()
 
-
 #---------------------------------MAIN-----------------------------------------#
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='D3M AutoML search run')
     parser.add_argument('-d', '--dataset_dir',   type=str)
     parser.add_argument('-n', '--dataset_name',  type=str)
     parser.add_argument('-a', '--ta2_id',        type=str)
-    parser.add_argument('-c', '--local_dir',     type=str)
     parser.add_argument('-t', '--timeout',       type=int)
     args = parser.parse_args()
-
 
     main(dataset_dir=args.dataset_dir, dataset_name=args.dataset_name,\
           ta2_id=args.ta2_id, timeout=args.timeout)

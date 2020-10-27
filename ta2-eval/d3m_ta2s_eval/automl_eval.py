@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Docker images
 TA2_DOCKER_IMAGES = {'NYU': 'registry.gitlab.com/vida-nyu/d3m/ta2:latest',
-                     'CMU': 'cmuta2:latest',
+                     'CMU': 'registry.datadrivendiscovery.org/sheath/cmu-ta2:latest',
                      'SRI': 'registry.gitlab.com/daraghhartnett/autoflow:latest',
                      'TAMU': 'dmartinez05/tamuta2:latest'}
 

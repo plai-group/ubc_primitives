@@ -8,10 +8,10 @@ def main(dataset_dir, dataset_name, ta2_id, timeout):
         base_dir      = os.getcwd()
         container_dir = '/ta2-eval'
         dataset       = dataset_name
-        save_dir      = os.path.join(base_dir, ta2_id, dataset)
-        save_file     = os.path.join(base_dir, ta2_id, dataset, '{ta2_id}_result.csv'.format(ta2_id=ta2_id))
-        save_pipeline = os.path.join(base_dir, ta2_id, dataset, 'pipelines')
-        output_dir    = os.path.join(base_dir, ta2_id, dataset)
+        save_dir      = os.path.join(base_dir, ta2_id, dataset, str(timeout))
+        save_file     = os.path.join(base_dir, ta2_id, dataset, str(timeout), '{ta2_id}_result.csv'.format(ta2_id=ta2_id))
+        save_pipeline = os.path.join(base_dir, ta2_id, dataset, str(timeout), 'pipelines')
+        output_dir    = os.path.join(base_dir, ta2_id, dataset, str(timeout))
 
         top_k = 5
 
@@ -45,7 +45,7 @@ def main(dataset_dir, dataset_name, ta2_id, timeout):
 
             # Run pipeline search
             output_dir_idx = os.path.join(output_dir, pipeline_id)
-            pipeline_path  = os.path.join(container_dir, ta2_id, dataset, 'pipelines', '%s.json' % pipeline_id)
+            pipeline_path  = os.path.join(container_dir, ta2_id, dataset, str(timeout), 'pipelines', '%s.json' % pipeline_id)
 
             if not os.path.exists(output_dir_idx):
                 os.makedirs(output_dir_idx)
@@ -65,7 +65,7 @@ def main(dataset_dir, dataset_name, ta2_id, timeout):
 
         df = pd.DataFrame(all_outputs, columns=['Pipeline_ID', 'metric', 'score'])
         final_df   = df.sort_values(by=['score'], ascending=False)
-        final_file = os.path.join(base_dir, ta2_id, dataset, 'ranked_scored_result.csv')
+        final_file = os.path.join(base_dir, ta2_id, dataset, str(timeout), 'ranked_scored_result.csv')
         final_df.to_csv(final_file, index=False)
 
         print('---------------------------------------------------------------')
@@ -82,7 +82,6 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--dataset_dir',   type=str)
     parser.add_argument('-n', '--dataset_name',  type=str)
     parser.add_argument('-a', '--ta2_id',        type=str)
-    parser.add_argument('-c', '--local_dir',     type=str)
     parser.add_argument('-t', '--timeout',       type=int)
     args = parser.parse_args()
 
