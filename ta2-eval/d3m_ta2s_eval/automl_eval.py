@@ -163,7 +163,7 @@ class AutoML:
                                           'datasets', dataset,\
                                           'TRAIN/problem_TRAIN/problemDoc.json')
 
-        score_pipeline_path = os.path.join(self.base_dir, ta2_id, dataset, pipeline_id, 'fit_score_%s.csv' % pipeline_id)
+        score_pipeline_path = os.path.join(self.base_dir, ta2_id, dataset, str(timeout), pipeline_id, 'fit_score_%s.csv' % pipeline_id)
         metric = None
         score  = None
 
