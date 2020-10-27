@@ -192,13 +192,28 @@ class AutoML:
         return metric, score
 
 
+    def repeat_until_success(self, function, max_try=720, sleep_time=30, desc=None):
+        # repeatedly run the function until an exception isn't thrown anymore
+        for i in range(max_try):
+            if desc is not None:
+                logger.info(desc)
+            try:
+                function()
+                return
+            except:
+                time.sleep(sleep_time)
+        logger.error(f'The supplied command failed after {max_try} tries. Aborting.')
+        raise Exception()
+
+
     def start_ta2(self, port=45042):
         logger.info('Initializing %s TA2...', self.ta2_id)
         # Stop any running containers
-        process = subprocess.Popen(['sudo', 'docker', 'stop', 'ta2_container'])
+        process = subprocess.Popen(['docker', 'stop', 'ta2_container'])
         process.wait()
 
-        self.ta2 = subprocess.Popen(['sudo', 'docker', 'run', '--rm', '--name', 'ta2_container',
+        container_name = 'ta2_container'
+        self.ta2 = subprocess.Popen(['docker', 'run', '--rm', '--name', container_name,
                                                       '-p', '{port}:{port}'.format(port=port),
                                                       '-e', 'D3MRUN=ta2ta3',
                                                       '-e', 'D3MINPUTDIR=/ta2-eval/datasets',
@@ -206,19 +221,18 @@ class AutoML:
                                                       '-e', 'D3MSTATICDIR=/ta2-eval/{ta2_id}/{dataset}/static'.format(ta2_id=self.ta2_id, dataset=self.dataset),
                                                       '-v', '{base_dir}:/ta2-eval'.format(base_dir=self.local_dir),
                                                       '-v', '{dataset_dir}:/ta2-eval/datasets'.format(dataset_dir=self.dataset_dir),
-                                                      '-v', '/var/run/docker.sock:/var/run/docker.sock',
                                                        TA2_DOCKER_IMAGES[self.ta2_id]])
         # Wait for TA2 to start
         # Since server.start() will not block, a sleep-loop is added to keep alive
         if self.ta2_id == 'CMU':
-            time.sleep(60) # Both takes time for dockers to intialize
+            time.sleep(120) # Both takes time for dockers to intialize
         elif self.ta2_id == 'TAMU':
             time.sleep(65)
         else:
             time.sleep(25)
         try:
             while True:
-                subprocess.run(["sudo", "docker", "ps"])
+                subprocess.run(["docker", "ps"])
                 self.ta3 = D3MClient(port=port, ta2_id=self.ta2_id)
                 self.ta3.do_hello()
                 logger.info('%s TA2 initialized!', self.ta2_id)
@@ -235,11 +249,11 @@ class AutoML:
     def end_session(self):
         logger.info('Ending session...')
         if self.ta2 is not None:
-            process = subprocess.Popen(['sudo', 'docker', 'stop', 'ta2_container'])
+            process = subprocess.Popen(['docker', 'stop', 'ta2_container'])
             process.wait() # Wait till process stopped
-            subprocess.run(['sudo', 'docker', 'rm', 'ta2_container'])
+            subprocess.run(['docker', 'rm', 'ta2_container'])
 
-        subprocess.run(['sudo', "docker", "ps"])
+        subprocess.run(["docker", "ps"])
         logger.info('Session ended!')
 
 
