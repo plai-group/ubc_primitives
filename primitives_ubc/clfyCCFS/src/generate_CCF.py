@@ -1,6 +1,9 @@
 import numpy as np
 import multiprocessing as mp
 from collections import OrderedDict
+from sklearn.preprocessing import OneHotEncoder
+import scipy.io
+
 from .utils.commonUtils import fastUnique
 from .utils.commonUtils import is_numeric
 from .utils.ccfUtils import pcaLite
@@ -259,6 +262,7 @@ def genCCF(XTrain, YTrain, nTrees=500, optionsFor={}, do_parallel=False, XTest=N
         if (not (XTest.size == 0)):
              XTest = replicateInputProcess(XTest, inputProcessDetails);
 
+
     N = XTrain.shape[0]
     # Note that setting of number of features to subsample is based only
     # number of features before expansion of categoricals.
@@ -267,8 +271,9 @@ def genCCF(XTrain, YTrain, nTrees=500, optionsFor={}, do_parallel=False, XTest=N
     # Process provided classes
     YTrain, classes, optionsFor = classExpansion(Y=YTrain, N=N, optionsFor=optionsFor)
 
-    if classes.size == 1:
-        logger.warning('Only 1 class present in training data!');
+    if not isinstance(classes, type(OneHotEncoder(handle_unknown='ignore'))):
+        if classes.size == 1:
+            logger.warning('Only 1 class present in training data!');
 
     optionsFor = updateForD(optionsFor, D)
 

@@ -63,7 +63,7 @@ def growCCT(XTrain, YTrain, options, iFeatureNum, depth):
 
     Returns
     -------
-    tree        = Structure containing learnt tree
+    tree        = Structure containing learned tree
     """
     # Standard variables
     eps = 2.2204e-16
@@ -360,7 +360,7 @@ def growCCT(XTrain, YTrain, options, iFeatureNum, depth):
     if options["bRCCA"]:
         try:
             if inspect.isfunction(fExp):
-                tree["featureExpansion"] = fExp # Ensure variable is defined
+                tree["featureExpansion"] = [wZ, bZ, options['rccaIncludeOriginal']] # Ensure variable is defined
         except NameError:
             pass
 

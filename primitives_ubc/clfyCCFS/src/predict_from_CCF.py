@@ -1,5 +1,7 @@
 import os
 import numpy as np
+import scipy.io
+
 from .predict_from_CCT import predictFromCCT
 from .prediction_utils.replicate_input_process import replicateInputProcess
 from .prediction_utils.tree_output_forest_pred import treeOutputsToForestPredicts
@@ -36,6 +38,8 @@ def predictFromCCF(CCF, X):
                  for regression then each output is concatenated in the third dimension.
     """
     X = replicateInputProcess(X, CCF["inputProcessDetails"])
+
+    scipy.io.savemat('test.mat', dict(x=X))
 
     nTrees = len(CCF["Trees"])
 

@@ -5,7 +5,7 @@ from primitives_ubc.clfyCCFS.src.utils.commonUtils import is_numeric
 from primitives_ubc.clfyCCFS.src.utils.commonUtils import makeSureString
 from primitives_ubc.clfyCCFS.src.prediction_utils.replicate_input_process import replicateInputProcess
 
-def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False):
+def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False, FNormalize=True):
     """
     Process input features, expanding categoricals and converting to zScores.
 
@@ -133,11 +133,15 @@ def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False):
         featureNames = featureNamesOrig[bOrdinal]
         featureBaseNames = featureNamesOrig[~bOrdinal]
 
-    # Convert to Z-scores, Normalize feature vectors
-    mu_XTrain  = np.nanmean(XTrain, axis=0)
-    std_XTrain = np.nanstd(XTrain, axis=0, ddof=1)
-    std_XTrain[abs(std_XTrain)<1e-10] = 1.0
-    XTrain = np.divide(np.subtract(XTrain, mu_XTrain), std_XTrain)
+    if FNormalize:
+        # Convert to Z-scores, Normalize feature vectors
+        mu_XTrain  = np.nanmean(XTrain, axis=0)
+        std_XTrain = np.nanstd(XTrain, axis=0, ddof=1)
+        std_XTrain[abs(std_XTrain)<1e-10] = 1.0
+        XTrain = np.divide(np.subtract(XTrain, mu_XTrain), std_XTrain)
+    else:
+        mu_XTrain  = 0.0
+        std_XTrain = 1.0
 
     if bNaNtoMean:
         XTrain[np.isnan(XTrain)] = 0.0

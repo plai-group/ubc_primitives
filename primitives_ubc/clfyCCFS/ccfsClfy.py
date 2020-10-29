@@ -17,6 +17,7 @@ from primitives_ubc.config_files import config
 import os
 import time
 import logging
+import scipy.io
 import numpy as np  # type: ignore
 import pandas as pd  # type: ignore
 from collections import OrderedDict
@@ -72,12 +73,12 @@ class Hyperparams(hyperparams.Hyperparams):
     )
     splitCriterion = hyperparams.Enumeration[str](
         values=['info', 'gini'],
-        default='info',
+        default='gini',
         description="Split criterion/impurity measure to use.  Default is 'info' for classification with is entropy impurity/information split criterion.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/TuningParameter']
     )
     minPointsLeaf = hyperparams.Hyperparameter[int](
-        default=1,
+        default=2,
         description="Minimum number of points allowed a leaf node for split to be permitted.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
@@ -194,7 +195,7 @@ class Hyperparams(hyperparams.Hyperparams):
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     rccaNFeatures = hyperparams.Hyperparameter[int](
-        default=50,
+        default=6,
         description="Parameter for bRCCA, if set to True.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
@@ -295,7 +296,6 @@ class CanonicalCorrelationForestsClassifierPrimitive(SupervisedLearnerPrimitiveB
         self._training_inputs: Inputs = None
         self._training_outputs: Outputs = None
         self._CCF = {}
-        self._label_name_columns = None
         # Is the model fit on the training data
         self._fitted = False
 
@@ -355,6 +355,10 @@ class CanonicalCorrelationForestsClassifierPrimitive(SupervisedLearnerPrimitiveB
         XTrain, _ = self._select_inputs_columns(self._training_inputs)
         YTrain, _ = self._select_outputs_columns(self._training_outputs)
 
+        print(XTrain)
+        print('-----------')
+        print(YTrain)
+
         self._create_learner_param()
         self._store_columns_metadata_and_names(XTrain, YTrain)
 
@@ -404,7 +408,6 @@ class CanonicalCorrelationForestsClassifierPrimitive(SupervisedLearnerPrimitiveB
 
     def set_params(self, *, params: Params) -> None:
         self._CCF = params['CCF_']
-        self._label_name_columns = params['target_names_']
         self._attribute_columns_names = params['attribute_columns_names']
         self._target_columns_metadata = params['target_columns_metadata']
         self._target_columns_names = params['target_columns_names']

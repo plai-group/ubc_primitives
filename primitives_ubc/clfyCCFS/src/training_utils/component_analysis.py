@@ -42,7 +42,7 @@ def componentAnalysis(X, Y, processes, epsilon):
     nXorg = bXVaries.size
     nYorg = bYvaries.size
 
-    if ~(np.any(bXVaries)) or ~(np.any(bYvaries)):
+    if not (np.any(bXVaries)) or  not (np.any(bYvaries)):
         # One of X or Y doesn't vary so component analysis fails.
         # Return projection corresponding to first columns of X and Y
         A = np.concatenate((np.array([[1]]), np.zeros((nXorg - 1, 1))))
@@ -97,7 +97,8 @@ def componentAnalysis(X, Y, processes, epsilon):
         if r1.size == 0:
             rankX = 0
         else:
-            rankX = np.sum(np.absolute(np.diag(r1)) >= (epsilon * np.absolute(r1[0, 0])))
+            r11 = (np.diag(r1).shape)[0]
+            rankX = np.sum(np.absolute(np.diag(r1)) >= (epsilon * np.absolute(r1[0, 0:r11])))
 
         if rankX == 0:
             A = np.concatenate((np.array([[1]]), np.zeros((nXorg - 1, 1))))
@@ -114,12 +115,12 @@ def componentAnalysis(X, Y, processes, epsilon):
 
         if processes['CCA']:
             q2, r2, p2 = la.qr(Y, mode='economic', pivoting=True)
-
             # Reduce to full rank within some tolerance
             if r2.size == 0:
                 rankY = 0
             else:
-                rankY = np.sum(np.absolute(np.diag(r2)) >= (epsilon * np.absolute(r2[0, 0])))
+                r21 = (np.diag(r2).shape)[0]
+                rankY = np.sum(np.absolute(np.diag(r2)) >= (epsilon * np.absolute(r2[0, 0:r21])))
 
             if rankY == 0:
                 A = np.concatenate((np.array([[1]]), np.zeros((nXorg - 1, 1))))
@@ -139,11 +140,13 @@ def componentAnalysis(X, Y, processes, epsilon):
             d = np.min((rankX, rankY))
 
             if rankX >= rankY:
-                L, D, M = np.linalg.svd(q1.T @ q2)
+                L, D, M = np.linalg.svd(np.dot(q1.T, q2))
                 D = np.diag(D)
+                M = M.T
             else:
-                M, D, L = np.linalg.svd(q2.T @ q1)
+                M, D, L = np.linalg.svd(np.dot(q2.T, q1))
                 D = np.diag(D)
+                L = L.T
 
             if isSquare(r1):
                 locProj = np.linalg.solve(r1, L[:, 0:d] * np.sqrt(x1 - 1))
@@ -151,7 +154,9 @@ def componentAnalysis(X, Y, processes, epsilon):
                 locProj, _, _, _ = np.linalg.lstsq(r1, L[:, 0:d] * np.sqrt(x1 - 1), rcond=-1)
 
             # Put coefficients back to their full size and their correct order
-            locProj = amerge(a=locProj, b=np.concatenate((locProj, np.zeros((x2-rankX, d)))), p=p1)
+            if x2-rankX != 0:
+                locProj = np.concatenate((locProj, np.zeros((x2-rankX, d))), axis=0)
+                locProj[p1, :] = [locProj]
             projMat = np.concatenate((projMat, locProj), axis=1) # Maybe fix with axis
 
             # Projection For Y
@@ -160,7 +165,11 @@ def componentAnalysis(X, Y, processes, epsilon):
                 locyProj = np.linalg.solve(r2, M[:, 0:d] * np.sqrt(x1-1))
             else:
                 locyProj, _, _, _  = np.linalg.lstsq(r2, M[:, 0:d] * np.sqrt(x1-1), rcond=-1)
-            locyProj = amerge(a=locyProj, b=np.concatenate((locyProj, np.zeros((K-rankY, d)))), p=p2)
+
+            # Put coefficients back to their full size and their correct order
+            if K-rankY != 0:
+                locyProj = np.concatenate((locyProj, np.zeros((K-rankY, d))), axis=0)
+                locyProj[p2, :] = [locyProj]
             yprojMat = np.concatenate((yprojMat, locyProj), axis=1)
 
             r = np.minimum(np.maximum(np.diag(D[:, 0:d]), 0), 1)
@@ -196,6 +205,7 @@ def componentAnalysis(X, Y, processes, epsilon):
     else:
         A[bXVaries, :] = projMat
 
+
     B = np.zeros((nYorg, yprojMat.shape[1]))
     if len(bYvaries.shape) > 1 and bYvaries.shape[0] == 1:
         B[bYvaries[0], :] = yprojMat
@@ -206,4 +216,3 @@ def componentAnalysis(X, Y, processes, epsilon):
 
 
     return A, B, U, V, r
-

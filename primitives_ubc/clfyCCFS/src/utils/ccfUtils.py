@@ -171,10 +171,16 @@ def regCCA_alt(X, Y, gammaX, gammaY, corrTol):
     A: Numpy array
     """
     D = X.shape[1]
-    K = Y.shape[1]
+
+    if len(Y.shape) > 2:
+        # Most likely an extra dimension
+        Y = np.squeeze(Y)
+        K = Y.shape[1]
+    else:
+        K = Y.shape[1]
 
     XY = np.concatenate((X, Y), axis=1)
-    C = np.cov(XY, rowvar=False) # rowvar=False to match MATLAB
+    C  = np.cov(XY, rowvar=False) # rowvar=False to match MATLAB
 
     Cxx = C[0:D, 0:D] + (gammaX * np.eye(D))
     Cyy = C[D:, D:] + (gammaY * np.eye(K))

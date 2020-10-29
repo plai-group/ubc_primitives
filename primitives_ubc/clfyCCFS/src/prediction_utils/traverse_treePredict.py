@@ -1,5 +1,14 @@
 import numpy as np
 import numpy.matlib as npmat
+from primitives_ubc.clfyCCFS.src.utils.ccfUtils import random_feature_expansion
+
+def makeExpansionFunc(wZ, bZ, bIncOrig):
+    if bIncOrig:
+        f = lambda x: np.concatenate((x, random_feature_expansion(x, wZ, bZ)))
+    else:
+        f = lambda x: random_feature_expansion(x, wZ, bZ)
+
+    return f
 
 def traverse_tree_predict(tree, X):
     """
@@ -21,7 +30,9 @@ def traverse_tree_predict(tree, X):
 
         if ('featureExpansion' in tree.keys()):
             if not (len(tree["featureExpansion"]) == 0):
-                bLessChild = np.dot(tree["featureExpansion"](X[:, tree["iIn"]]), tree["decisionProjection"]) <= tree["paritionPoint"]
+                wZ, bZ, rccaIncludeOriginal = tree["featureExpansion"]
+                fExp = makeExpansionFunc(wZ, bZ, rccaIncludeOriginal)
+                bLessChild = np.dot(fExp(X[:, tree["iIn"]]), tree["decisionProjection"]) <= tree["paritionPoint"]
             else:
                 bLessChild = np.dot((X[:, tree["iIn"]]), tree["decisionProjection"]) <= tree["paritionPoint"]
         else:

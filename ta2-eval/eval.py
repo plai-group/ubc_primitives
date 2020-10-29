@@ -58,7 +58,7 @@ def main(dataset_dir, dataset_name, ta2_id, timeout):
             metric, score = automl.score(output_dir_idx, ta2_id, dataset, pipeline_id, pipeline_path)
 
             # Collect scores
-            all_outputs.append([pipeline_id, metric, score])
+            all_outputs.append([pipeline_id, summary, metric, score])
 
             # Increment
             if metric != None:
@@ -67,7 +67,7 @@ def main(dataset_dir, dataset_name, ta2_id, timeout):
             if max_use == top_k:
                 break
 
-        df = pd.DataFrame(all_outputs, columns=['Pipeline_ID', 'metric', 'score'])
+        df = pd.DataFrame(all_outputs, columns=['Pipeline_ID', 'summary', 'metric', 'score'])
         final_df   = df.sort_values(by=['score'], ascending=False)
         final_file = os.path.join(base_dir, ta2_id, dataset, str(timeout), 'ranked_scored_result.csv')
         final_df.to_csv(final_file, index=False)

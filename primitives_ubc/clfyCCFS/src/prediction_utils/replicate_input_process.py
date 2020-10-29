@@ -14,6 +14,11 @@ def replicateInputProcess(Xraw, InputProcessDetails):
     Cats       = InputProcessDetails["Cats"]
     XCat_exist = InputProcessDetails['XCat_exist']
 
+    print('------------------')
+    print(XCat_exist)
+    print(InputProcessDetails["mu_XTrain"], InputProcessDetails["std_XTrain"])
+    print('------------------')
+
     if Xraw.shape[1] != bOrdinal.size:
         assert (False), 'Incorrect number of features!'
 
