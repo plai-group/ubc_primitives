@@ -292,23 +292,8 @@ def genCCF(XTrain, YTrain, nTrees=500, optionsFor={}, do_parallel=False, XTest=N
         bKeepTrees = True
         logger.warning('Selected not to keep trees but only requested a single output of the trees, reseting bKeepTrees to true')
 
-    if XTest == None:
-        XTest = np.empty((0, XTrain.shape[0]))
-        XTest.fill(np.nan)
-
     forest = OrderedDict()
-
-    treeOutputTest = np.empty((XTest.shape[0], nTrees, YTrain.shape[1]))
-    treeOutputTest.fill(np.nan)
-    n_nodes_trees = np.empty((nTrees, 1))
-    n_nodes_trees.fill(np.nan)
-    tree_train_times = np.empty((nTrees, 1))
-    tree_train_times.fill(np.nan)
-    tree_test_times  = np.empty((nTrees,1))
-    tree_test_times.fill(np.nan)
-
     Ntrain = int(N * optionsFor["propTrain"])
-
     # Train the trees
     if do_parallel:
         pool = mp.Pool(processes=mp.cpu_count())

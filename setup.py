@@ -46,5 +46,6 @@ setup(name='ubc_primitives',
               'regression.linear_regression.UBC=primitives_ubc.linearRegression:LinearRegressionPrimitive',
               'classification.logistic_regression.UBC=primitives_ubc.logisticRegression:LogisticRegressionPrimitive',
               'operator.diagonal_mvn.UBC=primitives_ubc.diagonalMVN:DiagonalMVNPrimitive',
+              'classification.input_to_output.UBC=primitives_ubc.do_nothing.input_to_output:InputToOutput',
           ],
       })

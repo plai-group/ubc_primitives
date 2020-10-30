@@ -136,7 +136,7 @@ def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False, FN
     if FNormalize:
         # Convert to Z-scores, Normalize feature vectors
         mu_XTrain  = np.nanmean(XTrain, axis=0)
-        std_XTrain = np.nanstd(XTrain, axis=0, ddof=1)
+        std_XTrain = np.nanstd(XTrain,  axis=0, ddof=1)
         std_XTrain[abs(std_XTrain)<1e-10] = 1.0
         XTrain = np.divide(np.subtract(XTrain, mu_XTrain), std_XTrain)
     else:

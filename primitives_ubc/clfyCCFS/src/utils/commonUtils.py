@@ -73,7 +73,7 @@ def fastUnique(X):
     uX: Numpy array
     """
     is_row = False # Check Row or Column vector
-    if len(X.shape) == 1:
+    if len(X.shape) == 1 or X.shape[0] == 1:
         uX = np.sort(X) # Row Vector
         is_row = True
     else:
@@ -121,8 +121,8 @@ def queryIfColumnsVary(X, tol):
     -------
     bVar: Numpy Boolean array
     """
-    bVar = np.max(np.absolute(np.diff(X[0:min(5, X.shape[0]), :], axis=0)), axis=0) > tol
-    bVar[~bVar] = np.max(np.absolute(np.diff(X[:, ~bVar], axis=0)), axis=0) > tol
+    bVar        = np.max(np.absolute(np.diff(X[0:min(5, X.shape[0]), :], n=1, axis=0)), axis=0) > tol
+    bVar[~bVar] = np.max(np.absolute(np.diff(X[:, ~bVar], n=1, axis=0)), axis=0) > tol
 
     return bVar
 

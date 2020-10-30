@@ -10,7 +10,7 @@ def twoPointMaxMarginSplit(X, Y, tol):
     YLeft  = Y[bType1,:]
     YRight = Y[~bType1,:]
 
-    if np.all(YLeft.sum(axis=0) ==  YRight.sum(axis=0)):
+    if np.all(YLeft.sum(axis=0) == YRight.sum(axis=0)):
         # Here the two unique points are identical and so we can't helpfully split
         bSp = False
         rmm = []

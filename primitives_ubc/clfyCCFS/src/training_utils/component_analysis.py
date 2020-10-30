@@ -137,8 +137,8 @@ def componentAnalysis(X, Y, processes, epsilon):
             # Solve CCA using the decompositions, taking care to use minimal
             # complexity orientation for SVD.  Note the two calculations are
             # equivalent except in computational complexity
-            d = np.min((rankX, rankY))
 
+            d = np.min((rankX, rankY))
             if rankX >= rankY:
                 L, D, M = np.linalg.svd(np.dot(q1.T, q2))
                 D = np.diag(D)
@@ -182,8 +182,11 @@ def componentAnalysis(X, Y, processes, epsilon):
                     locProj = np.linalg.solve(r1, L[:, 0] * np.sqrt(x1-1))
                 else:
                     locProj = np.linalg.lstsq(r1, L[:, 0] * np.sqrt(x1-1))
-                locProj[p1, :] = np.concatenate((locProj, np.zeros((x2-rankX, 1))))
-                projMat = np.concatenate((projMat,locProj))
+                
+                if x2-rankX != 0:
+                    locProj = np.concatenate((locProj, np.zeros((x2-rankX, 1))))
+                    locProj[p1, :] = [locProj]
+                projMat = np.concatenate((projMat,locProj), axis=1)
 
     # Normalize the projection matrices.  This ensures that the later tests for
     # close points are triggered appropriately and is useful for interpretability.

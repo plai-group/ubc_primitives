@@ -39,7 +39,7 @@ def predictFromCCF(CCF, X):
     """
     X = replicateInputProcess(X, CCF["inputProcessDetails"])
 
-    scipy.io.savemat('test.mat', dict(x=X))
+    #scipy.io.savemat('test.mat', dict(x=X))
 
     nTrees = len(CCF["Trees"])
 

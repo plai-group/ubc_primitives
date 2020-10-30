@@ -78,7 +78,7 @@ class Hyperparams(hyperparams.Hyperparams):
         semantic_types=['https://metadata.datadrivendiscovery.org/types/TuningParameter']
     )
     minPointsLeaf = hyperparams.Hyperparameter[int](
-        default=2,
+        default=1,
         description="Minimum number of points allowed a leaf node for split to be permitted.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
@@ -153,7 +153,7 @@ class Hyperparams(hyperparams.Hyperparams):
         description="Proportion of classes to randomly eliminate for each PCA projection.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
-    # Properties that can be set but should generally be avoided, using Default works best in most cases.
+    # Properties that can be set but should generally be avoided, using Default works best in most cases. Default = 6 for regression
     minPointsForSplit = hyperparams.Hyperparameter[int](
         default=2,
         description="Minimum points for parent node",
@@ -354,10 +354,6 @@ class CanonicalCorrelationForestsClassifierPrimitive(SupervisedLearnerPrimitiveB
 
         XTrain, _ = self._select_inputs_columns(self._training_inputs)
         YTrain, _ = self._select_outputs_columns(self._training_outputs)
-
-        print(XTrain)
-        print('-----------')
-        print(YTrain)
 
         self._create_learner_param()
         self._store_columns_metadata_and_names(XTrain, YTrain)

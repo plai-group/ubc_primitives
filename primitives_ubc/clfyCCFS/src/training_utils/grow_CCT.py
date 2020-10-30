@@ -1,6 +1,7 @@
 import inspect
 import scipy.io
 import numpy as np
+# Import training utils
 from primitives_ubc.clfyCCFS.src.utils.commonUtils import sVT
 from primitives_ubc.clfyCCFS.src.utils.commonUtils import is_numeric
 from primitives_ubc.clfyCCFS.src.utils.commonUtils import fastUnique
@@ -11,9 +12,9 @@ from primitives_ubc.clfyCCFS.src.utils.ccfUtils import random_feature_expansion
 from primitives_ubc.clfyCCFS.src.utils.ccfUtils import genFeatureExpansionParameters
 from primitives_ubc.clfyCCFS.src.training_utils.component_analysis import componentAnalysis
 from primitives_ubc.clfyCCFS.src.training_utils.twopoint_max_marginsplit import twoPointMaxMarginSplit
+
 import logging
 logger  = logging.getLogger(__name__)
-
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -79,7 +80,7 @@ def growCCT(XTrain, YTrain, options, iFeatureNum, depth):
     # Return if one training point, pure node or if options for returning
     # fulfilled.  A little case to deal with a binary YTrain is required.
     bStop = (N < (np.amax([2, options["minPointsForSplit"], 2 * options["minPointsLeaf"]]))) or\
-            (is_numeric(options["maxDepthSplit"]) and depth > options["maxDepthSplit"])
+            (is_numeric(options["maxDepthSplit"]) and (depth > options["maxDepthSplit"]))
 
     if depth > 490 and (options["maxDepthSplit"] == 'stack'):
         bStop = True
@@ -117,7 +118,6 @@ def growCCT(XTrain, YTrain, options, iFeatureNum, depth):
         iInNew    = iIn
         nSelected = 0
         iIn       = iIn[bXVaries]
-
         while (not np.all(bXVaries)) and lambda_ > 0:
             iFeatureNum[iInNew[~bXVaries]] = np.nan
             bInMat[:, iInNew[~bXVaries]] = False
@@ -151,9 +151,8 @@ def growCCT(XTrain, YTrain, options, iFeatureNum, depth):
         YTrainBag = YTrain
 
     bXBagVaries = queryIfColumnsVary(X=XTrainBag, tol=options["XVariationTol"])
-
     if (not np.any(bXBagVaries)) or\
-        (YTrainBag.shape[1] > 1  and (np.sum(np.absolute(np.sum(YTrainBag, axis=0)) > 1e-12) < 2)) or\
+        (YTrainBag.shape[1] >  1 and (np.sum(np.absolute(np.sum(YTrainBag, axis=0)) > 1e-12) < 2)) or\
         (YTrainBag.shape[1] == 1 and (np.any(np.sum(YTrainBag, axis=0) == np.array([0, YTrainBag.shape[0]])))):
         if (not options["bContinueProjBootDegenerate"]):
             tree = setupLeaf(YTrain, options)
@@ -166,6 +165,7 @@ def growCCT(XTrain, YTrain, options, iFeatureNum, depth):
     # Check for only having two points
     #---------------------------------------------------------------------------
     if (not (len(options["projections"]) == 0)) and ((XTrainBag.shape[0] == 2) or queryIfOnlyTwoUniqueRows(X=XTrainBag)):
+        # If there are only two points setup a maximum marginal split between the points
         bSplit, projMat, partitionPoint = twoPointMaxMarginSplit(XTrainBag, YTrainBag, options["XVariationTol"])
         if (not bSplit):
             tree = setupLeaf(YTrain, options)
@@ -182,7 +182,6 @@ def growCCT(XTrain, YTrain, options, iFeatureNum, depth):
             if projMat.size == 0:
                 projMat = np.ones((XTrainBag.shape[1], 1))
             UTrain = np.dot(fExp(XTrain[:, iIn]), projMat)
-
         else:
             projMat, yprojMat, _, _, _ = componentAnalysis(XTrainBag, YTrainBag, options["projections"], options["epsilonCCA"])
             UTrain = np.dot(XTrain[:, iIn], projMat)
@@ -213,7 +212,7 @@ def growCCT(XTrain, YTrain, options, iFeatureNum, depth):
             # Calculate the probabilities of being at each class in each of child
             # nodes based on proportion of training data for each of possible
             # splits using current projection
-            sort_UTrain   = UTrain[:, nVarAtt].flatten(order='F')
+            sort_UTrain   = UTrain[:, nVarAtt]
             UTrainSort    = np.sort(sort_UTrain)
             iUTrainSort   = np.argsort(sort_UTrain)
             bUniquePoints = np.concatenate((np.diff(UTrainSort, n=1, axis=0) > options["XVariationTol"], np.array([False])))
@@ -221,10 +220,9 @@ def growCCT(XTrain, YTrain, options, iFeatureNum, depth):
             VTrainSort = YTrain[iUTrainSort, :]
 
             leftCum = np.cumsum(VTrainSort, axis=0)
-            if (YTrain.shape[1] ==1 or options["bSepPred"]):
+            if (YTrain.shape[1] == 1) or (options["bSepPred"]):
                 # Convert to [class_doesnt_exist,class_exists]
                 leftCum = np.concatenate((np.subtract(sVT(X=np.arange(0,N)), leftCum), leftCum))
-
             rightCum = np.subtract(leftCum[-1, :], leftCum)
 
             # Calculate the metric values of the current node and two child nodes
@@ -265,7 +263,7 @@ def growCCT(XTrain, YTrain, options, iFeatureNum, depth):
                taskidxs_R  = np.array([(options["task_ids"][1:] - 1), np.array([-1])])
                metricRight = metricRight[:, taskidxs_R] - np.concatenate((np.zeros((metricRight.shape[0], 1)), metricRight[:, (options["task_ids"][1:] - 1)]))
 
-            metricCurrent = np.copy(metricLeft[-1])
+            metricCurrent = np.copy(metricLeft[-1,])
             metricLeft[~bUniquePoints]  = np.inf
             metricRight[~bUniquePoints] = np.inf
             # Calculate gain in metric for each of possible splits based on current
