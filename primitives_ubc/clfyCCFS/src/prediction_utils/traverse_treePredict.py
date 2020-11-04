@@ -2,14 +2,16 @@ import numpy as np
 import numpy.matlib as npmat
 from primitives_ubc.clfyCCFS.src.utils.ccfUtils import random_feature_expansion
 
+#-----------------------------------------------------------------------------#
 def makeExpansionFunc(wZ, bZ, bIncOrig):
     if bIncOrig:
-        f = lambda x: np.concatenate((x, random_feature_expansion(x, wZ, bZ)))
+        f = lambda x: np.concatenate((x, random_feature_expansion(x, wZ, bZ)), axis=1)
     else:
         f = lambda x: random_feature_expansion(x, wZ, bZ)
 
     return f
 
+#-----------------------------------------------------------------------------#
 def traverse_tree_predict(tree, X):
     """
     Traverses the tree to get a prediction.  Splits X to left and right child
@@ -29,14 +31,24 @@ def traverse_tree_predict(tree, X):
                 X = np.dot(np.subtract(X, tree["rotDetails"]["muX"]), tree["rotDetails"]["R"])
 
         if ('featureExpansion' in tree.keys()):
+            if len(tree["decisionProjection"].shape) < 2:
+                decisionProjection = np.expand_dims(tree["decisionProjection"], axis=1)
+            else:
+                decisionProjection = tree["decisionProjection"]
+            # Check if the function exists
             if not (len(tree["featureExpansion"]) == 0):
                 wZ, bZ, rccaIncludeOriginal = tree["featureExpansion"]
                 fExp = makeExpansionFunc(wZ, bZ, rccaIncludeOriginal)
-                bLessChild = np.dot(fExp(X[:, tree["iIn"]]), tree["decisionProjection"]) <= tree["paritionPoint"]
+                bLessChild = np.dot(tree["featureExpansion"](X[:, tree["iIn"]]), decisionProjection) <= tree["paritionPoint"]
             else:
-                bLessChild = np.dot((X[:, tree["iIn"]]), tree["decisionProjection"]) <= tree["paritionPoint"]
+                bLessChild = np.dot(X[:, tree["iIn"]], decisionProjection) <= tree["paritionPoint"]
         else:
-            bLessChild = np.dot((X[:, tree["iIn"]]), tree["decisionProjection"]) <= tree["paritionPoint"]
+            if len(tree["decisionProjection"].shape) < 2:
+                decisionProjection = np.expand_dims(tree["decisionProjection"], axis=1)
+            else:
+                decisionProjection = tree["decisionProjection"]
+            
+            bLessChild = np.dot(X[:, tree["iIn"]], decisionProjection) <= tree["paritionPoint"]
 
 
         leaf_mean =  np.empty((X.shape[0], tree["mean"].size))
@@ -44,8 +56,14 @@ def traverse_tree_predict(tree, X):
         node = np.array([{}])
         leaf_node = npmat.repmat(node, X.shape[0], 1)
 
+        if len(bLessChild.shape) > 1:
+            if bLessChild.shape[1] == 1:
+                bLessChild = np.squeeze(bLessChild, axis=1)
+            else:
+                bLessChild = np.squeeze(bLessChild, axis=0)
+
         if np.any(bLessChild):
-            leaf_mean[bLessChild, :], leaf_node[bLessChild] = traverse_tree_predict(tree["lessthanChild"], X[bLessChild, :])
+            leaf_mean[bLessChild, :],  leaf_node[bLessChild]  = traverse_tree_predict(tree["lessthanChild"], X[bLessChild, :])
 
         if np.any(~bLessChild):
             leaf_mean[~bLessChild, :], leaf_node[~bLessChild] = traverse_tree_predict(tree["greaterthanChild"], X[~bLessChild, :])

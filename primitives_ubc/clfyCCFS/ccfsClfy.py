@@ -54,19 +54,19 @@ class Hyperparams(hyperparams.Hyperparams):
     nTrees = hyperparams.UniformInt(
         lower=1,
         upper=10000,
-        default=100,
+        default=1,
         description="Number of trees to create.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/TuningParameter',
                         'https://metadata.datadrivendiscovery.org/types/ResourcesUseParameter',
         ],
     )
     parallelprocessing = hyperparams.UniformBool(
-        default=True,
+        default=False,
         description="Use multi-cpu processing.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     lambda_ = hyperparams.Enumeration[str](
-        values=['log', 'sqrt'],
+        values=['log', 'sqrt', 'all'],
         default='log',
         description="Number of features to subsample at each node",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
@@ -93,13 +93,15 @@ class Hyperparams(hyperparams.Hyperparams):
         description="Weights to apply to each output task in calculating the gain.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
-    bProjBoot = hyperparams.UniformBool(
-        default=True,
+    bProjBoot = hyperparams.Enumeration[Union[bool, str]](
+        values=['default', True, False],
+        default='default',
         description="Whether to use projection bootstrapping.  If set to default, then true unless lambda=D, i.e. we all features at each node.  In this case we resort to bagging instead of projection bootstrapping",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
-    bBagTrees = hyperparams.UniformBool(
-        default=True,
+    bBagTrees = hyperparams.Enumeration[Union[bool, str]](
+        values=['default', True, False],
+        default='default',
         description="Whether to use Breiman's bagging by training each tree on a bootstrap sample",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
@@ -153,7 +155,7 @@ class Hyperparams(hyperparams.Hyperparams):
         description="Proportion of classes to randomly eliminate for each PCA projection.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
-    # Properties that can be set but should generally be avoided, using Default works best in most cases. Default = 6 for regression
+    # Properties that can be set but should generally be avoided, using Default works best in most cases.
     minPointsForSplit = hyperparams.Hyperparameter[int](
         default=2,
         description="Minimum points for parent node",
@@ -236,8 +238,7 @@ class Hyperparams(hyperparams.Hyperparams):
     )
     return_result = hyperparams.Enumeration(
         values=['append', 'replace', 'new'],
-        # Default value depends on the nature of the primitive.
-        default='append',
+        default='append', # Default value depends on the nature of the primitive.
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
         description="Should resulting columns be appended, should they replace original columns, or should only resulting columns be returned?",
     )
@@ -462,7 +463,8 @@ class CanonicalCorrelationForestsClassifierPrimitive(SupervisedLearnerPrimitiveB
 
 
     def _store_columns_metadata_and_names(self, inputs: Inputs, outputs: Outputs) -> None:
-        self._attribute_columns_names = list(inputs.columns)
+        _attribute_columns_names = list(inputs.columns)
+        self._attribute_columns_names = [str(name) for name in _attribute_columns_names]
         self._target_columns_metadata = self._get_target_columns_metadata(outputs.metadata)
         self._target_columns_names = list(outputs.columns)
 

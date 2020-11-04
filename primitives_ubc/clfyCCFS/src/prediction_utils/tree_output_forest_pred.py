@@ -1,8 +1,8 @@
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
-
 from primitives_ubc.clfyCCFS.src.utils.commonUtils import is_numeric
 from primitives_ubc.clfyCCFS.src.utils.commonUtils import islogical
+
 
 def treeOutputsToForestPredicts(CCF, treeOutputs):
     """
@@ -19,24 +19,30 @@ def treeOutputsToForestPredicts(CCF, treeOutputs):
 
     if CCF["options"]["bSepPred"]:
         forestPredicts = forestProbs > 0.5
+
     else:
         if isinstance(CCF["classNames"], type(OneHotEncoder(handle_unknown='ignore'))):
             enc = CCF["classNames"]
-
-            forestPredicts = np.empty((forestProbs.shape[0], forestProbs.shape[1]))
-            for idx in range(forestProbs.shape[0]):
-                same_probs = np.unique(forestProbs[idx, :]) # Check if equal predictions
-                final_out  = np.zeros((1, forestProbs.shape[1]))
-                if len(same_probs) == 1:
-                    # Randomly select one
-                    rand_idx = np.random.randint(forestProbs.shape[1])
-                    final_out[:, rand_idx] = 1
-                    forestPredicts[idx, :] = final_out
+            # Check if task_ids is single number
+            if type(CCF["options"]["task_ids"]) == int:
+                if CCF["options"]["task_ids"] == 1:
+                    task_ids_size  = 1
+                    forestPredicts = np.empty((forestProbs.shape[0], task_ids_size))
+                    forestPredicts.fill(np.nan)
+                    forestPredicts[:, 0] = np.argmax(forestProbs, axis=1)
                 else:
-                    highest_idx = np.argmax(forestProbs[idx, :])
-                    final_out[:, highest_idx] = 1
-                    forestPredicts[idx, :]    = final_out
-
+                    task_ids_size  = 1
+                    forestPredicts = np.empty((forestProbs.shape[0], task_ids_size))
+                    forestPredicts.fill(np.nan)
+                    for nO in range((task_ids_size)-2):
+                        forestPredicts[:, nO] = np.argmax(forestProbs[:, CCF["options"]["task_ids"]:(CCF["options"]["task_ids"]+1)-1], axis=1)
+                    forestPredicts[:, -1] = np.argmax(forestProbs[:, CCF["options"]["task_ids"]:], axis=1)
+            else:
+                forestPredicts = np.empty((forestProbs.shape[0], CCF["options"]["task_ids"].size))
+                forestPredicts.fill(np.nan)
+                for nO in range((CCF["options"]["task_ids"].size)-2):
+                    forestPredicts[:, nO] = np.argmax(forestProbs[:, CCF["options"]["task_ids"][nO]:(CCF["options"]["task_ids"][nO+1]-1)], axis=1)
+                forestPredicts[:, -1] = np.argmax(forestProbs[:, CCF["options"]["task_ids"][-1]:], axis=1)
             # Convert from categorical to labels
             forestPredicts = enc.inverse_transform(forestPredicts)
 
@@ -67,7 +73,6 @@ def treeOutputsToForestPredicts(CCF, treeOutputs):
             if is_numeric(CCF["classNames"]):
                 if islogical(forestPredicts):
                     assert (forestPredicts.shape[1] == 1), 'Class names should have been a cell if multiple outputs!'
-                    #print(forestPredicts)
                     forestPredicts = CCF["classNames"][forestPredicts+1]
                 else:
                     forestPredicts = CCF["classNames"][forestPredicts]

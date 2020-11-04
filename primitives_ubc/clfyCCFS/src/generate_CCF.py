@@ -20,6 +20,7 @@ import logging
 logger  = logging.getLogger(__name__)
 
 
+#-------------------------------------------------------------------------------#
 def updateForD(optionsFor, D):
     """
     Updates the options for a particular D to set lambda and decide whether to
@@ -37,13 +38,13 @@ def updateForD(optionsFor, D):
     elif (not is_numeric(optionsFor["lambda"])):
         logger.warning('Invalid option set for lambda')
 
-    if optionsFor["bProjBoot"] == True:
+    if optionsFor["bProjBoot"] == 'default':
         if int(D) <= optionsFor["lambda"]:
             optionsFor["bProjBoot"] = False
         else:
             optionsFor["bProjBoot"] = True
 
-    if optionsFor["bBagTrees"] == True:
+    if optionsFor["bBagTrees"] == 'default':
         if int(D) <= optionsFor["lambda"]:
             optionsFor["bBagTrees"] = True
         else:
@@ -52,60 +53,8 @@ def updateForD(optionsFor, D):
     return optionsFor
 
 
-def genTree(XTrain, YTrain, optionsFor, iFeatureNum, Ntrain):
-    """
-    A sub-function is used so that it can be shared between the for and
-    parfor loops.  Does required preprocessing such as randomly setting
-    missing values, then calls the tree training function
-    """
-    if optionsFor["missingValuesMethod"] == 'random':
-        # Randomly set the missing values.  This will be different for each tree
-        XTrain = random_missing_vals(XTrain)
-
-    N = XTrain.shape[0]
-
-    # Bag if required
-    if optionsFor["bBagTrees"] or (Ntrain != N):
-        all_samples = np.arange(N)
-        iTrainThis  = np.random.choice(all_samples, Ntrain, replace=optionsFor["bBagTrees"])
-        iOob        = np.setdiff1d(all_samples, iTrainThis).T
-        XTrainOrig  = XTrain
-        XTrain      = XTrain[iTrainThis, :]
-        YTrain      = YTrain[iTrainThis, :]
-
-    # Apply pre rotations if any requested.  Note that these all include a
-    # subtracting a the mean prior to the projection (because this is a natural
-    # part of pca) and this is therefore replicated at test time
-    if optionsFor["treeRotation"] == 'rotationForest':
-        # This allows functionality to use the Rotation Forest algorithm as a
-        # meta method for individual CCTs
-        prop_classes_eliminate = optionsFor["RotForpClassLeaveOut"]
-        R, muX, XTrain = rotationForestDataProcess(XTrain, YTrain, optionsFor["RotForM"], optionsFor["RotForpS"], prop_classes_eliminate)
-
-    elif optionsFor["treeRotation"] == 'random':
-        muX = np.nanmean(XTrain, axis=0)
-        R   = randomRotation(N=XTrain.shape[1])
-        XTrain = np.dot(np.subtract(XTrain, muX), R)
-
-    elif optionsFor["treeRotation"] == 'pca':
-        R, muX, XTrain = pcaLite(XTrain, False, False)
-
-    # Train the tree
-    tree = growCCT(XTrain, YTrain, optionsFor, iFeatureNum, 0)
-
-    # Calculate out of bag error if relevant
-    if optionsFor["bBagTrees"]:
-        tree["iOutOfBag"] = iOob
-        tree["predictsOutOfBag"], _ = predictFromCCT(tree, XTrainOrig[iOob, :])
-
-    # Store rotation deatils if necessary
-    if not (optionsFor["treeRotation"] == 'none'):
-        tree["rotDetails"] = {'R': R, 'muX': muX}
-
-    return tree
-
-
-def genTree_parallel(XTrain, YTrain, optionsFor, iFeatureNum, Ntrain, pos):
+#-------------------------------------------------------------------------------#
+def genTree(XTrain, YTrain, optionsFor, iFeatureNum, Ntrain, pos):
     """
     A sub-function is used so that it can be shared between the for and
     parfor loops.  Does required preprocessing such as randomly setting
@@ -158,7 +107,8 @@ def genTree_parallel(XTrain, YTrain, optionsFor, iFeatureNum, Ntrain, pos):
     return (pos, tree)
 
 
-def genCCF(XTrain, YTrain, nTrees=500, optionsFor={}, do_parallel=False, XTest=None, bKeepTrees=True, iFeatureNum=None, bOrdinal=None):
+#-------------------------------------------------------------------------------#
+def genCCF(XTrain, YTrain, nTrees=500, optionsFor={}, do_parallel=True, XTest=None, bKeepTrees=True, iFeatureNum=None, bOrdinal=None):
     """
     Creates a canonical correlation forest (CCF) comprising of nTrees
     canonical correlation trees (CCT) containing splits based on the a CCA
@@ -260,9 +210,8 @@ def genCCF(XTrain, YTrain, nTrees=500, optionsFor={}, do_parallel=False, XTest=N
         inputProcessDetails['XCat_exist'] = False
         XTrain = replicateInputProcess(XTrain, inputProcessDetails)
         if (not (XTest.size == 0)):
-             XTest = replicateInputProcess(XTest, inputProcessDetails);
-
-
+             XTest = replicateInputProcess(XTest, inputProcessDetails)
+    
     N = XTrain.shape[0]
     # Note that setting of number of features to subsample is based only
     # number of features before expansion of categoricals.
@@ -271,9 +220,8 @@ def genCCF(XTrain, YTrain, nTrees=500, optionsFor={}, do_parallel=False, XTest=N
     # Process provided classes
     YTrain, classes, optionsFor = classExpansion(Y=YTrain, N=N, optionsFor=optionsFor)
 
-    if not isinstance(classes, type(OneHotEncoder(handle_unknown='ignore'))):
-        if classes.size == 1:
-            logger.warning('Only 1 class present in training data!');
+    if classes.size == 1:
+        logger.warning('Only 1 class present in training data!');
 
     optionsFor = updateForD(optionsFor, D)
 
@@ -297,7 +245,7 @@ def genCCF(XTrain, YTrain, nTrees=500, optionsFor={}, do_parallel=False, XTest=N
     # Train the trees
     if do_parallel:
         pool = mp.Pool(processes=mp.cpu_count())
-        processes = [pool.apply_async(genTree_parallel, args=(XTrain, YTrain, optionsFor, iFeatureNum, Ntrain, n_i)) for n_i in range(nTrees)]
+        processes = [pool.apply_async(genTree, args=(XTrain, YTrain, optionsFor, iFeatureNum, Ntrain, n_i)) for n_i in range(nTrees)]
 
         # Get process results
         all_trees = [p.get() for p in processes]
@@ -310,7 +258,7 @@ def genCCF(XTrain, YTrain, nTrees=500, optionsFor={}, do_parallel=False, XTest=N
     else:
         for nT in range(nTrees):
             # Generate tree
-            tree = genTree(XTrain, YTrain, optionsFor, iFeatureNum, Ntrain)
+            _, tree = genTree(XTrain, YTrain, optionsFor, iFeatureNum, Ntrain, pos=nT)
 
             if bKeepTrees:
                 forest[nT] = tree

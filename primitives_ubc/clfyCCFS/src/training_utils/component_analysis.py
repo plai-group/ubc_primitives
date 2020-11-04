@@ -6,6 +6,7 @@ from primitives_ubc.clfyCCFS.src.utils.commonUtils import amerge
 from primitives_ubc.clfyCCFS.src.utils.commonUtils import dict2array
 from primitives_ubc.clfyCCFS.src.utils.commonUtils import queryIfColumnsVary
 
+
 def isSquare(x):
     # Check if a numpy array is Square matrix, i.e. NxN
     if len(x.shape) <= 1:
@@ -15,6 +16,8 @@ def isSquare(x):
             return True
         else:
             return False
+
+
 
 def componentAnalysis(X, Y, processes, epsilon):
     """
@@ -42,7 +45,7 @@ def componentAnalysis(X, Y, processes, epsilon):
     nXorg = bXVaries.size
     nYorg = bYvaries.size
 
-    if not (np.any(bXVaries)) or  not (np.any(bYvaries)):
+    if ~(np.any(bXVaries)) or ~(np.any(bYvaries)):
         # One of X or Y doesn't vary so component analysis fails.
         # Return projection corresponding to first columns of X and Y
         A = np.concatenate((np.array([[1]]), np.zeros((nXorg - 1, 1))))
@@ -89,7 +92,7 @@ def componentAnalysis(X, Y, processes, epsilon):
         # PCA projection
         pcaCoeff, _, _ = pcaLite(X=X)
         projMat  = np.concatenate((projMat, pcaCoeff))
-
+    
     if processes['CCA'] or processes['CCAclasswise']:
         # CCA based projections
         q1, r1, p1 = la.qr(X, pivoting=True, mode='economic')
@@ -97,8 +100,7 @@ def componentAnalysis(X, Y, processes, epsilon):
         if r1.size == 0:
             rankX = 0
         else:
-            r11 = (np.diag(r1).shape)[0]
-            rankX = np.sum(np.absolute(np.diag(r1)) >= (epsilon * np.absolute(r1[0, 0:r11])))
+            rankX = np.sum(np.absolute(np.diag(r1)) >= (epsilon * np.absolute(r1[0, 0])))
 
         if rankX == 0:
             A = np.concatenate((np.array([[1]]), np.zeros((nXorg - 1, 1))))
@@ -112,15 +114,15 @@ def componentAnalysis(X, Y, processes, epsilon):
         elif rankX < x2:
             q1 = q1[:, 0:rankX]
             r1 = r1[0:rankX, 0:rankX]
-
+        
         if processes['CCA']:
             q2, r2, p2 = la.qr(Y, mode='economic', pivoting=True)
+
             # Reduce to full rank within some tolerance
             if r2.size == 0:
                 rankY = 0
             else:
-                r21 = (np.diag(r2).shape)[0]
-                rankY = np.sum(np.absolute(np.diag(r2)) >= (epsilon * np.absolute(r2[0, 0:r21])))
+                rankY = np.sum(np.absolute(np.diag(r2)) >= (epsilon * np.absolute(r2[0, 0])))
 
             if rankY == 0:
                 A = np.concatenate((np.array([[1]]), np.zeros((nXorg - 1, 1))))
@@ -137,14 +139,14 @@ def componentAnalysis(X, Y, processes, epsilon):
             # Solve CCA using the decompositions, taking care to use minimal
             # complexity orientation for SVD.  Note the two calculations are
             # equivalent except in computational complexity
-
             d = np.min((rankX, rankY))
+
             if rankX >= rankY:
-                L, D, M = np.linalg.svd(np.dot(q1.T, q2))
+                L, D, M = np.linalg.svd(np.dot(q1.T, q2), full_matrices=False)
                 D = np.diag(D)
                 M = M.T
             else:
-                M, D, L = np.linalg.svd(np.dot(q2.T, q1))
+                M, D, L = np.linalg.svd(np.dot(q2.T, q1), full_matrices=False)
                 D = np.diag(D)
                 L = L.T
 
@@ -156,7 +158,7 @@ def componentAnalysis(X, Y, processes, epsilon):
             # Put coefficients back to their full size and their correct order
             if x2-rankX != 0:
                 locProj = np.concatenate((locProj, np.zeros((x2-rankX, d))), axis=0)
-                locProj[p1, :] = [locProj]
+            locProj[p1, :] = [locProj]
             projMat = np.concatenate((projMat, locProj), axis=1) # Maybe fix with axis
 
             # Projection For Y
@@ -169,7 +171,7 @@ def componentAnalysis(X, Y, processes, epsilon):
             # Put coefficients back to their full size and their correct order
             if K-rankY != 0:
                 locyProj = np.concatenate((locyProj, np.zeros((K-rankY, d))), axis=0)
-                locyProj[p2, :] = [locyProj]
+            locyProj[p2, :] = [locyProj]
             yprojMat = np.concatenate((yprojMat, locyProj), axis=1)
 
             r = np.minimum(np.maximum(np.diag(D[:, 0:d]), 0), 1)
@@ -177,15 +179,14 @@ def componentAnalysis(X, Y, processes, epsilon):
         if processes['CCAclasswise']:
             # Consider each output in an in / out fashion to generate a set of K projections.
             for k in range(K):
-                L, _, _ = la.svd(np.dot(q1.T, Y[:, k]))
+                L, _, _ = la.svd(np.dot(q1.T, Y[:, k]), full_matrices=False)
                 if isSquare(r1):
                     locProj = np.linalg.solve(r1, L[:, 0] * np.sqrt(x1-1))
                 else:
                     locProj = np.linalg.lstsq(r1, L[:, 0] * np.sqrt(x1-1))
-                
                 if x2-rankX != 0:
-                    locProj = np.concatenate((locProj, np.zeros((x2-rankX, 1))))
-                    locProj[p1, :] = [locProj]
+                    locProj[p1, :] = np.concatenate((locProj, np.zeros((x2-rankX, 1))))
+                locProj[p1, :] = [locProj]
                 projMat = np.concatenate((projMat,locProj), axis=1)
 
     # Normalize the projection matrices.  This ensures that the later tests for
@@ -208,7 +209,6 @@ def componentAnalysis(X, Y, processes, epsilon):
     else:
         A[bXVaries, :] = projMat
 
-
     B = np.zeros((nYorg, yprojMat.shape[1]))
     if len(bYvaries.shape) > 1 and bYvaries.shape[0] == 1:
         B[bYvaries[0], :] = yprojMat
@@ -216,6 +216,5 @@ def componentAnalysis(X, Y, processes, epsilon):
         B[bYvaries[:, 0], :] = yprojMat
     else:
         B[bYvaries, :] = yprojMat
-
 
     return A, B, U, V, r

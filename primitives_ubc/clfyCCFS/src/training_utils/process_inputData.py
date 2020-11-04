@@ -23,7 +23,8 @@ def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False, FN
     XTest: Additional data to be transformed.  This is seperate to the training
            data for the purpose of Z-scores and to avoid using any features /
            categories that do not appear in the training data.
-    bNaNtoMean: Replace NaNs with the mean, default false;
+    bNaNtoMean: Replace NaNs with the mean, default false.
+    FNormalize: Normalize the processed features, default true..
 
     Returns
     -------
@@ -122,7 +123,7 @@ def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False, FN
 
             XTrain = np.concatenate((XTrain, np.zeros((XTrain.shape[0], nCats))), axis=1)
             for c in range(nCats):
-                XTrain[XCat.iloc[:, n] == cats_unique[c], (sizeSoFar+c)] = 1;
+                XTrain[XCat.iloc[:, n] == cats_unique[c], (sizeSoFar+c)] = 1
 
         # Remove single dimension if any
         iFeatureNum = np.squeeze(iFeatureNum)
