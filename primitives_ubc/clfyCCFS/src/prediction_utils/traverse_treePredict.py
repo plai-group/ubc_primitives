@@ -38,8 +38,9 @@ def traverse_tree_predict(tree, X):
             # Check if the function exists
             if not (len(tree["featureExpansion"]) == 0):
                 wZ, bZ, rccaIncludeOriginal = tree["featureExpansion"]
-                fExp = makeExpansionFunc(wZ, bZ, rccaIncludeOriginal)
-                bLessChild = np.dot(tree["featureExpansion"](X[:, tree["iIn"]]), decisionProjection) <= tree["paritionPoint"]
+                fExp  = makeExpansionFunc(wZ, bZ, rccaIncludeOriginal)
+                XTest = fExp(X[:, tree["iIn"]])
+                bLessChild = np.dot(XTest, decisionProjection) <= tree["paritionPoint"]
             else:
                 bLessChild = np.dot(X[:, tree["iIn"]], decisionProjection) <= tree["paritionPoint"]
         else:
@@ -56,6 +57,7 @@ def traverse_tree_predict(tree, X):
         node = np.array([{}])
         leaf_node = npmat.repmat(node, X.shape[0], 1)
 
+        # Remove single dimension if present
         if len(bLessChild.shape) > 1:
             if bLessChild.shape[1] == 1:
                 bLessChild = np.squeeze(bLessChild, axis=1)

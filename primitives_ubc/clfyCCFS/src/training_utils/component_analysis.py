@@ -159,7 +159,7 @@ def componentAnalysis(X, Y, processes, epsilon):
             if x2-rankX != 0:
                 locProj = np.concatenate((locProj, np.zeros((x2-rankX, d))), axis=0)
             locProj[p1, :] = [locProj]
-            projMat = np.concatenate((projMat, locProj), axis=1) # Maybe fix with axis
+            projMat = np.concatenate((projMat, locProj), axis=1)
 
             # Projection For Y
             r2 = r2[0:rankY, 0:rankY]

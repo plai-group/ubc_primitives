@@ -41,7 +41,7 @@ def classExpansion(Y, N, optionsFor):
     if isinstance(Y, pd.DataFrame):
         assert (Y.shape[1]==1), 'If Y is a DataFrame it should either be Nx1 for a single output'
         assert (not optionsFor["bSepPred"]), 'Seperate in-out prediction is only valid when Y is a logical array'
-
+        # Encoding function
         enc = OneHotEncoder(handle_unknown='ignore')
         # Fit the classes
         enc.fit(Y)

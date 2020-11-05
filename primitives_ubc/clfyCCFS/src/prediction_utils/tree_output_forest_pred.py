@@ -31,20 +31,26 @@ def treeOutputsToForestPredicts(CCF, treeOutputs):
                     forestPredicts.fill(np.nan)
                     forestPredicts[:, 0] = np.argmax(forestProbs, axis=1)
                 else:
+                    assert (CCF["options"]["task_ids"] == 1), 'Task size is not one or not given in array!'
+            else:
+                if (CCF["options"]["task_ids"]).size == 1:
                     task_ids_size  = 1
                     forestPredicts = np.empty((forestProbs.shape[0], task_ids_size))
                     forestPredicts.fill(np.nan)
-                    for nO in range((task_ids_size)-2):
-                        forestPredicts[:, nO] = np.argmax(forestProbs[:, CCF["options"]["task_ids"]:(CCF["options"]["task_ids"]+1)-1], axis=1)
-                    forestPredicts[:, -1] = np.argmax(forestProbs[:, CCF["options"]["task_ids"]:], axis=1)
-            else:
-                forestPredicts = np.empty((forestProbs.shape[0], CCF["options"]["task_ids"].size))
-                forestPredicts.fill(np.nan)
-                for nO in range((CCF["options"]["task_ids"].size)-2):
-                    forestPredicts[:, nO] = np.argmax(forestProbs[:, CCF["options"]["task_ids"][nO]:(CCF["options"]["task_ids"][nO+1]-1)], axis=1)
-                forestPredicts[:, -1] = np.argmax(forestProbs[:, CCF["options"]["task_ids"][-1]:], axis=1)
+                    forestPredicts[:, 0] = np.argmax(forestProbs, axis=1)
+                else:
+                    forestPredicts = np.empty((forestProbs.shape[0], CCF["options"]["task_ids"].size))
+                    forestPredicts.fill(np.nan)
+                    for nO in range((CCF["options"]["task_ids"].size)-2):
+                        forestPredicts[:, nO] = np.argmax(forestProbs[:, CCF["options"]["task_ids"][nO]:(CCF["options"]["task_ids"][nO+1]-1)], axis=1)
+                    forestPredicts[:, -1] = np.argmax(forestProbs[:, CCF["options"]["task_ids"][-1]:], axis=1)
+            # Convert to one-hot encoding
+            nCats = len(enc.categories_[0])
+            forestPredicts1 = np.zeros((forestPredicts.shape[0], nCats))
+            for idx in range(forestPredicts.shape[0]):
+                forestPredicts1[idx, int(forestPredicts[idx, 0])] = 1
             # Convert from categorical to labels
-            forestPredicts = enc.inverse_transform(forestPredicts)
+            forestPredicts = enc.inverse_transform(forestPredicts1)
 
         else:
             # Check if task_ids is single number
@@ -55,18 +61,19 @@ def treeOutputsToForestPredicts(CCF, treeOutputs):
                     forestPredicts.fill(np.nan)
                     forestPredicts[:, 0] = np.argmax(forestProbs, axis=1)
                 else:
+                    assert (CCF["options"]["task_ids"] == 1), 'Task size is not one or not given in array!'
+            else:
+                if (CCF["options"]["task_ids"]).size == 1:
                     task_ids_size  = 1
                     forestPredicts = np.empty((forestProbs.shape[0], task_ids_size))
                     forestPredicts.fill(np.nan)
-                    for nO in range((task_ids_size)-1):
-                        forestPredicts[:, nO] = np.argmax(forestProbs[:, CCF["options"]["task_ids"]:(CCF["options"]["task_ids"]+1)-1], axis=1)
-                    forestPredicts[:, -1] = np.argmax(forestProbs[:, CCF["options"]["task_ids"]:], axis=1)
-            else:
-                forestPredicts = np.empty((forestProbs.shape[0], CCF["options"]["task_ids"].size))
-                forestPredicts.fill(np.nan)
-                for nO in range((CCF["options"]["task_ids"].size)-1):
-                    forestPredicts[:, nO] = np.argmax(forestProbs[:, CCF["options"]["task_ids"][nO]:(CCF["options"]["task_ids"][nO+1]-1)], axis=1)
-                forestPredicts[:, -1] = np.argmax(forestProbs[:, CCF["options"]["task_ids"][-1]:], axis=1)
+                    forestPredicts[:, 0] = np.argmax(forestProbs, axis=1)
+                else:
+                    forestPredicts = np.empty((forestProbs.shape[0], CCF["options"]["task_ids"].size))
+                    forestPredicts.fill(np.nan)
+                    for nO in range((CCF["options"]["task_ids"].size)-2):
+                        forestPredicts[:, nO] = np.argmax(forestProbs[:, CCF["options"]["task_ids"][nO]:(CCF["options"]["task_ids"][nO+1]-1)], axis=1)
+                    forestPredicts[:, -1] = np.argmax(forestProbs[:, CCF["options"]["task_ids"][-1]:], axis=1)
             # Convert to type int
             forestPredicts = forestPredicts.astype(int)
 

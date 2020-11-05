@@ -125,8 +125,13 @@ class Hyperparams(hyperparams.Hyperparams):
     )
     # Numerical stability options. Default values works for most cases
     epsilonCCA = hyperparams.Hyperparameter[float](
-        default=1.0000e-04,
+        default=1.0e-04,
         description="Tolerance parameter for rank reduction during the CCA. It can be desirable to lower if the data has extreme correlation, in which this finite value could eliminate the true signal",
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
+    )
+    mseErrorTolerance = hyperparams.Hyperparameter[float](
+        default=1e-6,
+        description=" When doing regression with mse splits, the node is made into a leaf if the mse (i.e. variance) of the data is less  than this tolerance times the mse of the full data set.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     maxDepthSplit = hyperparams.Hyperparameter[str](
@@ -184,6 +189,11 @@ class Hyperparams(hyperparams.Hyperparams):
         description="Method for dealing with missing values.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
+    bUseOutputComponentsMSE = hyperparams.UniformBool(
+        default=False,
+        description="If true, doing regression with multiple outputs and doing CCA projections.",
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
+    )
     # Options that allow nonlinear features to be included in the CCA
     # in accordance with Lopez-Paz's randomized kernel cca.
     bRCCA = hyperparams.UniformBool(
@@ -197,12 +207,12 @@ class Hyperparams(hyperparams.Hyperparams):
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     rccaNFeatures = hyperparams.Hyperparameter[int](
-        default=6,
+        default=50,
         description="Parameter for bRCCA, if set to True.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     rccaRegLambda = hyperparams.Hyperparameter[float](
-        default=1.0000e-03,
+        default=1.0e-03,
         description="Parameter for bRCCA, if set to True.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
@@ -324,6 +334,7 @@ class CanonicalCorrelationForestsClassifierPrimitive(SupervisedLearnerPrimitiveB
         self.optionsClassCCF['treeRotation']                = self.hyperparams['treeRotation']
         self.optionsClassCCF['propTrain']                   = self.hyperparams['propTrain']
         self.optionsClassCCF['epsilonCCA']                  = self.hyperparams['epsilonCCA']
+        self.optionsClassCCF['mseErrorTolerance']           = self.hyperparams['mseErrorTolerance']
         self.optionsClassCCF['maxDepthSplit']               = self.hyperparams['maxDepthSplit']
         self.optionsClassCCF['XVariationTol']               = self.hyperparams['XVariationTol']
         self.optionsClassCCF['RotForM']                     = self.hyperparams['RotForM']
@@ -334,6 +345,7 @@ class CanonicalCorrelationForestsClassifierPrimitive(SupervisedLearnerPrimitiveB
         self.optionsClassCCF['bContinueProjBootDegenerate'] = self.hyperparams['bContinueProjBootDegenerate']
         self.optionsClassCCF['multiTaskGainCombination']    = self.hyperparams['multiTaskGainCombination']
         self.optionsClassCCF['missingValuesMethod']         = self.hyperparams['missingValuesMethod']
+        self.optionsClassCCF['bUseOutputComponentsMSE']     = self.hyperparams['bUseOutputComponentsMSE']
         self.optionsClassCCF['bRCCA']                       = self.hyperparams['bRCCA']
         self.optionsClassCCF['rccaLengthScale']             = self.hyperparams['rccaLengthScale']
         self.optionsClassCCF['rccaNFeatures']               = self.hyperparams['rccaNFeatures']
@@ -355,7 +367,7 @@ class CanonicalCorrelationForestsClassifierPrimitive(SupervisedLearnerPrimitiveB
 
         XTrain, _ = self._select_inputs_columns(self._training_inputs)
         YTrain, _ = self._select_outputs_columns(self._training_outputs)
-
+        
         self._create_learner_param()
         self._store_columns_metadata_and_names(XTrain, YTrain)
 

@@ -2,8 +2,7 @@ import numpy as np
 import multiprocessing as mp
 from collections import OrderedDict
 from sklearn.preprocessing import OneHotEncoder
-import scipy.io
-
+# CCFS functions
 from .utils.commonUtils import fastUnique
 from .utils.commonUtils import is_numeric
 from .utils.ccfUtils import pcaLite
@@ -15,7 +14,7 @@ from .training_utils.class_expansion import classExpansion
 from .training_utils.process_inputData import processInputData
 from .training_utils.rotation_forest_DP import rotationForestDataProcess
 from .prediction_utils.replicate_input_process import replicateInputProcess
-
+# Logging
 import logging
 logger  = logging.getLogger(__name__)
 
@@ -56,9 +55,9 @@ def updateForD(optionsFor, D):
 #-------------------------------------------------------------------------------#
 def genTree(XTrain, YTrain, optionsFor, iFeatureNum, Ntrain, pos):
     """
-    A sub-function is used so that it can be shared between the for and
-    parfor loops.  Does required preprocessing such as randomly setting
-    missing values, then calls the tree training function
+    A sub-function is used so that it can be shared between the for-loops and
+    parallel processing. Does required preprocessing such as randomly setting 
+    missing values, then calls the tree training function.
     """
     if optionsFor["missingValuesMethod"] == 'random':
         # Randomly set the missing values.  This will be different for each tree
@@ -220,8 +219,9 @@ def genCCF(XTrain, YTrain, nTrees=500, optionsFor={}, do_parallel=True, XTest=No
     # Process provided classes
     YTrain, classes, optionsFor = classExpansion(Y=YTrain, N=N, optionsFor=optionsFor)
 
-    if classes.size == 1:
-        logger.warning('Only 1 class present in training data!');
+    if not isinstance(classes, type(OneHotEncoder(handle_unknown='ignore'))):
+        if classes.size == 1:
+            logger.warning('Only 1 class present in training data!')
 
     optionsFor = updateForD(optionsFor, D)
 
@@ -258,10 +258,10 @@ def genCCF(XTrain, YTrain, nTrees=500, optionsFor={}, do_parallel=True, XTest=No
     else:
         for nT in range(nTrees):
             # Generate tree
-            _, tree = genTree(XTrain, YTrain, optionsFor, iFeatureNum, Ntrain, pos=nT)
+            tree_out = genTree(XTrain, YTrain, optionsFor, iFeatureNum, Ntrain, pos=nT)
 
             if bKeepTrees:
-                forest[nT] = tree
+                forest[nT] = tree_out[1]
 
             if nT%25 == 0:
                 # print('Progress: {}/{}'.format(nT, nTrees))

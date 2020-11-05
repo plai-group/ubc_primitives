@@ -43,7 +43,7 @@ def replicateInputProcess(Xraw, InputProcessDetails):
             sizeSoFar = X.shape[1]
             X = np.concatenate((X, np.zeros((X.shape[0], nCats))), axis=1)
             for c in range(nCats):
-                X[XCat.iloc[:, n] == cats_unique[c], (sizeSoFar+c)] = 1;
+                X[XCat.iloc[:, n] == cats_unique[c], (sizeSoFar+c)] = 1
 
     # Normalize feature vectors
     X = np.divide(np.subtract(X, InputProcessDetails["mu_XTrain"]), InputProcessDetails["std_XTrain"])

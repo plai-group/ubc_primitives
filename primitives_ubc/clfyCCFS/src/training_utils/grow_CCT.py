@@ -87,8 +87,8 @@ def growCCT(XTrain, YTrain, options, iFeatureNum, depth, bReg=False):
     eps = 2.2204e-16
 
     # Set any missing required variables
-    if (options["mseTotal"]).size == 0:
-        options["mseTotal"] = YTrain.var(axis=0)
+    if len(options["mseTotal"]) == 0:
+        options["mseTotal"] = np.var(YTrain, axis=0)
 
     #---------------------------------------------------------------------------
     # First do checks for whether we should immediately terminate
@@ -230,7 +230,7 @@ def growCCT(XTrain, YTrain, options, iFeatureNum, depth, bReg=False):
         iSplits    = np.empty((nProjDirs,1))
         iSplits.fill(np.nan)
 
-       for nVarAtt in range(nProjDirs):
+        for nVarAtt in range(nProjDirs):
             # Calculate the probabilities of being at each class in each of child
             # nodes based on proportion of training data for each of possible
             # splits using current projection
@@ -286,7 +286,7 @@ def growCCT(XTrain, YTrain, options, iFeatureNum, depth, bReg=False):
                     # doing more than a simple averaging of there values
                    metricLeft = np.cumsum(lTerm, axis=1)
                    taskidxs_L = np.array([(options["task_ids"][1:] - 2), np.array([-1])])
-                   metricLeft = metricLeft[:, taskidxs_L, np.newaxis]   - np.concatenate((np.zeros((metricLeft.shape[0], 1)),  metricLeft[:, (options["task_ids"][1:] - 2),  np.newaxis]), axis=1)
+                   metricLeft = metricLeft[:, taskidxs_L, np.newaxis]   - np.concatenate((np.zeros((metricLeft.shape[0], 1)),  metricLeft[:,  (options["task_ids"][1:] - 2), np.newaxis]), axis=1)
 
                    metricRight = np.cumsum(rTerm, axis=1)
                    taskidxs_R  = np.array([(options["task_ids"][1:] - 2), np.array([-1])])
@@ -387,8 +387,8 @@ def growCCT(XTrain, YTrain, options, iFeatureNum, depth, bReg=False):
         else:
             bLessThanTrain = np.squeeze(bLessThanTrain, axis=0)
 
-    treeLeft  = growCCT(XTrain[bLessThanTrain, :], YTrain[bLessThanTrain,  :], bReg, options, iFeatureNum, depth+1)
-    treeRight = growCCT(XTrain[~bLessThanTrain,:], YTrain[~bLessThanTrain, :], bReg, options, iFeatureNum, depth+1)
+    treeLeft  = growCCT(XTrain[bLessThanTrain, :], YTrain[bLessThanTrain,  :], options, iFeatureNum, depth+1, bReg)
+    treeRight = growCCT(XTrain[~bLessThanTrain,:], YTrain[~bLessThanTrain, :], options, iFeatureNum, depth+1, bReg)
     tree["iIn"] = iIn
 
     if options["bRCCA"]:
