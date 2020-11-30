@@ -2,8 +2,9 @@ import numpy as np
 import pandas as pd
 from primitives_ubc.regCCFS.src.utils.commonUtils import sVT
 from primitives_ubc.regCCFS.src.utils.commonUtils import is_numeric
-from primitives_ubc.clfyCCFS.src.utils.commonUtils import makeSureString
+from primitives_ubc.regCCFS.src.utils.commonUtils import makeSureString
 from primitives_ubc.regCCFS.src.prediction_utils.replicate_input_process import replicateInputProcess
+
 
 
 def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False, FNormalize=True):
@@ -24,7 +25,8 @@ def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False, FN
     XTest: Additional data to be transformed.  This is seperate to the training
            data for the purpose of Z-scores and to avoid using any features /
            categories that do not appear in the training data.
-    bNaNtoMean: Replace NaNs with the mean, default false;
+    bNaNtoMean: Replace NaNs with the mean, default false.
+    FNormalize: Normalize the processed features, default true.
 
     Returns
     -------
@@ -92,7 +94,6 @@ def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False, FN
         XTrain = XTrain.to_numpy(dtype=float)
     else:
         XTrain = XTrainRC[:, bOrdinal]
-
 
     # Categorical Features
     if isinstance(XTrainRC, pd.DataFrame) and XCat_exist:

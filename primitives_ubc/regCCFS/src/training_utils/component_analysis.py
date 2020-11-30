@@ -6,6 +6,7 @@ from primitives_ubc.regCCFS.src.utils.commonUtils import amerge
 from primitives_ubc.regCCFS.src.utils.commonUtils import dict2array
 from primitives_ubc.regCCFS.src.utils.commonUtils import queryIfColumnsVary
 
+
 def isSquare(x):
     # Check if a numpy array is Square matrix, i.e. NxN
     if len(x.shape) <= 1:
@@ -15,6 +16,7 @@ def isSquare(x):
             return True
         else:
             return False
+
 
 def componentAnalysis(X, Y, processes, epsilon):
     """
@@ -89,7 +91,7 @@ def componentAnalysis(X, Y, processes, epsilon):
         # PCA projection
         pcaCoeff, _, _ = pcaLite(X=X)
         projMat  = np.concatenate((projMat, pcaCoeff))
-
+    
     if processes['CCA'] or processes['CCAclasswise']:
         # CCA based projections
         q1, r1, p1 = la.qr(X, pivoting=True, mode='economic')
@@ -111,7 +113,7 @@ def componentAnalysis(X, Y, processes, epsilon):
         elif rankX < x2:
             q1 = q1[:, 0:rankX]
             r1 = r1[0:rankX, 0:rankX]
-
+        
         if processes['CCA']:
             q2, r2, p2 = la.qr(Y, mode='economic', pivoting=True)
 
@@ -139,11 +141,13 @@ def componentAnalysis(X, Y, processes, epsilon):
             d = np.min((rankX, rankY))
 
             if rankX >= rankY:
-                L, D, M = np.linalg.svd(q1.T @ q2)
+                L, D, M = np.linalg.svd(np.dot(q1.T, q2), full_matrices=False)
                 D = np.diag(D)
+                M = M.T
             else:
-                M, D, L = np.linalg.svd(q2.T @ q1)
+                M, D, L = np.linalg.svd(np.dot(q2.T, q1), full_matrices=False)
                 D = np.diag(D)
+                L = L.T
 
             if isSquare(r1):
                 locProj = np.linalg.solve(r1, L[:, 0:d] * np.sqrt(x1 - 1))
@@ -151,7 +155,9 @@ def componentAnalysis(X, Y, processes, epsilon):
                 locProj, _, _, _ = np.linalg.lstsq(r1, L[:, 0:d] * np.sqrt(x1 - 1), rcond=-1)
 
             # Put coefficients back to their full size and their correct order
-            locProj = amerge(a=locProj, b=np.concatenate((locProj, np.zeros((x2-rankX, d)))), p=p1)
+            if x2-rankX != 0:
+                locProj = np.concatenate((locProj, np.zeros((x2-rankX, d))), axis=0)
+            locProj[p1, :] = [locProj]
             projMat = np.concatenate((projMat, locProj), axis=1) # Maybe fix with axis
 
             # Projection For Y
@@ -160,7 +166,11 @@ def componentAnalysis(X, Y, processes, epsilon):
                 locyProj = np.linalg.solve(r2, M[:, 0:d] * np.sqrt(x1-1))
             else:
                 locyProj, _, _, _  = np.linalg.lstsq(r2, M[:, 0:d] * np.sqrt(x1-1), rcond=-1)
-            locyProj = amerge(a=locyProj, b=np.concatenate((locyProj, np.zeros((K-rankY, d)))), p=p2)
+
+            # Put coefficients back to their full size and their correct order
+            if K-rankY != 0:
+                locyProj = np.concatenate((locyProj, np.zeros((K-rankY, d))), axis=0)
+            locyProj[p2, :] = [locyProj]
             yprojMat = np.concatenate((yprojMat, locyProj), axis=1)
 
             r = np.minimum(np.maximum(np.diag(D[:, 0:d]), 0), 1)
@@ -168,13 +178,15 @@ def componentAnalysis(X, Y, processes, epsilon):
         if processes['CCAclasswise']:
             # Consider each output in an in / out fashion to generate a set of K projections.
             for k in range(K):
-                L, _, _ = la.svd(q1.T @ Y[:, k])
+                L, _, _ = la.svd(np.dot(q1.T, Y[:, k]), full_matrices=False)
                 if isSquare(r1):
                     locProj = np.linalg.solve(r1, L[:, 0] * np.sqrt(x1-1))
                 else:
                     locProj = np.linalg.lstsq(r1, L[:, 0] * np.sqrt(x1-1))
-                locProj[p1, :] = np.concatenate((locProj, np.zeros((x2-rankX, 1))))
-                projMat = np.concatenate((projMat,locProj))
+                if x2-rankX != 0:
+                    locProj[p1, :] = np.concatenate((locProj, np.zeros((x2-rankX, 1))))
+                locProj[p1, :] = [locProj]
+                projMat = np.concatenate((projMat,locProj), axis=1)
 
     # Normalize the projection matrices.  This ensures that the later tests for
     # close points are triggered appropriately and is useful for interpretability.
@@ -203,8 +215,5 @@ def componentAnalysis(X, Y, processes, epsilon):
         B[bYvaries[:, 0], :] = yprojMat
     else:
         B[bYvaries, :] = yprojMat
-
-
-    return A, B, U, V, r
 
     return A, B, U, V, r

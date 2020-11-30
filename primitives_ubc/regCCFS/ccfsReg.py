@@ -9,8 +9,6 @@ from d3m.primitive_interfaces.supervised_learning import SupervisedLearnerPrimit
 from common_primitives.dataframe_to_ndarray import DataFrameToNDArrayPrimitive
 from common_primitives.ndarray_to_dataframe import NDArrayToDataFramePrimitive
 
-from d3m import utils as d3m_utils
-
 # Import config file
 from primitives_ubc.config_files import config
 

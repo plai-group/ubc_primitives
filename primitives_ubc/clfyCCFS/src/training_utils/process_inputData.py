@@ -24,7 +24,7 @@ def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False, FN
            data for the purpose of Z-scores and to avoid using any features /
            categories that do not appear in the training data.
     bNaNtoMean: Replace NaNs with the mean, default false.
-    FNormalize: Normalize the processed features, default true..
+    FNormalize: Normalize the processed features, default true.
 
     Returns
     -------

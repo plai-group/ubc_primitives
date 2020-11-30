@@ -16,7 +16,7 @@ from .training_utils.rotation_forest_DP import rotationForestDataProcess
 from .prediction_utils.replicate_input_process import replicateInputProcess
 # Logging
 import logging
-logger  = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 #-------------------------------------------------------------------------------#

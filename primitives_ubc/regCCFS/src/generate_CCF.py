@@ -15,7 +15,7 @@ from .training_utils.rotation_forest_DP import rotationForestDataProcess
 from .prediction_utils.replicate_input_process import replicateInputProcess
 # Logging
 import logging
-logger  = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 #-------------------------------------------------------------------------------#
@@ -98,10 +98,10 @@ def genTree(XTrain, YTrain, bReg, optionsFor, iFeatureNum, Ntrain, pos):
     # Calculate out of bag error if relevant
     if optionsFor["bBagTrees"]:
         tree["iOutOfBag"] = iOob
-        tree["predictsOutOfBag"] = predictFromCCT(tree, XTrainOrig[iOob, :])
+        tree["predictsOutOfBag"], _ = predictFromCCT(tree, XTrainOrig[iOob, :])
 
     # Store rotation deatils if necessary
-    if not (optionsFor["treeRotation"] == 'none'):
+    if not (optionsFor["treeRotation"] == None):
         tree["rotDetails"] = {'R': R, 'muX': muX}
 
     return (pos, tree)
@@ -190,8 +190,8 @@ def genCCF(XTrain, YTrain, nTrees=500, bReg=True, optionsFor={}, do_parallel=Fal
     """
     bNaNtoMean = (optionsFor['missingValuesMethod'] == 'mean')
 
-    mdic = {}
-    mdic["XTrain"] = XTrain.to_numpy()   
+    if not bReg:
+        bReg = True
 
     if iFeatureNum == None:
         iFeatureNum=np.array([]) # Create empty array
@@ -222,9 +222,6 @@ def genCCF(XTrain, YTrain, nTrees=500, bReg=True, optionsFor={}, do_parallel=Fal
     # Note that setting of number of features to subsample is based only
     # number of features before expansion of categoricals.
     D = (fastUnique(iFeatureNum)).size
-
-    mdic["YTrain"] = YTrain    
-    scipy.io.savemat("trainXY.mat", mdic)
 
     # Center and normalize the outputs for regression for numerical
     # reasons, this is undone in the predictors
@@ -257,8 +254,9 @@ def genCCF(XTrain, YTrain, nTrees=500, bReg=True, optionsFor={}, do_parallel=Fal
         XTest = np.empty((0, XTrain.shape[0]))
         XTest.fill(np.nan)
 
-    Ntrain = int(N * optionsFor["propTrain"])
     forest = OrderedDict()
+
+    Ntrain = int(N * optionsFor["propTrain"])
 
     # Train the trees
     if do_parallel:
