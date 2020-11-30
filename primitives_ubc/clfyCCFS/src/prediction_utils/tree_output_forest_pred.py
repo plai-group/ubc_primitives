@@ -41,7 +41,7 @@ def treeOutputsToForestPredicts(CCF, treeOutputs):
                 else:
                     forestPredicts = np.empty((forestProbs.shape[0], CCF["options"]["task_ids"].size))
                     forestPredicts.fill(np.nan)
-                    for nO in range((CCF["options"]["task_ids"].size)-2):
+                    for nO in range((CCF["options"]["task_ids"].size)-1):
                         forestPredicts[:, nO] = np.argmax(forestProbs[:, CCF["options"]["task_ids"][nO]:(CCF["options"]["task_ids"][nO+1]-1)], axis=1)
                     forestPredicts[:, -1] = np.argmax(forestProbs[:, CCF["options"]["task_ids"][-1]:], axis=1)
             # Convert to one-hot encoding
@@ -71,7 +71,7 @@ def treeOutputsToForestPredicts(CCF, treeOutputs):
                 else:
                     forestPredicts = np.empty((forestProbs.shape[0], CCF["options"]["task_ids"].size))
                     forestPredicts.fill(np.nan)
-                    for nO in range((CCF["options"]["task_ids"].size)-2):
+                    for nO in range((CCF["options"]["task_ids"].size)-1):
                         forestPredicts[:, nO] = np.argmax(forestProbs[:, CCF["options"]["task_ids"][nO]:(CCF["options"]["task_ids"][nO+1]-1)], axis=1)
                     forestPredicts[:, -1] = np.argmax(forestProbs[:, CCF["options"]["task_ids"][-1]:], axis=1)
             # Convert to type int

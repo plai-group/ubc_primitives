@@ -1,6 +1,5 @@
 import os
 import numpy as np
-import scipy.io
 
 from .predict_from_CCT import predictFromCCT
 from .prediction_utils.replicate_input_process import replicateInputProcess

@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Docker images
 TA2_DOCKER_IMAGES = {'NYU': 'registry.gitlab.com/vida-nyu/d3m/ta2:latest',
-                     'CMU': 'registry.datadrivendiscovery.org/sheath/cmu-ta2:latest',
+                     'CMU': 'cmuta2:latest',
                      'SRI': 'registry.gitlab.com/daraghhartnett/autoflow:latest',
                      'TAMU': 'dmartinez05/tamuta2:latest'}
 
@@ -147,7 +147,7 @@ class AutoML:
         return predictions
 
 
-    def score(self, output_dir, ta2_id, dataset, pipeline_id, pipeline_path):
+    def score(self, output_dir, ta2_id, dataset, pipeline_id, pipeline_path, timeout):
         logger.info('Score solution...')
 
         dataset_train_path = os.path.join('file://' + os.path.abspath(self.base_dir),\
@@ -163,7 +163,7 @@ class AutoML:
                                           'datasets', dataset,\
                                           'TRAIN/problem_TRAIN/problemDoc.json')
 
-        score_pipeline_path = os.path.join(self.base_dir, ta2_id, dataset, str(timeout), pipeline_id, 'fit_score_%s.csv' % pipeline_id)
+        score_pipeline_path = os.path.join(self.base_dir, ta2_id, dataset, pipeline_id, 'fit_score_%s.csv' % pipeline_id)
         metric = None
         score  = None
 

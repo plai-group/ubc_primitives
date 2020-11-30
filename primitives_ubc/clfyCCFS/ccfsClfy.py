@@ -21,7 +21,6 @@ import scipy.io
 import numpy as np  # type: ignore
 import pandas as pd  # type: ignore
 from collections import OrderedDict
-from sklearn.impute import SimpleImputer # type: ignore
 from typing import Any, cast, Dict, List, Union, Sequence, Optional, Tuple
 
 # Import CCFs functions
@@ -54,14 +53,14 @@ class Hyperparams(hyperparams.Hyperparams):
     nTrees = hyperparams.UniformInt(
         lower=1,
         upper=10000,
-        default=1,
+        default=100,
         description="Number of trees to create.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/TuningParameter',
                         'https://metadata.datadrivendiscovery.org/types/ResourcesUseParameter',
         ],
     )
     parallelprocessing = hyperparams.UniformBool(
-        default=False,
+        default=True,
         description="Use multi-cpu processing.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
@@ -78,7 +77,7 @@ class Hyperparams(hyperparams.Hyperparams):
         semantic_types=['https://metadata.datadrivendiscovery.org/types/TuningParameter']
     )
     minPointsLeaf = hyperparams.Hyperparameter[int](
-        default=1,
+        default=2,
         description="Minimum number of points allowed a leaf node for split to be permitted.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
@@ -307,6 +306,7 @@ class CanonicalCorrelationForestsClassifierPrimitive(SupervisedLearnerPrimitiveB
         self._training_inputs: Inputs = None
         self._training_outputs: Outputs = None
         self._CCF = {}
+        self._label_name_columns = None
         # Is the model fit on the training data
         self._fitted = False
 
