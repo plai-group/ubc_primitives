@@ -15,14 +15,14 @@ with open('requirements.txt', 'r') as f:
             install_requires.append(re)
 
 setup(name='ubc_primitives',
-      version='0.1.0',
+      version='0.2.0',
       description='Setup primitive build model paths',
       author='UBC',
       url='https://github.com/plai-group/ubc_primitives.git',
       maintainer_email='tonyjos@cs.ubc.ca',
       maintainer='Tony Joseph',
       license='Apache-2.0',
-      packages=find_packages(exclude=['pipelines']),
+      packages=find_packages(exclude=['pipelines', 'ta2-eval']),
       zip_safe=False,
       python_requires='>=3.6',
       install_requires=install_requires,
