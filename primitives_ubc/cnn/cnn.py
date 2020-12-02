@@ -14,13 +14,13 @@ import os
 import time
 import logging
 import numpy as np
-from collections import OrderedDict
 from PIL import Image
+from collections import OrderedDict
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils import data
 import torchvision.transforms as transforms
+from torch.utils import data
 from typing import Any, cast, Dict, List, Union, Sequence, Optional, Tuple
 
 from primitives_ubc.cnn.dataset import Dataset
@@ -227,8 +227,11 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
         self._training_outputs: Outputs = None
         self._random_state = random_seed
         # Use GPU if available
-        use_cuda    = torch.cuda.is_available()
-        self.device = torch.device("cuda:0" if use_cuda else "cpu")
+        use_cuda = torch.cuda.is_available()
+        if use_cuda:
+            self.device = torch.device("cuda")
+        else:
+            self.device = torch.device("cpu")
         # Setup Convolutional Network
         self._setup_cnn()
         # Image pre-processing function

@@ -192,8 +192,11 @@ class MobileNetCNN(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyper
         self._training_outputs: Outputs = None
         self._random_state = random_seed
         # Use GPU if available
-        use_cuda    = torch.cuda.is_available()
-        self.device = torch.device("cuda:0" if use_cuda else "cpu")
+        use_cuda = torch.cuda.is_available()
+        if use_cuda:
+            self.device = torch.device("cuda")
+        else:
+            self.device = torch.device("cpu")
         # Setup Convolutional Network
         self._setup_cnn()
         # Image pre-processing function

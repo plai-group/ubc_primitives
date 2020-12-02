@@ -172,8 +172,11 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
         self.label_name_columns = None
         self.dataset_type       = None
         # Use GPU if available
-        use_cuda    = torch.cuda.is_available()
-        self.device = torch.device("cuda:0" if use_cuda else "cpu")
+        use_cuda = torch.cuda.is_available()
+        if use_cuda:
+            self.device = torch.device("cuda")
+        else:
+            self.device = torch.device("cpu")
         #----------------------------------------------------------------------#
         # Setup MLP Network
         self._setup_mlp(input_dim=self.hyperparams["input_dim"],\
