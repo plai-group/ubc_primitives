@@ -9,7 +9,6 @@ from .utils.ccfUtils import randomRotation
 from .utils.ccfUtils import random_missing_vals
 from .predict_from_CCT import predictFromCCT
 from .training_utils.grow_CCT import growCCT
-from .training_utils.class_expansion import classExpansion
 from .training_utils.process_inputData import processInputData
 from .training_utils.rotation_forest_DP import rotationForestDataProcess
 from .prediction_utils.replicate_input_process import replicateInputProcess
