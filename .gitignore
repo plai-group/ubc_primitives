@@ -3,5 +3,6 @@ __pycache__
 weights
 *_runs
 .DS_Store
+.vscode
 *.svg
 
