@@ -409,7 +409,7 @@ class ConvolutionalNeuralNetwork(SupervisedLearnerPrimitiveBase[Inputs, Outputs,
             for name, param in self.model.named_parameters():
                 if param.requires_grad == True:
                     self.params_to_update.append(param)
-                    logging.info("\t", name)
+                    logging.info('%s \t', str(name))
 
         #----------------------------------------------------------------------#
         # Optimizer

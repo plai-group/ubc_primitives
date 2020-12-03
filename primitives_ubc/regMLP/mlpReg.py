@@ -199,7 +199,7 @@ class MultilayerPerceptronRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inp
         for name, param in self._net.named_parameters():
             if param.requires_grad == True:
                 self.params_to_update.append(param)
-                logging.info("\t", name)
+                logging.info('%s \t', str(name))
                 if DEBUG:
                     print("\t", name)
 
