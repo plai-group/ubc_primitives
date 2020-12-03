@@ -5,7 +5,7 @@ from primitives_ubc.clfyCCFS.src.utils.commonUtils import is_numeric
 from primitives_ubc.clfyCCFS.src.utils.commonUtils import makeSureString
 from primitives_ubc.clfyCCFS.src.prediction_utils.replicate_input_process import replicateInputProcess
 
-def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False):
+def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False, FNormalize=True):
     """
     Process input features, expanding categoricals and converting to zScores.
 
@@ -23,7 +23,8 @@ def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False):
     XTest: Additional data to be transformed.  This is seperate to the training
            data for the purpose of Z-scores and to avoid using any features /
            categories that do not appear in the training data.
-    bNaNtoMean: Replace NaNs with the mean, default false;
+    bNaNtoMean: Replace NaNs with the mean, default false.
+    FNormalize: Normalize the processed features, default true.
 
     Returns
     -------
@@ -122,7 +123,7 @@ def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False):
 
             XTrain = np.concatenate((XTrain, np.zeros((XTrain.shape[0], nCats))), axis=1)
             for c in range(nCats):
-                XTrain[XCat.iloc[:, n] == cats_unique[c], (sizeSoFar+c)] = 1;
+                XTrain[XCat.iloc[:, n] == cats_unique[c], (sizeSoFar+c)] = 1
 
         # Remove single dimension if any
         iFeatureNum = np.squeeze(iFeatureNum)
@@ -133,11 +134,15 @@ def processInputData(XTrainRC, bOrdinal=None, XTestRC=None, bNaNtoMean=False):
         featureNames = featureNamesOrig[bOrdinal]
         featureBaseNames = featureNamesOrig[~bOrdinal]
 
-    # Convert to Z-scores, Normalize feature vectors
-    mu_XTrain  = np.nanmean(XTrain, axis=0)
-    std_XTrain = np.nanstd(XTrain, axis=0, ddof=1)
-    std_XTrain[abs(std_XTrain)<1e-10] = 1.0
-    XTrain = np.divide(np.subtract(XTrain, mu_XTrain), std_XTrain)
+    if FNormalize:
+        # Convert to Z-scores, Normalize feature vectors
+        mu_XTrain  = np.nanmean(XTrain, axis=0)
+        std_XTrain = np.nanstd(XTrain,  axis=0, ddof=1)
+        std_XTrain[abs(std_XTrain)<1e-10] = 1.0
+        XTrain = np.divide(np.subtract(XTrain, mu_XTrain), std_XTrain)
+    else:
+        mu_XTrain  = 0.0
+        std_XTrain = 1.0
 
     if bNaNtoMean:
         XTrain[np.isnan(XTrain)] = 0.0

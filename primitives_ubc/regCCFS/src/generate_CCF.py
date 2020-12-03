@@ -1,6 +1,7 @@
 import numpy as np
 import multiprocessing as mp
 from collections import OrderedDict
+# CCFS functions
 from .utils.commonUtils import fastUnique
 from .utils.commonUtils import is_numeric
 from .utils.ccfUtils import pcaLite
@@ -12,11 +13,12 @@ from .training_utils.class_expansion import classExpansion
 from .training_utils.process_inputData import processInputData
 from .training_utils.rotation_forest_DP import rotationForestDataProcess
 from .prediction_utils.replicate_input_process import replicateInputProcess
-
+# Logging
 import logging
-logger  = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
+#-------------------------------------------------------------------------------#
 def updateForD(optionsFor, D):
     """
     Updates the options for a particular D to set lambda and decide whether to
@@ -34,13 +36,13 @@ def updateForD(optionsFor, D):
     elif (not is_numeric(optionsFor["lambda"])):
         logger.warning('Invalid option set for lambda')
 
-    if optionsFor["bProjBoot"] == True:
+    if optionsFor["bProjBoot"] == 'default':
         if int(D) <= optionsFor["lambda"]:
             optionsFor["bProjBoot"] = False
         else:
             optionsFor["bProjBoot"] = True
 
-    if optionsFor["bBagTrees"] == True:
+    if optionsFor["bBagTrees"] == 'default':
         if int(D) <= optionsFor["lambda"]:
             optionsFor["bBagTrees"] = True
         else:
@@ -49,7 +51,8 @@ def updateForD(optionsFor, D):
     return optionsFor
 
 
-def genTree(XTrain, YTrain, bReg, optionsFor, iFeatureNum, Ntrain):
+#-------------------------------------------------------------------------------#
+def genTree(XTrain, YTrain, bReg, optionsFor, iFeatureNum, Ntrain, pos):
     """
     A sub-function is used so that it can be shared between the for and
     parfor loops.  Does required preprocessing such as randomly setting
@@ -95,69 +98,16 @@ def genTree(XTrain, YTrain, bReg, optionsFor, iFeatureNum, Ntrain):
     # Calculate out of bag error if relevant
     if optionsFor["bBagTrees"]:
         tree["iOutOfBag"] = iOob
-        tree["predictsOutOfBag"] = predictFromCCT(tree, XTrainOrig[iOob, :])
+        tree["predictsOutOfBag"], _ = predictFromCCT(tree, XTrainOrig[iOob, :])
 
     # Store rotation deatils if necessary
-    if not (optionsFor["treeRotation"] == 'none'):
-        tree["rotDetails"] = {'R': R, 'muX': muX}
-
-    return tree
-
-# Define the parallel function
-def gen_tree_parallel(XTrain, YTrain, bReg, optionsFor, iFeatureNum, Ntrain, pos):
-    """
-    A sub-function is used so that it can be shared between the for and
-    parfor loops.  Does required preprocessing such as randomly setting
-    missing values, then calls the tree training function
-    """
-    if optionsFor["missingValuesMethod"] == 'random':
-        # Randomly set the missing values.  This will be different for each tree
-        XTrain = random_missing_vals(XTrain)
-
-    N = XTrain.shape[0]
-
-    # Bag if required
-    if optionsFor["bBagTrees"] or (Ntrain != N):
-        all_samples = np.arange(N)
-        iTrainThis  = np.random.choice(all_samples, Ntrain, replace=optionsFor["bBagTrees"])
-        iOob        = np.setdiff1d(all_samples, iTrainThis).T
-        XTrainOrig  = XTrain
-        XTrain      = XTrain[iTrainThis, :]
-        YTrain      = YTrain[iTrainThis, :]
-
-    # Apply pre rotations if any requested.  Note that these all include a
-    # subtracting a the mean prior to the projection (because this is a natural
-    # part of pca) and this is therefore replicated at test time
-    if optionsFor["treeRotation"] == 'rotationForest':
-        # This allows functionality to use the Rotation Forest algorithm as a
-        # meta method for individual CCTs
-        prop_classes_eliminate = optionsFor["RotForpClassLeaveOut"]
-        if bReg:
-            prop_classes_eliminate = 0
-        R, muX, XTrain = rotationForestDataProcess(XTrain, YTrain, optionsFor["RotForM"], optionsFor["RotForpS"], prop_classes_eliminate)
-
-    elif optionsFor["treeRotation"] == 'random':
-        muX = np.nanmean(XTrain, axis=0)
-        R   = randomRotation(N=XTrain.shape[1])
-        XTrain = np.dot(np.subtract(XTrain, muX), R)
-
-    elif optionsFor["treeRotation"] == 'pca':
-        R, muX, XTrain = pcaLite(XTrain, False, False)
-
-    # Train the tree
-    tree = growCCT(XTrain, YTrain, bReg, optionsFor, iFeatureNum, 0)
-
-    # Calculate out of bag error if relevant
-    if optionsFor["bBagTrees"]:
-        tree["iOutOfBag"] = iOob
-        tree["predictsOutOfBag"] = predictFromCCT(tree, XTrainOrig[iOob, :])
-
-    # Store rotation deatils if necessary
-    if not (optionsFor["treeRotation"] == 'none'):
+    if not (optionsFor["treeRotation"] == None):
         tree["rotDetails"] = {'R': R, 'muX': muX}
 
     return (pos, tree)
 
+
+#-------------------------------------------------------------------------------#
 def genCCF(XTrain, YTrain, nTrees=500, bReg=True, optionsFor={}, do_parallel=False, XTest=None, bKeepTrees=True, iFeatureNum=None, bOrdinal=None):
     """
     Creates a canonical correlation forest (CCF) comprising of nTrees
@@ -236,15 +186,12 @@ def genCCF(XTrain, YTrain, nTrees=500, bReg=True, optionsFor={}, do_parallel=Fal
                        z-scores) done during training
            - outOfBagError = If bagging was used, gives the
                        average out of bag error.  Otherwise empty.
-           - timing_stats = see bCalcTimingStats option in optionsClassCCF.m
-     forPred: Numpy Array
-           Forest predictions for XTest if provided
-     forProbs: Numpy Array
-           Forest probabilities for XTest if provided
-     treeOutputs: Numpy Array
-           Individual tree predictiosn for XTest if provided, see predictFromCCF
+           - timing_stats = see bCalcTimingStats option in optionsClassCCF
     """
     bNaNtoMean = (optionsFor['missingValuesMethod'] == 'mean')
+
+    if not bReg:
+        bReg = True
 
     if iFeatureNum == None:
         iFeatureNum=np.array([]) # Create empty array
@@ -265,10 +212,11 @@ def genCCF(XTrain, YTrain, nTrees=500, bReg=True, optionsFor={}, do_parallel=Fal
         mu_XTrain  = np.nanmean(XTrain, axis=0)
         std_XTrain = np.nanstd(XTrain,  axis=0, ddof=1)
         inputProcessDetails = {'bOrdinal': np.array([True] * XTrain.shape[1]), 'mu_XTrain': mu_XTrain, 'std_XTrain': std_XTrain}
-        inputProcessDetails["Cats"] = np.array([{}])
+        inputProcessDetails["Cats"] = {}
+        inputProcessDetails['XCat_exist'] = False
         XTrain = replicateInputProcess(XTrain, inputProcessDetails)
         if (not (XTest.size == 0)):
-             XTest = replicateInputProcess(XTest, inputProcessDetails);
+             XTest = replicateInputProcess(XTest, inputProcessDetails)
 
     N = XTrain.shape[0]
     # Note that setting of number of features to subsample is based only
@@ -287,9 +235,9 @@ def genCCF(XTrain, YTrain, nTrees=500, bReg=True, optionsFor={}, do_parallel=Fal
     YTrain = np.divide(np.subtract(YTrain, muY), stdY)
 
     optionsFor = updateForD(optionsFor, D)
-    optionsFor["org_muY"]  = np.array(muY)
-    optionsFor["org_stdY"] = np.array(stdY)
-    optionsFor["mseTotal"] = np.array(1)
+    optionsFor["org_muY"]  = muY
+    optionsFor["org_stdY"] = stdY
+    optionsFor["mseTotal"] = 1
 
     # Fill in any unset projection fields and set to false
     projection_fields = ['CCA', 'PCA', 'CCAclasswise', 'Original', 'Random']
@@ -306,8 +254,9 @@ def genCCF(XTrain, YTrain, nTrees=500, bReg=True, optionsFor={}, do_parallel=Fal
         XTest = np.empty((0, XTrain.shape[0]))
         XTest.fill(np.nan)
 
-    Ntrain = int(N * optionsFor["propTrain"])
     forest = OrderedDict()
+
+    Ntrain = int(N * optionsFor["propTrain"])
 
     # Train the trees
     if do_parallel:
@@ -325,18 +274,18 @@ def genCCF(XTrain, YTrain, nTrees=500, bReg=True, optionsFor={}, do_parallel=Fal
     else:
         for nT in range(nTrees):
             # Generate tree
-            tree = genTree(XTrain, YTrain, bReg, optionsFor, iFeatureNum, Ntrain)
+            tree_out = genTree(XTrain, YTrain, bReg, optionsFor, iFeatureNum, Ntrain, nT)
 
             if bKeepTrees:
-                forest[nT] = tree
+                forest[nT] = tree_out[1]
 
             if nT%25 == 0:
                 # print('Progress: {}/{}'.format(nT, nTrees))
                 logger.info('Progress: {}/{}'.format(nT, nTrees))
 
-        # print('Completed')
-        # print('..................................................................')
-        logger.info('Progress: {}/{}'.format(nT, nTrees))
+    logger.info('Progress: {}/{}'.format(nT, nTrees))
+    logger.info('Completed!')
+    logger.info('.............................................................')
 
     # Setup outputs
     CCF = {}

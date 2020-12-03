@@ -1,6 +1,4 @@
 import inspect
-import warnings
-import scipy.io
 import numpy as np
 from primitives_ubc.regCCFS.src.utils.commonUtils import sVT
 from primitives_ubc.regCCFS.src.utils.commonUtils import is_numeric
@@ -12,11 +10,13 @@ from primitives_ubc.regCCFS.src.utils.ccfUtils import random_feature_expansion
 from primitives_ubc.regCCFS.src.utils.ccfUtils import genFeatureExpansionParameters
 from primitives_ubc.regCCFS.src.training_utils.component_analysis import componentAnalysis
 from primitives_ubc.regCCFS.src.training_utils.twopoint_max_marginsplit import twoPointMaxMarginSplit
-warnings.filterwarnings('ignore')
 
+import warnings
+warnings.filterwarnings('ignore')
 import logging
 logger  = logging.getLogger(__name__)
 
+#-----------------------------------------------------------------------------#
 def setupLeaf(YTrain, bReg, options):
     """
     Update tree struct to make node a leaf
@@ -38,14 +38,17 @@ def setupLeaf(YTrain, bReg, options):
 
     return tree
 
+#-----------------------------------------------------------------------------#
 def makeExpansionFunc(wZ, bZ, bIncOrig):
     if bIncOrig:
-        f = lambda x: np.concatenate((x, random_feature_expansion(x, wZ, bZ)))
+        f = lambda x: np.concatenate((x, random_feature_expansion(x, wZ, bZ)), axis=1)
     else:
         f = lambda x: random_feature_expansion(x, wZ, bZ)
 
     return f
 
+
+#-----------------------------------------------------------------------------#
 def calc_mse(cumtotal, cumsq, YTrainSort):
     value = np.divide(cumsq, sVT(np.arange(1, YTrainSort.shape[0]+1))) -\
             np.divide(((cumtotal[0:-1, :])**2  + YTrainSort**2 + np.multiply(2 * cumtotal[0:-1, :], YTrainSort)),\
@@ -122,8 +125,9 @@ def growCCT(XTrain, YTrain, bReg, options, iFeatureNum, depth):
     indFeatIn = np.random.choice(int(iCanBeSelected.size), int(lambda_), replace=False)
     iFeatIn   = iCanBeSelected[indFeatIn]
 
-    bInMat = np.equal(sVT(X=iFeatureNum.flatten(order='F')), np.sort(iFeatIn.flatten(order='F')))
+    bInMat = np.equal((iFeatureNum.flatten(order='F')[np.newaxis]), (np.sort(iFeatIn.flatten(order='F'))[np.newaxis]).T) # 1xk == nx1
     iIn = (np.any(bInMat, axis=0)).ravel().nonzero()[0]
+
     # Check for variation along selected dimensions and
     # resample features that have no variation
     bXVaries = queryIfColumnsVary(X=XTrain[:, iIn], tol=options["XVariationTol"])
@@ -144,7 +148,7 @@ def growCCT(XTrain, YTrain, bReg, options, iFeatureNum, depth):
                 break
             indFeatIn = np.random.choice(iCanBeSelected.size, size=int(lambda_), replace=False)
             iFeatIn   = iCanBeSelected[indFeatIn]
-            bInMat    = np.equal(sVT(iFeatureNum.flatten(order='F')), iFeatIn.flatten(order='F'))
+            bInMat    = np.equal((iFeatureNum.flatten(order='F')[np.newaxis]), (iFeatIn.flatten(order='F')[np.newaxis].T))
             iInNew    = (np.any(bInMat, axis=0)).ravel().nonzero()[0]
             bXVaries  = queryIfColumnsVary(X=XTrain[:, iInNew], tol=options["XVariationTol"])
             iIn       = np.sort(np.concatenate((iIn, iInNew[bXVaries])))
@@ -158,9 +162,11 @@ def growCCT(XTrain, YTrain, bReg, options, iFeatureNum, depth):
     # Projection bootstrap if required
     #---------------------------------------------------------------------------
     if options["bProjBoot"]:
-        iTrainThis = np.random.randint(N, size=(N,1))
+        iTrainThis = np.random.randint(N, size=(N, 1))
         XTrainBag  = XTrain[iTrainThis, iIn]
         YTrainBag  = YTrain[iTrainThis, :]
+        if len(YTrainBag.shape) > 2:
+            YTrainBag  = np.squeeze(YTrainBag)
     else:
         XTrainBag = XTrain[:, iIn]
         YTrainBag = YTrain
@@ -183,6 +189,7 @@ def growCCT(XTrain, YTrain, bReg, options, iFeatureNum, depth):
     #---------------------------------------------------------------------------
     if (not (len(options["projections"]) == 0)) and ((XTrainBag.shape[0] == 2) or queryIfOnlyTwoUniqueRows(X=XTrainBag)):
         bSplit, projMat, partitionPoint = twoPointMaxMarginSplit(XTrainBag, YTrainBag, options["XVariationTol"])
+
         if (not bSplit):
             tree = setupLeaf(YTrain, bReg, options)
             return tree
@@ -192,8 +199,9 @@ def growCCT(XTrain, YTrain, bReg, options, iFeatureNum, depth):
     else:
         # Generate the new features as required
         if options["bRCCA"]:
-            wZ, bZ  = genFeatureExpansionParameters(XTrainBag, options["rccaNFeatures"], options["rccaLengthScale"])
-            fExp    = makeExpansionFunc(wZ, bZ, options["rccaIncludeOriginal"])
+            wZ, bZ    = genFeatureExpansionParameters(XTrainBag, options["rccaNFeatures"], options["rccaLengthScale"])
+            fExp      = makeExpansionFunc(wZ, bZ, options["rccaIncludeOriginal"])
+            XTrainBag = fExp(XTrainBag)
             projMat, _, _ = regCCA_alt(XTrainBag, YTrainBag, options["rccaRegLambda"], options["rccaRegLambda"], 1e-8)
             if projMat.size == 0:
                 projMat = np.ones((XTrainBag.shape[1], 1))
@@ -233,17 +241,23 @@ def growCCT(XTrain, YTrain, bReg, options, iFeatureNum, depth):
             # Calculate the probabilities of being at each class in each of child
             # nodes based on proportion of training data for each of possible
             # splits using current projection
-            sort_UTrain   = UTrain[:, nVarAtt].flatten(order='F')
+            sort_UTrain   = UTrain[:, nVarAtt].ravel()
             UTrainSort    = np.sort(sort_UTrain)
             iUTrainSort   = np.argsort(sort_UTrain)
-            bUniquePoints = np.concatenate((np.diff(UTrainSort, n=1, axis=0) > options["XVariationTol"], np.array([False])))
+
+            bUniquePoints_ = np.diff(UTrainSort, n=1, axis=0)
+            bUniquePoints  = np.concatenate((bUniquePoints_ > options["XVariationTol"], np.array([False])))
 
             if options["bUseOutputComponentsMSE"] and bReg and YTrain.shape[1] > 1 and (not (yprojMat.size == 0)) and (options["splitCriterion"] == 'mse'):
                 VTrainSort = VTrain[iUTrainSort, :]
             else:
                 VTrainSort = YTrain[iUTrainSort, :]
 
-            leftCum  = np.cumsum(VTrainSort, axis=0)
+            leftCum = np.cumsum(VTrainSort, axis=0)
+            if (YTrain.shape[1] ==1 or options["bSepPred"]) and (not bReg):
+                # Convert to [class_doesnt_exist,class_exists]
+                leftCum = np.concatenate((np.subtract(sVT(X=np.arange(0,N)), leftCum), leftCum))
+
             rightCum = np.subtract(leftCum[-1, :], leftCum)
 
             # Calculate the metric values of the current node and two child nodes
@@ -265,9 +279,9 @@ def growCCT(XTrain, YTrain, bReg, options, iFeatureNum, depth):
                 vend = VTrainSort.shape[0] - 1
 
                 metricRight = np.concatenate((np.zeros((1, VTrainSort.shape[1])),\
-                              calc_mse(rightCum[::-1, :],\
-                                       np.subtract((cumSqLeft[-1, :][np.newaxis]), cumSqLeft[(end-1)::-1, :]),\
-                                       VTrainSort[vend:0:-1, :])))
+                                calc_mse(rightCum[::-1, :],\
+                                        np.subtract((cumSqLeft[-1, :][np.newaxis]), cumSqLeft[(end-1)::-1, :]),\
+                                        VTrainSort[vend:0:-1, :])))
 
                 metricRight = metricRight[::-1, :]
                 # No need to do the grouping for regression as each must be
@@ -275,33 +289,33 @@ def growCCT(XTrain, YTrain, bReg, options, iFeatureNum, depth):
             else:
                 assert (False), 'Invalid split criterion!'
 
-            metricCurrent = np.copy(metricLeft[-1])
-            metricLeft[~bUniquePoints]  = np.inf
-            metricRight[~bUniquePoints] = np.inf
+            metricCurrent = np.copy(metricLeft[-1, :])
+            metricLeft[~bUniquePoints,  :] = np.inf
+            metricRight[~bUniquePoints, :] = np.inf
 
             # Calculate gain in metric for each of possible splits based on current
             # metric value minus metric value of child weighted by number of terms
             # in each child
             metricGain = np.subtract(metricCurrent,\
-                     ( np.multiply(sVT(np.arange(1,N+1, 1)), metricLeft)\
-                     + np.multiply(sVT(np.arange(N-1, -1, -1)), metricRight))/N)
+                        (np.multiply(sVT(np.arange(1,N+1, 1)), metricLeft)\
+                        +np.multiply(sVT(np.arange(N-1, -1, -1)), metricRight))/N)
+            metricGain = np.round(metricGain, decimals=4)
 
             # Combine gains if there are mulitple outputs.  Note that for gini,
             # info and mse, the joint gain is equal to the mean gain, hence
             # taking the mean here rather than explicitly calculating joints before.
-            if len(metricGain.shape) > 1:
-                if metricGain.shape[1] > 1:
-                    if is_numeric(options["taskWeights"]):
-                        # If weights provided, weight task appropriately in terms of importance.
-                        metricGain = np.multiply(metricGain, X=sVT(options["taskWeights"].flatten(order='F')))
+            if metricGain.shape[1] > 1:
+                if is_numeric(options["taskWeights"]):
+                    # If weights provided, weight task appropriately in terms of importance.
+                    metricGain = np.multiply(metricGain, (options["taskWeights"].flatten(order='F')[np.newaxis])) # (nxk) .* (1*k)
 
-                    multiTGC = options["multiTaskGainCombination"]
-                    if multiTGC == 'mean':
-                        metricGain = np.mean(metricGain, axis=1)
-                    elif multiTGC == 'max':
-                        metricGain = np.max(metricGain, axis=1)
-                    else:
-                        assert (False), 'Invalid option for options.multiTaskGainCombination!'
+                multiTGC = options["multiTaskGainCombination"]
+                if multiTGC == 'mean':
+                    metricGain = np.mean(metricGain, axis=1, keepdims=True)
+                elif multiTGC == 'max':
+                    metricGain = np.max(metricGain, axis=1, keepdims=True)
+                else:
+                    assert (False), 'Invalid option for options.multiTaskGainCombination!'
 
             # Disallow splits that violate the minimum number of leaf points
             end = (metricGain.shape[0]-1)
@@ -311,7 +325,7 @@ def growCCT(XTrain, YTrain, bReg, options, iFeatureNum, depth):
             # Randomly sample from equally best splits
             iSplits[nVarAtt]    = np.argmax(metricGain[0:-1])
             splitGains[nVarAtt] = np.max(metricGain[0:-1])
-            iEqualMax = ((np.absolute(metricGain.flatten(order='F')[0:-1] - splitGains[nVarAtt]) < (10*eps)).ravel().nonzero())[0]
+            iEqualMax = ((np.absolute(metricGain[0:-1] - splitGains[nVarAtt]) < (10*eps)).ravel().nonzero())[0]
             if iEqualMax.size == 0:
                 iEqualMax = np.array([1])
             iSplits[nVarAtt] = iEqualMax[np.random.randint(iEqualMax.size)]
@@ -335,12 +349,12 @@ def growCCT(XTrain, YTrain, bReg, options, iFeatureNum, depth):
                 iDir = iEqualMax[0]
         else:
             assert (False), 'invalid dirIfEqual!'
-        iSplit = iSplits[iDir].astype(int)
+        iSplit = (iSplits[iDir]).astype(int)
 
         #-----------------------------------------------------------------------
         # Establish partition point and assign to child
         #-----------------------------------------------------------------------
-        UTrain = sVT(UTrain[:, iDir])
+        UTrain = UTrain[:, iDir, np.newaxis]
         UTrainSort = np.sort(UTrain, axis=0)
 
         # The convoluted nature of the below is to avoid numerical errors
@@ -349,6 +363,7 @@ def growCCT(XTrain, YTrain, bReg, options, iFeatureNum, depth):
         partitionPoint = np.add(np.multiply(UTrainSort[iSplit], 0.5), np.multiply(UTrainSort[iSplit+1], 0.5))
         partitionPoint = np.add(partitionPoint, uTrainSortLeftPart)
         UTrainSort     = np.add(UTrainSort, uTrainSortLeftPart)
+        
         bLessThanTrain = (UTrain <= partitionPoint)
 
         if (not np.any(bLessThanTrain)) or np.all(bLessThanTrain):
@@ -360,15 +375,20 @@ def growCCT(XTrain, YTrain, bReg, options, iFeatureNum, depth):
     tree = {}
     tree["bLeaf"]   = False
     tree["Npoints"] = N
-    tree["mean"]    = np.mean(YTrain)
+    tree["mean"]    = np.mean(YTrain, axis=0)
 
     if (not options["org_stdY"].size == 0):
-        tree["mean"] = np.multiply(tree["mean"], options["org_stdY"])
+        tree["mean"] = tree["mean"] * options["org_stdY"]
 
     if (not options["org_muY"].size == 0):
-        tree["mean"] = np.add(tree["mean"], options["org_muY"])
+        tree["mean"] = tree["mean"] + options["org_muY"]
 
-    bLessThanTrain = np.squeeze(bLessThanTrain)
+    if len(bLessThanTrain.shape) > 1:
+        if bLessThanTrain.shape[1] == 1:
+            bLessThanTrain = np.squeeze(bLessThanTrain, axis=1)
+        else:
+            bLessThanTrain = np.squeeze(bLessThanTrain, axis=0)
+
     treeLeft  = growCCT(XTrain[bLessThanTrain, :], YTrain[bLessThanTrain,  :], bReg, options, iFeatureNum, depth+1)
     treeRight = growCCT(XTrain[~bLessThanTrain,:], YTrain[~bLessThanTrain, :], bReg, options, iFeatureNum, depth+1)
     tree["iIn"] = iIn
@@ -376,7 +396,7 @@ def growCCT(XTrain, YTrain, bReg, options, iFeatureNum, depth):
     if options["bRCCA"]:
         try:
             if inspect.isfunction(fExp):
-                tree["featureExpansion"] = fExp # Ensure variable is defined
+                tree["featureExpansion"] = [wZ, bZ, options['rccaIncludeOriginal']] # Ensure variable is defined
         except NameError:
             pass
 

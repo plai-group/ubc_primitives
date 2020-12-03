@@ -12,6 +12,7 @@ def traverse_tree_predict(tree, X):
     """
     if tree["bLeaf"]:
         leaf_mean = np.multiply(tree["mean"], np.ones((X.shape[0], 1)))
+        leaf_node = npmat.repmat(tree, X.shape[0], 1)
 
     else:
         if ('rotDetails' in tree.keys()):
@@ -19,28 +20,38 @@ def traverse_tree_predict(tree, X):
                 X = np.dot(np.subtract(X, tree["rotDetails"]["muX"]), tree["rotDetails"]["R"])
 
         if ('featureExpansion' in tree.keys()):
-            if not (len(tree["featureExpansion"]) == 0):
-                bLessChild = np.dot(tree["featureExpansion"](X[:, tree["iIn"]]), tree["decisionProjection"]) <= tree["paritionPoint"]
+            if len(tree["decisionProjection"].shape) < 2:
+                decisionProjection = np.expand_dims(tree["decisionProjection"], axis=1)
             else:
-                bLessChild = np.dot((X[:, tree["iIn"]]), tree["decisionProjection"]) <= tree["paritionPoint"]
+                decisionProjection = tree["decisionProjection"]
+            # Check if the function exists
+            if inspect.isfunction(tree["featureExpansion"]):
+                bLessChild = np.dot(tree["featureExpansion"](X[:, tree["iIn"]]), decisionProjection) <= tree["paritionPoint"]
+            else:
+                bLessChild = np.dot(X[:, tree["iIn"]], decisionProjection) <= tree["paritionPoint"]
         else:
             if len(tree["decisionProjection"].shape) < 2:
                 decisionProjection = np.expand_dims(tree["decisionProjection"], axis=1)
             else:
                 decisionProjection = tree["decisionProjection"]
-
+            
             bLessChild = np.dot(X[:, tree["iIn"]], decisionProjection) <= tree["paritionPoint"]
 
         leaf_mean =  np.empty((X.shape[0], tree["mean"].size))
         leaf_mean.fill(np.nan)
+        node = np.array([{}])
+        leaf_node = npmat.repmat(node, X.shape[0], 1)
 
         if len(bLessChild.shape) > 1:
-            bLessChild = np.squeeze(bLessChild, axis=1)
+            if bLessChild.shape[1] == 1:
+                bLessChild = np.squeeze(bLessChild, axis=1)
+            else:
+                bLessChild = np.squeeze(bLessChild, axis=0)
 
         if np.any(bLessChild):
-            leaf_mean[bLessChild, :]  = traverse_tree_predict(tree["lessthanChild"], X[bLessChild, :])
+            leaf_mean[bLessChild, :], leaf_node[bLessChild] = traverse_tree_predict(tree["lessthanChild"], X[bLessChild, :])
 
         if np.any(~bLessChild):
-            leaf_mean[~bLessChild, :] = traverse_tree_predict(tree["greaterthanChild"], X[~bLessChild, :])
+            leaf_mean[~bLessChild, :], leaf_node[~bLessChild] = traverse_tree_predict(tree["greaterthanChild"], X[~bLessChild, :])
 
-    return leaf_mean
+    return leaf_mean, leaf_node

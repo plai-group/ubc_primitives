@@ -9,8 +9,6 @@ from d3m.primitive_interfaces.supervised_learning import SupervisedLearnerPrimit
 from common_primitives.dataframe_to_ndarray import DataFrameToNDArrayPrimitive
 from common_primitives.ndarray_to_dataframe import NDArrayToDataFramePrimitive
 
-from d3m import utils as d3m_utils
-
 # Import config file
 from primitives_ubc.config_files import config
 
@@ -18,7 +16,8 @@ from primitives_ubc.config_files import config
 import os
 import time
 import logging
-import numpy as np
+import numpy as np  # type: ignore
+import pandas as pd  # type: ignore
 from collections import OrderedDict
 from typing import Any, cast, Dict, List, Union, Sequence, Optional, Tuple
 
@@ -35,7 +34,9 @@ Outputs = container.DataFrame
 
 class Params(params.Params):
     CCF_: Optional[Dict]
-    target_names_: Optional[List[str]]
+    attribute_columns_names: Optional[List[str]]
+    target_columns_metadata: Optional[List[OrderedDict]]
+    target_columns_names: Optional[List[str]]
 
 
 class Hyperparams(hyperparams.Hyperparams):
@@ -47,10 +48,14 @@ class Hyperparams(hyperparams.Hyperparams):
     default_projdict = OrderedDict()
     default_projdict['CCA'] =  True
 
-    nTrees = hyperparams.Hyperparameter[int](
+    nTrees = hyperparams.UniformInt(
+        lower=1,
+        upper=10000,
         default=100,
         description="Number of trees to create.",
-        semantic_types=['https://metadata.datadrivendiscovery.org/types/TuningParameter']
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/TuningParameter',
+                        'https://metadata.datadrivendiscovery.org/types/ResourcesUseParameter',
+        ],
     )
     parallelprocessing = hyperparams.UniformBool(
         default=True,
@@ -58,7 +63,7 @@ class Hyperparams(hyperparams.Hyperparams):
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     lambda_ = hyperparams.Enumeration[str](
-        values=['log', 'sqrt'],
+        values=['log', 'sqrt', 'all'],
         default='log',
         description="Number of features to subsample at each node",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
@@ -85,13 +90,15 @@ class Hyperparams(hyperparams.Hyperparams):
         description="Weights to apply to each output task in calculating the gain.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
-    bProjBoot = hyperparams.UniformBool(
-        default=True,
+    bProjBoot = hyperparams.Enumeration[Union[bool, str]](
+        values=['default', True, False],
+        default='default',
         description="Whether to use projection bootstrapping.  If set to default, then true unless lambda=D, i.e. we all features at each node.  In this case we resort to bagging instead of projection bootstrapping",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
-    bBagTrees = hyperparams.UniformBool(
-        default=True,
+    bBagTrees = hyperparams.Enumeration[Union[bool, str]](
+        values=['default', True, False],
+        default='default',
         description="Whether to use Breiman's bagging by training each tree on a bootstrap sample",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
@@ -211,7 +218,47 @@ class Hyperparams(hyperparams.Hyperparams):
         description="Parameter for bRCCA, if set to True.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
-
+    # Inputs and outputs HyperParams
+    use_inputs_columns = hyperparams.Set(
+        elements=hyperparams.Hyperparameter[int](-1),
+        default=(),
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+        description="A set of inputs column indices to force primitive to operate on. If any specified column cannot be used, it is skipped.",
+    )
+    exclude_inputs_columns = hyperparams.Set(
+        elements=hyperparams.Hyperparameter[int](-1),
+        default=(),
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+        description="A set of inputs column indices to not operate on. Applicable only if \"use_columns\" is not provided.",
+    )
+    use_outputs_columns = hyperparams.Set(
+        elements=hyperparams.Hyperparameter[int](-1),
+        default=(),
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+        description="A set of outputs column indices to force primitive to operate on. If any specified column cannot be used, it is skipped.",
+    )
+    exclude_outputs_columns = hyperparams.Set(
+        elements=hyperparams.Hyperparameter[int](-1),
+        default=(),
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+        description="A set of outputs column indices to not operate on. Applicable only if \"use_columns\" is not provided.",
+    )
+    return_result = hyperparams.Enumeration(
+        values=['append', 'replace', 'new'],
+        default='append', # Default value depends on the nature of the primitive.
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+        description="Should resulting columns be appended, should they replace original columns, or should only resulting columns be returned?",
+    )
+    add_index_columns = hyperparams.UniformBool(
+        default=True,
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+        description="Also include primary index columns if input data has them. Applicable only if \"return_result\" is set to \"new\".",
+    )
+    error_on_no_columns = hyperparams.UniformBool(
+        default=True,
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
+        description="Throw an exception if no column is selected/provided. Otherwise issue a warning.",
+    )
 
 
 class CanonicalCorrelationForestsRegressionPrimitive(SupervisedLearnerPrimitiveBase[Inputs, Outputs, Params, Hyperparams]):
@@ -266,6 +313,7 @@ class CanonicalCorrelationForestsRegressionPrimitive(SupervisedLearnerPrimitiveB
         self._training_inputs   = inputs
         self._training_outputs  = outputs
         self._new_training_data = True
+        self._fitted = False
 
 
     def _create_learner_param(self):
@@ -307,62 +355,20 @@ class CanonicalCorrelationForestsRegressionPrimitive(SupervisedLearnerPrimitiveB
         self.optionsClassCCF['mseTotal']                    = np.array([])
 
 
-    def _curate_train_data(self):
-        """
-        Process DataFrame and convert to Numpy array
-        """
-        # if self._training_inputs is None or self._training_outputs is None:
-        if self._training_inputs is None:
-            raise exceptions.InvalidStateError("Missing training data.")
-
-        # Get training data and labels data
-        feature_columns = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute')
-        # Get labels data if present in training input
-        try:
-            label_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
-        except:
-            label_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-        # If no error but no label-columns found, force try SuggestedTarget
-        if len(label_columns) == 0 or label_columns == None:
-            label_columns  = self._training_inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-        # Remove columns if outputs present in inputs
-        if len(label_columns) >= 1:
-            for lbl_c in label_columns:
-                try:
-                    feature_columns.remove(lbl_c)
-                except ValueError:
-                    pass
-
-        # Training Set
-        feature_columns = [int(fc) for fc in feature_columns]
-        XTrain = ((self._training_inputs.iloc[:, feature_columns]).to_numpy()).astype(np.float)
-
-        # Training labels
-        try:
-            label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
-        except ValueError:
-            label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-        # If no error but no label-columns force try SuggestedTarget
-        if len(label_columns) == 0 or label_columns == None:
-            label_columns  = self._training_outputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-        YTrain = ((self._training_outputs.iloc[:, label_columns]).to_numpy()).astype(np.float)
-        # Get label column names
-        label_name_columns  = []
-        label_name_columns_ = list(self._training_outputs.columns)
-        for lbl_c in label_columns:
-            label_name_columns.append(label_name_columns_[lbl_c])
-
-        self._label_name_columns = label_name_columns
-
-        return XTrain, YTrain
-
     def fit(self, *, timeout: float = None, iterations: int = None) -> base.CallResult[None]:
         """
         Inputs: ndarray of features
         Returns: None
         """
-        self._create_learner_param()
-        XTrain, YTrain = self._curate_train_data()
+        if self._fitted:
+            return CallResult(None)
+
+        if self._training_inputs is None or self._training_outputs is None:
+            raise exceptions.InvalidStateError("Missing training data.")
+        self._new_training_data = False
+
+        XTrain, _ = self._select_inputs_columns(self._training_inputs)
+        YTrain, _ = self._select_outputs_columns(self._training_outputs)
 
         # Fit data
         CCF = genCCF(XTrain, YTrain, nTrees=self.optionsClassCCF['nTrees'], bReg=True, optionsFor=self.optionsClassCCF, do_parallel=self.optionsClassCCF['parallelprocessing'])
@@ -382,61 +388,37 @@ class CanonicalCorrelationForestsRegressionPrimitive(SupervisedLearnerPrimitiveB
         if not self._fitted:
             raise PrimitiveNotFittedError("Primitive not fitted.")
 
-        # Get testing data
-        feature_columns = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/Attribute')
-        # Get labels data if present in testing input
-        try:
-            label_columns   = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/TrueTarget')
-        except ValueError:
-            label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-        # If no error but no label-columns found, force try SuggestedTarget
-        if len(label_columns) == 0 or label_columns == None:
-            label_columns  = inputs.metadata.get_columns_with_semantic_type('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
-        # Remove Label Columns if present from testing data
-        if len(label_columns) >= 1:
-            for lbl_c in label_columns:
-                try:
-                    feature_columns.remove(lbl_c)
-                except ValueError:
-                    pass
-        # Testing features
-        XTest = ((inputs.iloc[:, feature_columns]).to_numpy()).astype(np.float)
+        XTest, columns_to_use = self._select_inputs_columns(inputs)
 
-        # Delete columns with path names of nested media files
-        outputs = inputs.remove_columns(feature_columns)
+        if len(XTest.columns):
+            # Prediction
+            YpredCCF, _, _  = predictFromCCF(self._CCF, XTest)
 
-        # Prediction
-        YpredCCF, _, _  = predictFromCCF(self._CCF, XTest)
+            output_columns = [self._wrap_predictions(YpredCCF)]
 
-        # Convert from ndarray from DataFrame
-        YpredCCF_output = container.DataFrame(YpredCCF, generate_metadata=True)
-
-        # Update Metadata for each feature vector column
-        for col in range(YpredCCF_output.shape[1]):
-            col_dict = dict(YpredCCF_output.metadata.query((metadata_base.ALL_ELEMENTS, col)))
-            col_dict['structural_type'] = type(1.0)
-            col_dict['name']            = self._label_name_columns[col]
-            col_dict["semantic_types"]  = ("http://schema.org/Float", "https://metadata.datadrivendiscovery.org/types/PredictedTarget",)
-            YpredCCF_output.metadata    = YpredCCF_output.metadata.update((metadata_base.ALL_ELEMENTS, col), col_dict)
-        # Rename Columns to match label columns
-        YpredCCF_output.columns = self._label_name_columns
-
-        # Append to outputs
-        outputs = outputs.append_columns(YpredCCF_output)
+        outputs = base_utils.combine_columns(inputs, columns_to_use, output_columns, return_result=self.hyperparams['return_result'], add_index_columns=self.hyperparams['add_index_columns'])
 
         return base.CallResult(outputs)
 
 
     def get_params(self) -> Params:
         if not self._fitted:
-            return Params(CCF_=self._CCF, target_names_=self._label_name_columns)
+            return Params(CCF_=None,
+                          attribute_columns_names=self._attribute_columns_names,
+                          target_columns_metadata=self._target_columns_metadata,
+                          target_columns_names=self._target_columns_names)
 
-        return Params(CCF_=self._CCF, target_names_=self._label_name_columns)
+        return Params(CCF_=self._CCF,
+                      attribute_columns_names=self._attribute_columns_names,
+                      target_columns_metadata=self._target_columns_metadata,
+                      target_columns_names=self._target_columns_names)
 
 
     def set_params(self, *, params: Params) -> None:
         self._CCF = params['CCF_']
-        self._label_name_columns = params['target_names_']
+        self._attribute_columns_names = params['attribute_columns_names']
+        self._target_columns_metadata = params['target_columns_metadata']
+        self._target_columns_names = params['target_columns_names']
         self._fitted = True
 
 
@@ -452,3 +434,112 @@ class CanonicalCorrelationForestsRegressionPrimitive(SupervisedLearnerPrimitiveB
         super().__setstate__(state)
 
         self._random_state = state['random_state']
+
+
+    def _update_predictions_metadata(self, outputs: Optional[Outputs], target_columns_metadata: List[OrderedDict]) -> metadata_base.DataMetadata:
+        outputs_metadata = metadata_base.DataMetadata()
+        if outputs is not None:
+            outputs_metadata = outputs_metadata.generate(outputs)
+
+        for column_index, column_metadata in enumerate(target_columns_metadata):
+            outputs_metadata = outputs_metadata.update_column(column_index, column_metadata)
+
+        return outputs_metadata
+
+
+    def _wrap_predictions(self, predictions: np.ndarray) -> Outputs:
+        outputs = container.DataFrame(predictions, generate_metadata=False)
+        outputs.metadata = self._update_predictions_metadata(outputs, self._target_columns_metadata)
+        outputs.columns = self._target_columns_names
+        return outputs
+
+
+    def _get_target_columns_metadata(self, outputs_metadata: metadata_base.DataMetadata) -> List[OrderedDict]:
+        outputs_length = outputs_metadata.query((metadata_base.ALL_ELEMENTS,))['dimension']['length']
+
+        target_columns_metadata: List[OrderedDict] = []
+        for column_index in range(outputs_length):
+            column_metadata = OrderedDict(outputs_metadata.query_column(column_index))
+
+            # Update semantic types and prepare it for predicted targets.
+            semantic_types = list(column_metadata.get('semantic_types', []))
+            if 'https://metadata.datadrivendiscovery.org/types/PredictedTarget' not in semantic_types:
+                semantic_types.append('https://metadata.datadrivendiscovery.org/types/PredictedTarget')
+            semantic_types = [semantic_type for semantic_type in semantic_types if semantic_type != 'https://metadata.datadrivendiscovery.org/types/TrueTarget']
+            column_metadata['semantic_types'] = semantic_types
+
+            target_columns_metadata.append(column_metadata)
+
+        return target_columns_metadata
+
+
+    def _store_columns_metadata_and_names(self, inputs: Inputs, outputs: Outputs) -> None:
+        _attribute_columns_names = list(inputs.columns)
+        self._attribute_columns_names = [str(name) for name in _attribute_columns_names]
+        self._target_columns_metadata = self._get_target_columns_metadata(outputs.metadata)
+        self._target_columns_names = list(outputs.columns)
+
+
+    def _can_use_inputs_column(self, inputs_metadata: metadata_base.DataMetadata, column_index: int) -> bool:
+        column_metadata = inputs_metadata.query((metadata_base.ALL_ELEMENTS, column_index))
+
+        return 'https://metadata.datadrivendiscovery.org/types/Attribute' in column_metadata.get('semantic_types', [])
+
+
+    def _get_inputs_columns(self, inputs_metadata: metadata_base.DataMetadata) -> List[int]:
+        def can_use_column(column_index: int) -> bool:
+            return self._can_use_inputs_column(inputs_metadata, column_index)
+
+        columns_to_use, columns_not_to_use = base_utils.get_columns_to_use(inputs_metadata, self.hyperparams['use_inputs_columns'],\
+                                                                           self.hyperparams['exclude_inputs_columns'], can_use_column)
+
+        if not columns_to_use:
+            if self.hyperparams['error_on_no_columns']:
+                raise ValueError("No inputs columns.")
+            else:
+                self.logger.warning("No inputs columns.")
+
+        if self.hyperparams['use_inputs_columns'] and columns_to_use and columns_not_to_use:
+            self.logger.warning("Not all specified inputs columns can be used. Skipping columns: %(columns)s", {
+                'columns': columns_not_to_use,
+            })
+
+        return columns_to_use
+
+
+    def _can_use_outputs_column(self, outputs_metadata: metadata_base.DataMetadata, column_index: int) -> bool:
+        column_metadata = outputs_metadata.query((metadata_base.ALL_ELEMENTS, column_index))
+
+        return 'https://metadata.datadrivendiscovery.org/types/TrueTarget' in column_metadata.get('semantic_types', [])
+
+
+    def _get_outputs_columns(self, outputs_metadata: metadata_base.DataMetadata) -> List[int]:
+        def can_use_column(column_index: int) -> bool:
+            return self._can_use_outputs_column(outputs_metadata, column_index)
+
+        columns_to_use, columns_not_to_use = base_utils.get_columns_to_use(outputs_metadata, self.hyperparams['use_outputs_columns'], self.hyperparams['exclude_outputs_columns'], can_use_column)
+
+        if not columns_to_use:
+            if self.hyperparams['error_on_no_columns']:
+                raise ValueError("No outputs columns.")
+            else:
+                self.logger.warning("No outputs columns.")
+
+        if self.hyperparams['use_outputs_columns'] and columns_to_use and columns_not_to_use:
+            self.logger.warning("Not all specified outputs columns can be used. Skipping columns: %(columns)s", {
+                'columns': columns_not_to_use,
+            })
+
+        return columns_to_use
+
+
+    def _select_inputs_columns(self, inputs: Inputs) -> Tuple[Inputs, List[int]]:
+        columns_to_use = self._get_inputs_columns(inputs.metadata)
+
+        return inputs.select_columns(columns_to_use, allow_empty_columns=True), columns_to_use
+
+
+    def _select_outputs_columns(self, outputs: Outputs) -> Tuple[Outputs, List[int]]:
+        columns_to_use = self._get_outputs_columns(outputs.metadata)
+
+        return outputs.select_columns(columns_to_use, allow_empty_columns=True), columns_to_use

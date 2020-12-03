@@ -177,8 +177,11 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
         self.add_class_index    = None
         self.dataset_type       = None
         # Use GPU if available
-        use_cuda    = torch.cuda.is_available()
-        self.device = torch.device("cuda:0" if use_cuda else "cpu")
+        use_cuda = torch.cuda.is_available()
+        if use_cuda:
+            self.device = torch.device("cuda")
+        else:
+            self.device = torch.device("cpu")
         #----------------------------------------------------------------------#
         # Final output layer
         if self.hyperparams['last_activation_type'] == 'linear':
@@ -214,7 +217,7 @@ class MultilayerPerceptronClassifierPrimitive(SupervisedLearnerPrimitiveBase[Inp
         for name, param in self._net.named_parameters():
             if param.requires_grad == True:
                 self.params_to_update.append(param)
-                logging.info("\t", name)
+                logging.info('%s \t', str(name))
                 if DEBUG:
                     print("\t", name)
 

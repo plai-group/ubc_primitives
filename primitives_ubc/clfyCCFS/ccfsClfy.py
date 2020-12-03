@@ -17,10 +17,10 @@ from primitives_ubc.config_files import config
 import os
 import time
 import logging
+import scipy.io
 import numpy as np  # type: ignore
 import pandas as pd  # type: ignore
 from collections import OrderedDict
-from sklearn.impute import SimpleImputer # type: ignore
 from typing import Any, cast, Dict, List, Union, Sequence, Optional, Tuple
 
 # Import CCFs functions
@@ -65,19 +65,19 @@ class Hyperparams(hyperparams.Hyperparams):
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     lambda_ = hyperparams.Enumeration[str](
-        values=['log', 'sqrt'],
+        values=['log', 'sqrt', 'all'],
         default='log',
         description="Number of features to subsample at each node",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     splitCriterion = hyperparams.Enumeration[str](
         values=['info', 'gini'],
-        default='info',
+        default='gini',
         description="Split criterion/impurity measure to use.  Default is 'info' for classification with is entropy impurity/information split criterion.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/TuningParameter']
     )
     minPointsLeaf = hyperparams.Hyperparameter[int](
-        default=1,
+        default=2,
         description="Minimum number of points allowed a leaf node for split to be permitted.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
@@ -92,13 +92,15 @@ class Hyperparams(hyperparams.Hyperparams):
         description="Weights to apply to each output task in calculating the gain.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
-    bProjBoot = hyperparams.UniformBool(
-        default=True,
+    bProjBoot = hyperparams.Enumeration[Union[bool, str]](
+        values=['default', True, False],
+        default='default',
         description="Whether to use projection bootstrapping.  If set to default, then true unless lambda=D, i.e. we all features at each node.  In this case we resort to bagging instead of projection bootstrapping",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
-    bBagTrees = hyperparams.UniformBool(
-        default=True,
+    bBagTrees = hyperparams.Enumeration[Union[bool, str]](
+        values=['default', True, False],
+        default='default',
         description="Whether to use Breiman's bagging by training each tree on a bootstrap sample",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
@@ -122,8 +124,13 @@ class Hyperparams(hyperparams.Hyperparams):
     )
     # Numerical stability options. Default values works for most cases
     epsilonCCA = hyperparams.Hyperparameter[float](
-        default=1.0000e-04,
+        default=1.0e-04,
         description="Tolerance parameter for rank reduction during the CCA. It can be desirable to lower if the data has extreme correlation, in which this finite value could eliminate the true signal",
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
+    )
+    mseErrorTolerance = hyperparams.Hyperparameter[float](
+        default=1e-6,
+        description=" When doing regression with mse splits, the node is made into a leaf if the mse (i.e. variance) of the data is less  than this tolerance times the mse of the full data set.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     maxDepthSplit = hyperparams.Hyperparameter[str](
@@ -181,6 +188,11 @@ class Hyperparams(hyperparams.Hyperparams):
         description="Method for dealing with missing values.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
+    bUseOutputComponentsMSE = hyperparams.UniformBool(
+        default=False,
+        description="If true, doing regression with multiple outputs and doing CCA projections.",
+        semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
+    )
     # Options that allow nonlinear features to be included in the CCA
     # in accordance with Lopez-Paz's randomized kernel cca.
     bRCCA = hyperparams.UniformBool(
@@ -199,7 +211,7 @@ class Hyperparams(hyperparams.Hyperparams):
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
     rccaRegLambda = hyperparams.Hyperparameter[float](
-        default=1.0000e-03,
+        default=1.0e-03,
         description="Parameter for bRCCA, if set to True.",
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter']
     )
@@ -235,8 +247,7 @@ class Hyperparams(hyperparams.Hyperparams):
     )
     return_result = hyperparams.Enumeration(
         values=['append', 'replace', 'new'],
-        # Default value depends on the nature of the primitive.
-        default='append',
+        default='append', # Default value depends on the nature of the primitive.
         semantic_types=['https://metadata.datadrivendiscovery.org/types/ControlParameter'],
         description="Should resulting columns be appended, should they replace original columns, or should only resulting columns be returned?",
     )
@@ -323,6 +334,7 @@ class CanonicalCorrelationForestsClassifierPrimitive(SupervisedLearnerPrimitiveB
         self.optionsClassCCF['treeRotation']                = self.hyperparams['treeRotation']
         self.optionsClassCCF['propTrain']                   = self.hyperparams['propTrain']
         self.optionsClassCCF['epsilonCCA']                  = self.hyperparams['epsilonCCA']
+        self.optionsClassCCF['mseErrorTolerance']           = self.hyperparams['mseErrorTolerance']
         self.optionsClassCCF['maxDepthSplit']               = self.hyperparams['maxDepthSplit']
         self.optionsClassCCF['XVariationTol']               = self.hyperparams['XVariationTol']
         self.optionsClassCCF['RotForM']                     = self.hyperparams['RotForM']
@@ -333,6 +345,7 @@ class CanonicalCorrelationForestsClassifierPrimitive(SupervisedLearnerPrimitiveB
         self.optionsClassCCF['bContinueProjBootDegenerate'] = self.hyperparams['bContinueProjBootDegenerate']
         self.optionsClassCCF['multiTaskGainCombination']    = self.hyperparams['multiTaskGainCombination']
         self.optionsClassCCF['missingValuesMethod']         = self.hyperparams['missingValuesMethod']
+        self.optionsClassCCF['bUseOutputComponentsMSE']     = self.hyperparams['bUseOutputComponentsMSE']
         self.optionsClassCCF['bRCCA']                       = self.hyperparams['bRCCA']
         self.optionsClassCCF['rccaLengthScale']             = self.hyperparams['rccaLengthScale']
         self.optionsClassCCF['rccaNFeatures']               = self.hyperparams['rccaNFeatures']
@@ -354,7 +367,7 @@ class CanonicalCorrelationForestsClassifierPrimitive(SupervisedLearnerPrimitiveB
 
         XTrain, _ = self._select_inputs_columns(self._training_inputs)
         YTrain, _ = self._select_outputs_columns(self._training_outputs)
-
+        
         self._create_learner_param()
         self._store_columns_metadata_and_names(XTrain, YTrain)
 
@@ -404,7 +417,6 @@ class CanonicalCorrelationForestsClassifierPrimitive(SupervisedLearnerPrimitiveB
 
     def set_params(self, *, params: Params) -> None:
         self._CCF = params['CCF_']
-        self._label_name_columns = params['target_names_']
         self._attribute_columns_names = params['attribute_columns_names']
         self._target_columns_metadata = params['target_columns_metadata']
         self._target_columns_names = params['target_columns_names']
@@ -463,7 +475,8 @@ class CanonicalCorrelationForestsClassifierPrimitive(SupervisedLearnerPrimitiveB
 
 
     def _store_columns_metadata_and_names(self, inputs: Inputs, outputs: Outputs) -> None:
-        self._attribute_columns_names = list(inputs.columns)
+        _attribute_columns_names = list(inputs.columns)
+        self._attribute_columns_names = [str(name) for name in _attribute_columns_names]
         self._target_columns_metadata = self._get_target_columns_metadata(outputs.metadata)
         self._target_columns_names = list(outputs.columns)
 
