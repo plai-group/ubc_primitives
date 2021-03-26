@@ -31,7 +31,7 @@ pip3 install -e .
 
 ## TA-1 primitives
 
-View all primitive [description](./docs/README.md)
+View all primitive [descriptions](./docs/README.md)
 
 ---
 ### Acknowledgement
