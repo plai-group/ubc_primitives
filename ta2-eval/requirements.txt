@@ -1,4 +1,4 @@
-grpcio==1.28.1
+grpcio==1.53.0
 grpcio-tools==1.28.1
 ta3ta2-api@git+https://gitlab.com/datadrivendiscovery/ta3ta2-api.git@1c06dc505ad517becde0866e1aa9925513ad599c
 d3m@git+https://gitlab.com/datadrivendiscovery/d3m.git@devel#egg=d3m
